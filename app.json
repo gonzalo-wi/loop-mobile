@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "Control de Mercadería",
+    "slug": "react-nati",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "react-nati",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.empresa.controlmercaderia"
+    },
+    "android": {
+      "package": "com.empresa.controlmercaderia",
+      "permissions": [
+        "REQUEST_INSTALL_PACKAGES"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-asset",
+      "expo-font",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "La app usa la cámara para escanear los códigos de barras de los dispensers."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "apiUrl": "http://localhost:8080"
+    }
+  }
+}
