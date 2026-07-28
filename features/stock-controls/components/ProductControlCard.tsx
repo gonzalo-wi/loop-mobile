@@ -1,7 +1,7 @@
 import React, { memo, useState, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { Product, BundleQuantity, ProductControlValues } from '../types';
+import type { Product, BundleQuantity, ProductControlValues, StockControlType } from '../types';
 import { BundleQuantityInput } from './BundleQuantityInput';
 import { C, R, Shdw } from '@/lib/theme';
 
@@ -9,6 +9,8 @@ type Props = {
   product: Product;
   initialValues: ProductControlValues;
   onChange: (productId: string, values: ProductControlValues) => void;
+  /** En salida (EXIT) sólo se carga el Total; se ocultan Llenos y Recambios. */
+  controlType: StockControlType;
 };
 
 function SimpleInputRow({
@@ -37,8 +39,9 @@ function SimpleInputRow({
 }
 
 export const ProductControlCard = memo(
-  ({ product, initialValues, onChange }: Props) => {
+  ({ product, initialValues, onChange, controlType }: Props) => {
     const hasBundles = product.packQuantity > 1;
+    const isExit = controlType === 'EXIT';
 
     const latestValues = useRef<ProductControlValues>(initialValues);
 
@@ -121,8 +124,9 @@ export const ProductControlCard = memo(
             </Text>
             {!expanded && filled && (
               <Text style={styles.summary} numberOfLines={1}>
-                Total {cur.total.totalUnits} · Llenos {cur.full.totalUnits}
-                {cur.exchanges > 0 ? ` · Recamb ${cur.exchanges}` : ''}
+                {isExit
+                  ? `Total ${cur.total.totalUnits}`
+                  : `Total ${cur.total.totalUnits} · Llenos ${cur.full.totalUnits}${cur.exchanges > 0 ? ` · Recamb ${cur.exchanges}` : ''}`}
               </Text>
             )}
           </View>
@@ -158,12 +162,14 @@ export const ProductControlCard = memo(
         <View style={[styles.body, !expanded && styles.bodyHidden]}>
           {hasBundles ? (
             <>
-              <BundleQuantityInput
-                label="Llenos"
-                unitsPerBundle={product.packQuantity}
-                value={initialValues.full}
-                onChange={handleFullChange}
-              />
+              {!isExit && (
+                <BundleQuantityInput
+                  label="Llenos"
+                  unitsPerBundle={product.packQuantity}
+                  value={initialValues.full}
+                  onChange={handleFullChange}
+                />
+              )}
               <BundleQuantityInput
                 label="Total"
                 unitsPerBundle={product.packQuantity}
@@ -173,16 +179,20 @@ export const ProductControlCard = memo(
             </>
           ) : (
             <>
-              <SimpleInputRow label="Llenos" value={fullStr} onChangeText={handleFullUnitsChange} />
+              {!isExit && (
+                <SimpleInputRow label="Llenos" value={fullStr} onChangeText={handleFullUnitsChange} />
+              )}
               <SimpleInputRow label="Total" value={totalStr} onChangeText={handleTotalUnitsChange} />
             </>
           )}
 
-          <SimpleInputRow
-            label="Recamb."
-            value={exchangesStr}
-            onChangeText={handleExchangesChange}
-          />
+          {!isExit && (
+            <SimpleInputRow
+              label="Recamb."
+              value={exchangesStr}
+              onChangeText={handleExchangesChange}
+            />
+          )}
 
           {showObs && (
             <TextInput
@@ -198,7 +208,10 @@ export const ProductControlCard = memo(
       </View>
     );
   },
-  (prev, next) => prev.product.id === next.product.id && prev.onChange === next.onChange,
+  (prev, next) =>
+    prev.product.id === next.product.id &&
+    prev.onChange === next.onChange &&
+    prev.controlType === next.controlType,
 );
 
 ProductControlCard.displayName = 'ProductControlCard';

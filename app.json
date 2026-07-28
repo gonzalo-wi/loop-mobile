@@ -1,10 +1,11 @@
 {
   "expo": {
-    "name": "Control de Mercadería",
+    "name": "Loop",
     "slug": "react-nati",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "scheme": "react-nati",
+    "icon": "./assets/images/logoLoop.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "ios": {
@@ -14,9 +15,12 @@
     "android": {
       "package": "com.empresa.controlmercaderia",
       "permissions": [
-        "REQUEST_INSTALL_PACKAGES"
+        "REQUEST_INSTALL_PACKAGES",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ],
       "adaptiveIcon": {
+        "foregroundImage": "./assets/images/logoLoop.png",
         "backgroundColor": "#ffffff"
       }
     },
@@ -33,13 +37,34 @@
         {
           "cameraPermission": "La app usa la cámara para escanear los códigos de barras de los dispensers."
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/logoLoop.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "apiUrl": "http://localhost:8080"
+      "apiUrl": "http://localhost:8080",
+      "router": {},
+      "eas": {
+        "projectId": "f80d2268-3ce8-4896-9ca5-10fe8e81fb80"
+      }
     }
   }
 }

@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import Constants from 'expo-constants';
+import * as Application from 'expo-application';
 import { Ionicons } from '@expo/vector-icons';
 import { getLatestVersion } from '@/features/app-update/services/appUpdateApi';
 import { downloadApk, installApk } from '@/features/app-update/services/apkInstaller';
@@ -17,7 +18,14 @@ import { C, R, F, W, Shdw } from '@/lib/theme';
 
 type Phase = 'prompt' | 'downloading' | 'installing' | 'error';
 
-const CURRENT_VERSION = Constants.expoConfig?.version ?? '0.0.0';
+/**
+ * Versión instalada. Priorizamos la versión NATIVA (versionName del APK), que es
+ * la única confiable en un build standalone; `expoConfig` puede venir vacío ahí.
+ * Si no se puede determinar, queda null y NO se ofrece actualización (evita
+ * quedar en un bucle de "actualizá siempre").
+ */
+const CURRENT_VERSION: string | null =
+  Application.nativeApplicationVersion ?? Constants.expoConfig?.version ?? null;
 
 /**
  * Chequea al arrancar si hay una versión más nueva y, si corresponde, muestra
@@ -32,6 +40,9 @@ export function AppUpdateGate() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Sin versión instalada confiable no comparamos: mejor no avisar que avisar siempre.
+    if (!CURRENT_VERSION) return;
+
     let active = true;
     (async () => {
       try {

@@ -224,6 +224,24 @@ export default function OrdersScreen() {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
           }
+          ListHeaderComponent={
+            isDriver ? (
+              <TouchableOpacity
+                style={styles.suggestCard}
+                onPress={() => router.push('/create-order?suggest=1')}
+                activeOpacity={0.9}
+              >
+                <View style={styles.suggestIc}>
+                  <Ionicons name="sparkles" size={20} color={C.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.suggestTt}>Sugerir pedido</Text>
+                  <Text style={styles.suggestDs}>Repetí lo del mismo día la semana pasada</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={C.textMuted} />
+              </TouchableOpacity>
+            ) : null
+          }
           renderItem={({ item }) => (
             <OrderCard
               order={item}
@@ -268,6 +286,18 @@ const styles = StyleSheet.create({
   retryBtn: { paddingHorizontal: 22, paddingVertical: 10, backgroundColor: C.primary, borderRadius: R.md },
   retryText: { color: '#fff', fontSize: F.base, fontWeight: W.bold },
   noRouteText: { fontSize: F.base, color: C.textMuted, marginTop: 12, textAlign: 'center' },
+
+  suggestCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: C.surface, borderRadius: R.lg, padding: 14,
+    borderWidth: 1, borderColor: '#DBE4FF', ...Shdw.card,
+  },
+  suggestIc: {
+    width: 42, height: 42, borderRadius: R.md,
+    backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center',
+  },
+  suggestTt: { fontSize: F.md, fontWeight: W.extra, color: C.text },
+  suggestDs: { fontSize: F.sm, color: C.textMuted, fontWeight: W.medium, marginTop: 1 },
 
   card: { backgroundColor: C.surface, borderRadius: R.lg, padding: 15, gap: 12, ...Shdw.card },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },

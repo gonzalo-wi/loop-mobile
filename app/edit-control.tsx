@@ -370,6 +370,7 @@ export default function EditControlScreen() {
               product={item}
               initialValues={formValues[item.id] ?? EMPTY_PRODUCT_VALUES}
               onChange={handleProductChange}
+              controlType={control.type}
             />
           )}
           ListHeaderComponent={EditHeader}

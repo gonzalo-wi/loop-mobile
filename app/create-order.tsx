@@ -11,13 +11,22 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useRouter, Stack } from 'expo-router';
+import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getOrderableProducts, createOrder } from '@/features/driver/services/ordersApi';
+import { getOrderableProducts, createOrder, getOrders } from '@/features/driver/services/ordersApi';
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight';
 import { useRouteStore } from '@/store/routeStore';
 import type { OrderableProduct } from '@/features/driver/types';
 import { C, R, Shdw } from '@/lib/theme';
+
+const DAYS_LONG = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+function ymd(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function ddmm(d: Date): string {
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
 
 function normalizeNumber(value: string): number {
   if (value === '' || value === undefined) return 0;
@@ -95,6 +104,7 @@ function OrderProductCard({
 
 export default function CreateOrderScreen() {
   const router = useRouter();
+  const { suggest } = useLocalSearchParams<{ suggest?: string }>();
   const { route } = useRouteStore();
   const keyboardHeight = useKeyboardHeight();
   const insets = useSafeAreaInsets();
@@ -109,6 +119,8 @@ export default function CreateOrderScreen() {
   const [values, setValues] = useState<Record<string, ProductValues>>({});
   const [observations, setObservations] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [suggestLabel, setSuggestLabel] = useState<string | null>(null);
+  const isSuggest = suggest === '1';
 
   useEffect(() => {
     async function loadProducts() {
@@ -117,6 +129,33 @@ export default function CreateOrderScreen() {
         setProducts(data);
         const initial: Record<string, ProductValues> = {};
         data.forEach((p) => { initial[p.id] = { unitQuantity: '', bulkQuantity: '' }; });
+
+        // "Sugerir pedido": prellenar con el pedido del mismo día la semana pasada.
+        if (isSuggest && route) {
+          try {
+            const lastWeek = new Date();
+            lastWeek.setDate(lastWeek.getDate() - 7);
+            const day = ymd(lastWeek);
+            const res = await getOrders({ routeId: route.routeId, from: day, to: day, size: 20 });
+            const previous = res.orders[0];
+            if (previous) {
+              previous.items.forEach((it) => {
+                if (initial[it.productId]) {
+                  initial[it.productId] = {
+                    unitQuantity: it.unitQuantity > 0 ? String(it.unitQuantity) : '',
+                    bulkQuantity: it.bulkQuantity && it.bulkQuantity > 0 ? String(it.bulkQuantity) : '',
+                  };
+                }
+              });
+              setSuggestLabel(`Basado en tu pedido del ${DAYS_LONG[lastWeek.getDay()]} pasado (${ddmm(lastWeek)}). Ajustá lo que necesites.`);
+            } else {
+              setSuggestLabel(`No encontramos un pedido del ${DAYS_LONG[lastWeek.getDay()]} pasado (${ddmm(lastWeek)}). Cargalo desde cero.`);
+            }
+          } catch {
+            // Si falla la sugerencia, seguimos con el formulario vacío.
+          }
+        }
+
         setValues(initial);
       } catch (e) {
         setLoadError(e instanceof Error ? e.message : 'Error al cargar productos');
@@ -201,7 +240,7 @@ export default function CreateOrderScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Nuevo Pedido' }} />
+      <Stack.Screen options={{ title: isSuggest ? 'Sugerir pedido' : 'Nuevo Pedido' }} />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -220,6 +259,12 @@ export default function CreateOrderScreen() {
                   <Text style={styles.routeInfoText}>
                     Reparto {route.routeCode} · {route.branchName}
                   </Text>
+                </View>
+              )}
+              {suggestLabel && (
+                <View style={styles.suggestBanner}>
+                  <Ionicons name="sparkles" size={16} color={C.primary} />
+                  <Text style={styles.suggestBannerText}>{suggestLabel}</Text>
                 </View>
               )}
               <Text style={styles.sectionTitle}>Productos</Text>
@@ -296,6 +341,16 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   routeInfoText: { fontSize: 14, color: C.primary, fontWeight: '600' },
+  suggestBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: C.primaryLight,
+    borderRadius: R.md,
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+  },
+  suggestBannerText: { flex: 1, fontSize: 13, color: C.primary, fontWeight: '600', lineHeight: 18 },
   sectionTitle: {
     fontSize: 11,
     fontWeight: '700',
