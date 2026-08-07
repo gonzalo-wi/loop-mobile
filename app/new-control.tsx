@@ -229,10 +229,8 @@ export default function NewControlScreen() {
   const keyboardHeight = useKeyboardHeight();
   const insets = useSafeAreaInsets();
   const today = useTodayControls(user?.id);
-  const keyboardVisible = keyboardHeight > 0;
-  const listPaddingBottom = keyboardVisible
-    ? (Platform.OS === 'android' ? 24 + keyboardHeight : 24)
-    : 96 + insets.bottom;
+  // La barra de guardar es siempre visible, así que la lista siempre le deja lugar.
+  const listPaddingBottom = 96 + insets.bottom;
 
   const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
   const [routeModalVisible, setRouteModalVisible] = useState(false);
@@ -446,22 +444,25 @@ export default function NewControlScreen() {
           contentContainerStyle={[styles.list, { paddingBottom: listPaddingBottom }]}
         />
 
-        {!keyboardVisible && (
-          <View style={[styles.stickyBar, { paddingBottom: Math.max(insets.bottom, 14) }]}>
-            <TouchableOpacity
-              style={[styles.submitBtn, submitting && styles.submitDisabled]}
-              onPress={handleSubmit}
-              disabled={submitting}
-              activeOpacity={0.85}
-            >
-              {submitting ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.submitText}>Guardar Control</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
+        <View
+          style={[
+            styles.stickyBar,
+            { paddingBottom: keyboardHeight > 0 ? 12 : Math.max(insets.bottom, 14) },
+          ]}
+        >
+          <TouchableOpacity
+            style={[styles.submitBtn, submitting && styles.submitDisabled]}
+            onPress={handleSubmit}
+            disabled={submitting}
+            activeOpacity={0.85}
+          >
+            {submitting ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.submitText}>Guardar Control</Text>
+            )}
+          </TouchableOpacity>
+        </View>
 
         <RouteSearchModal
           visible={routeModalVisible}

@@ -149,10 +149,8 @@ export default function EditControlScreen() {
   const router = useRouter();
   const keyboardHeight = useKeyboardHeight();
   const insets = useSafeAreaInsets();
-  const keyboardVisible = keyboardHeight > 0;
-  const listPaddingBottom = keyboardVisible
-    ? (Platform.OS === 'android' ? 24 + keyboardHeight : 24)
-    : 96 + insets.bottom;
+  // La barra de guardar es siempre visible, así que la lista siempre le deja lugar.
+  const listPaddingBottom = 96 + insets.bottom;
 
   const [control, setControl] = useState<StockControl | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -385,22 +383,25 @@ export default function EditControlScreen() {
           keyboardShouldPersistTaps="handled"
         />
 
-        {!keyboardVisible && (
-          <View style={[styles.stickyBar, { paddingBottom: Math.max(insets.bottom, 14) }]}>
-            <TouchableOpacity
-              style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-              onPress={handleSave}
-              disabled={saving}
-              activeOpacity={0.85}
-            >
-              {saving ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.saveBtnText}>Guardar Cambios</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
+        <View
+          style={[
+            styles.stickyBar,
+            { paddingBottom: keyboardHeight > 0 ? 12 : Math.max(insets.bottom, 14) },
+          ]}
+        >
+          <TouchableOpacity
+            style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+            onPress={handleSave}
+            disabled={saving}
+            activeOpacity={0.85}
+          >
+            {saving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.saveBtnText}>Guardar Cambios</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </KeyboardAvoidingView>
     </>
   );

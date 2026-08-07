@@ -21,6 +21,10 @@ import {
   getAguasStates,
   createDispenserMovement,
 } from '@/features/dispensers/services/dispenserApi';
+import {
+  getUnregisteredSerials,
+  normalizeSerial,
+} from '@/features/dispensers/services/dispenserValidationApi';
 import type {
   AguasCatalog,
   AguasCatalogItem,
@@ -29,7 +33,8 @@ import type {
 import { C, R, S, F, W, Shdw } from '@/lib/theme';
 
 type SerialSource = 'scan' | 'manual';
-type SerialEntry = { code: string; source: SerialSource };
+/** `valid: false` = no registrado en Aguas. Se muestra en rojo y NO se envía. */
+type SerialEntry = { code: string; source: SerialSource; valid: boolean };
 
 function toDateString(date: Date): string {
   const y = date.getFullYear();
@@ -91,6 +96,9 @@ export default function DispensersScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
 
+  // Seriales "no registrados" en Aguas del día: se rechazan al cargar.
+  const [invalidSerials, setInvalidSerials] = useState<Set<string>>(new Set());
+
   const [submitting, setSubmitting] = useState(false);
   const [overlay, setOverlay] = useState<{
     visible: boolean;
@@ -117,6 +125,23 @@ export default function DispensersScreen() {
     loadCatalogs();
   }, [loadCatalogs]);
 
+  /**
+   * Refresca la lista de seriales no registrados en Aguas (del día de hoy).
+   * Si falla, dejamos la lista como está: preferimos no bloquear la carga.
+   */
+  const refreshInvalidSerials = useCallback(async () => {
+    try {
+      const set = await getUnregisteredSerials(toDateString(new Date()));
+      setInvalidSerials(set);
+    } catch {
+      // Sin conexión con Aguas → no validamos (no bloqueamos el trabajo).
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshInvalidSerials();
+  }, [refreshInvalidSerials]);
+
   // Al cargar catálogos o cambiar de tipo, pre-selecciona el default de ese tipo.
   useEffect(() => {
     if (!locations || !states) return;
@@ -134,12 +159,18 @@ export default function DispensersScreen() {
   }, [type, dateTouched]);
 
   const serialCodes = serials.map((s) => s.code);
+  const validSerials = serials.filter((s) => s.valid);
+  const invalidCount = serials.length - validSerials.length;
 
   const addSerial = useCallback((code: string, source: SerialSource) => {
     const clean = code.replace(/\s+/g, ''); // saca todos los espacios (puntas e internos)
     if (!clean) return;
-    setSerials((prev) => (prev.some((s) => s.code === clean) ? prev : [...prev, { code: clean, source }]));
-  }, []);
+    // Los no registrados en Aguas se agregan igual, pero marcados en rojo y sin enviarse.
+    const valid = !invalidSerials.has(normalizeSerial(clean));
+    setSerials((prev) =>
+      prev.some((s) => s.code === clean) ? prev : [...prev, { code: clean, source, valid }],
+    );
+  }, [invalidSerials]);
 
   const addScanned = useCallback((code: string) => addSerial(code, 'scan'), [addSerial]);
 
@@ -161,7 +192,7 @@ export default function DispensersScreen() {
   const canSubmit =
     routeCode.trim().length > 0 &&
     technician.trim().length > 0 &&
-    serials.length > 0 &&
+    validSerials.length > 0 &&
     !submitting;
 
   async function handleSubmit() {
@@ -175,14 +206,14 @@ export default function DispensersScreen() {
         locationId: location?.id,
         stateId: movState?.id,
         movementDate: toDateString(movementDate),
-        serials: serialCodes,
+        serials: validSerials.map((s) => s.code), // los inexistentes no se envían
       });
 
       setOverlay({
         visible: true,
         status: 'success',
         title: '¡Movimiento registrado!',
-        message: `${serials.length} dispenser${serials.length !== 1 ? 's' : ''} · Reparto ${routeCode.trim()}. Se está enviando a Aguas.`,
+        message: `${validSerials.length} dispenser${validSerials.length !== 1 ? 's' : ''} · Reparto ${routeCode.trim()}. Se está enviando a Aguas.`,
       });
       setTimeout(() => {
         setOverlay((o) => ({ ...o, visible: false }));
@@ -295,8 +326,14 @@ export default function DispensersScreen() {
       <View style={styles.serialsHeader}>
         <Text style={styles.sectionLabel}>Dispensers</Text>
         <View style={styles.countPill}>
-          <Text style={styles.countPillText}>{serials.length}</Text>
+          <Text style={styles.countPillText}>{validSerials.length}</Text>
         </View>
+        {invalidCount > 0 && (
+          <View style={styles.invalidPill}>
+            <Ionicons name="alert-circle" size={11} color={C.danger} />
+            <Text style={styles.invalidPillText}>{invalidCount} inexistente{invalidCount !== 1 ? 's' : ''}</Text>
+          </View>
+        )}
         {serials.length > 0 && (
           <TouchableOpacity style={styles.clearBtn} onPress={clearSerials} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name="trash-outline" size={14} color={C.danger} />
@@ -306,7 +343,14 @@ export default function DispensersScreen() {
       </View>
 
       {/* CTA escanear */}
-      <TouchableOpacity style={styles.scanBtn} onPress={() => setShowScanner(true)} activeOpacity={0.9}>
+      <TouchableOpacity
+        style={styles.scanBtn}
+        onPress={() => {
+          refreshInvalidSerials(); // lista fresca antes de escanear la tanda
+          setShowScanner(true);
+        }}
+        activeOpacity={0.9}
+      >
         <View style={styles.scanIcon}>
           <Ionicons name="barcode-outline" size={24} color="#fff" />
         </View>
@@ -388,16 +432,29 @@ export default function DispensersScreen() {
         keyExtractor={(item) => item.code}
         ListHeaderComponent={Header}
         renderItem={({ item, index }) => (
-          <View style={styles.serialRow}>
-            <View style={styles.serialIndex}>
-              <Text style={styles.serialIndexText}>{index + 1}</Text>
+          <View style={[styles.serialRow, !item.valid && styles.serialRowInvalid]}>
+            <View style={[styles.serialIndex, !item.valid && styles.serialIndexInvalid]}>
+              {item.valid ? (
+                <Text style={styles.serialIndexText}>{index + 1}</Text>
+              ) : (
+                <Ionicons name="close" size={15} color={C.danger} />
+              )}
             </View>
             <Ionicons
               name={item.source === 'scan' ? 'barcode-outline' : 'create-outline'}
               size={16}
-              color={C.textMuted}
+              color={item.valid ? C.textMuted : C.danger}
             />
-            <Text style={styles.serialText} numberOfLines={1}>{item.code}</Text>
+            <View style={styles.serialBody}>
+              <Text
+                style={[styles.serialText, !item.valid && styles.serialTextInvalid]}
+                numberOfLines={1}
+              >
+                {item.code}
+              </Text>
+              {!item.valid && <Text style={styles.serialInvalidTag}>Inexistente · no se envía</Text>}
+            </View>
+            {item.valid && <Ionicons name="checkmark-circle" size={19} color={C.success} />}
             <TouchableOpacity
               onPress={() => removeSerial(item.code)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -454,6 +511,7 @@ export default function DispensersScreen() {
       <BarcodeScannerModal
         visible={showScanner}
         existingSerials={serialCodes}
+        invalidSerials={invalidSerials}
         onAdd={addScanned}
         onClose={() => setShowScanner(false)}
       />
@@ -595,6 +653,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   countPillText: { fontSize: F.sm, fontWeight: W.extra, color: C.primary },
+  invalidPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: C.dangerLight,
+    borderRadius: R.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  invalidPillText: { fontSize: F.xs, fontWeight: W.extra, color: C.danger },
   clearBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -675,7 +743,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   serialIndexText: { fontSize: F.xs, fontWeight: W.extra, color: C.textSub },
-  serialText: { flex: 1, fontSize: F.base, fontWeight: W.semibold, color: C.text },
+  serialBody: { flex: 1 },
+  serialText: { fontSize: F.base, fontWeight: W.semibold, color: C.text },
+  // No registrado en Aguas: fila en rojo, no se envía.
+  serialRowInvalid: {
+    backgroundColor: C.dangerLight,
+    borderWidth: 1,
+    borderColor: '#F7C7C8',
+  },
+  serialIndexInvalid: { backgroundColor: '#FBDADB' },
+  serialTextInvalid: { color: C.danger, textDecorationLine: 'line-through' },
+  serialInvalidTag: { fontSize: F.xs, fontWeight: W.bold, color: C.danger, marginTop: 1 },
 
   emptySerials: { alignItems: 'center', paddingVertical: 30, gap: 6 },
   emptyIcon: {

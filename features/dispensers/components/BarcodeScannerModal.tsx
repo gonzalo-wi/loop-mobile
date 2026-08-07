@@ -9,8 +9,6 @@ import {
   Animated,
   Easing,
   Vibration,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -20,18 +18,22 @@ import {
   type BarcodeType,
 } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
+import { useKeyboardHeight } from '@/lib/useKeyboardHeight';
+import { normalizeSerial } from '../services/dispenserValidationApi';
 import { C, R, S, F, W } from '@/lib/theme';
 
 type Props = {
   visible: boolean;
   /** Seriales ya agregados; sirve para avisar duplicados. */
   existingSerials: string[];
+  /** Seriales "no registrados" en Aguas (normalizados): se rechazan al escanear. */
+  invalidSerials?: Set<string>;
   /** Se llama con cada serial nuevo escaneado. */
   onAdd: (serial: string) => void;
   onClose: () => void;
 };
 
-type Feedback = { type: 'ok' | 'dup'; code: string } | null;
+type Feedback = { type: 'ok' | 'dup' | 'invalid'; code: string } | null;
 
 const FRAME_W = 264;
 const FRAME_H = 172;
@@ -51,12 +53,21 @@ const BARCODE_TYPES: BarcodeType[] = [
   'pdf417',
 ];
 
-export function BarcodeScannerModal({ visible, existingSerials, onAdd, onClose }: Props) {
+export function BarcodeScannerModal({
+  visible,
+  existingSerials,
+  invalidSerials,
+  onAdd,
+  onClose,
+}: Props) {
   const insets = useSafeAreaInsets();
+  // Dentro de un Modal, Android no aplica adjustResize: subimos la barra a mano
+  // para que el teclado no tape el input de carga manual.
+  const keyboardHeight = useKeyboardHeight();
   const [permission, requestPermission] = useCameraPermissions();
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [torch, setTorch] = useState(false);
-  const [recent, setRecent] = useState<string[]>([]);
+  const [recent, setRecent] = useState<{ code: string; invalid: boolean }[]>([]);
   // Carga manual dentro del escáner (dispensers sin código de barras).
   const [manualOpen, setManualOpen] = useState(false);
   const [manualValue, setManualValue] = useState('');
@@ -135,11 +146,14 @@ export function BarcodeScannerModal({ visible, existingSerials, onAdd, onClose }
       return false;
     }
 
-    Vibration.vibrate(35);
+    // No registrado en Aguas: se agrega igual, pero marcado en rojo (no se enviará).
+    const invalid = invalidSerials?.has(normalizeSerial(code)) ?? false;
+
+    Vibration.vibrate(invalid ? [0, 90, 70, 90] : 35);
     flashFrame();
     onAdd(code);
-    setRecent((prev) => [code, ...prev.filter((c) => c !== code)].slice(0, 4));
-    showFeedback({ type: 'ok', code });
+    setRecent((prev) => [{ code, invalid }, ...prev.filter((r) => r.code !== code)].slice(0, 4));
+    showFeedback({ type: invalid ? 'invalid' : 'ok', code });
     return true;
   }
 
@@ -244,26 +258,45 @@ export function BarcodeScannerModal({ visible, existingSerials, onAdd, onClose }
           <View
             style={[
               styles.feedback,
-              { bottom: insets.bottom + 150 },
-              feedback.type === 'ok' ? styles.feedbackOk : styles.feedbackDup,
+              { bottom: keyboardHeight + insets.bottom + 150 },
+              feedback.type === 'ok'
+                ? styles.feedbackOk
+                : feedback.type === 'invalid'
+                  ? styles.feedbackInvalid
+                  : styles.feedbackDup,
             ]}
           >
             <Ionicons
-              name={feedback.type === 'ok' ? 'checkmark-circle' : 'alert-circle'}
+              name={
+                feedback.type === 'ok'
+                  ? 'checkmark-circle'
+                  : feedback.type === 'invalid'
+                    ? 'close-circle'
+                    : 'alert-circle'
+              }
               size={18}
               color="#fff"
             />
             <Text style={styles.feedbackText} numberOfLines={1}>
-              {feedback.type === 'ok' ? 'Agregado: ' : 'Ya escaneado: '}
+              {feedback.type === 'ok'
+                ? 'Agregado: '
+                : feedback.type === 'invalid'
+                  ? 'Dispenser inexistente: '
+                  : 'Ya escaneado: '}
               {feedback.code}
             </Text>
           </View>
         )}
 
         {/* Panel inferior: escaneo (recientes + botones) o carga manual */}
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={[styles.bottomBar, { paddingBottom: insets.bottom + 14 }]}
+        <View
+          style={[
+            styles.bottomBar,
+            {
+              bottom: keyboardHeight,
+              paddingBottom: keyboardHeight > 0 ? 14 : insets.bottom + 14,
+            },
+          ]}
         >
           {manualOpen ? (
             <>
@@ -302,10 +335,19 @@ export function BarcodeScannerModal({ visible, existingSerials, onAdd, onClose }
             <>
               {recent.length > 0 && (
                 <View style={styles.recentRow}>
-                  {recent.map((code) => (
-                    <View key={code} style={styles.recentChip}>
-                      <Ionicons name="checkmark" size={12} color={C.entry} />
-                      <Text style={styles.recentChipText} numberOfLines={1}>{code}</Text>
+                  {recent.map((r) => (
+                    <View key={r.code} style={[styles.recentChip, r.invalid && styles.recentChipInvalid]}>
+                      <Ionicons
+                        name={r.invalid ? 'close-circle' : 'checkmark'}
+                        size={12}
+                        color={r.invalid ? '#fff' : C.entry}
+                      />
+                      <Text
+                        style={[styles.recentChipText, r.invalid && styles.recentChipTextInvalid]}
+                        numberOfLines={1}
+                      >
+                        {r.code}
+                      </Text>
                     </View>
                   ))}
                 </View>
@@ -326,7 +368,7 @@ export function BarcodeScannerModal({ visible, existingSerials, onAdd, onClose }
               </TouchableOpacity>
             </>
           )}
-        </KeyboardAvoidingView>
+        </View>
       </View>
     </Modal>
   );
@@ -457,6 +499,7 @@ const styles = StyleSheet.create({
   },
   feedbackOk: { backgroundColor: C.entry },
   feedbackDup: { backgroundColor: C.warning },
+  feedbackInvalid: { backgroundColor: C.danger },
   feedbackText: { flex: 1, color: '#fff', fontSize: F.sm + 1, fontWeight: W.bold },
 
   bottomBar: {
@@ -486,6 +529,8 @@ const styles = StyleSheet.create({
     maxWidth: 150,
   },
   recentChipText: { fontSize: F.xs + 1, fontWeight: W.bold, color: C.text },
+  recentChipInvalid: { backgroundColor: C.danger },
+  recentChipTextInvalid: { color: '#fff' },
 
   doneBtn: {
     flexDirection: 'row',
