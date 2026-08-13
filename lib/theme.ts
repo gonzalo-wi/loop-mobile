@@ -43,6 +43,12 @@ export const C = {
   accent: '#0EA5C4',
   accentLight: '#DDF4F9',
 
+  // Acción de supervisor (corrección/override con auditoría — distinta de
+  // "warning", que es para alertas). Morado, coherente con SENT_TO_AGUAS.
+  supervisor: '#6D28D9',
+  supervisorLight: '#EDE4FC',
+  supervisorDark: '#5321A8',
+
   // Texto (escala slate)
   text: '#0E1726',
   textStrong: '#0A111E',

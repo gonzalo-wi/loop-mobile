@@ -1,10 +1,11 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   FlatList,
+  Switch,
   StyleSheet,
   ActivityIndicator,
   Alert,
@@ -14,10 +15,15 @@ import {
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { getStockControl, updateStockControl } from '@/features/stock-controls/services/stockControlApi';
+import {
+  getStockControl,
+  updateStockControl,
+  correctStockControl,
+} from '@/features/stock-controls/services/stockControlApi';
 import { getProducts } from '@/features/stock-controls/services/productsApi';
 import { ProductControlCard } from '@/features/stock-controls/components/ProductControlCard';
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight';
+import { useAuthStore } from '@/store/authStore';
 import { C, R, Shdw } from '@/lib/theme';
 import type {
   StockControl,
@@ -25,13 +31,16 @@ import type {
   Product,
   ProductControlValues,
 } from '@/features/stock-controls/types';
+import {
+  REASON_MAX_LENGTH,
+  EMPTY_PRODUCT_VALUES,
+  isControlCorrectable,
+  validateCorrectionReason,
+  buildInitialFormValues,
+  buildItems,
+} from '@/features/stock-controls/lib/editControlLogic';
 
-const EMPTY_PRODUCT_VALUES: ProductControlValues = {
-  full: { bundles: 0, looseUnits: 0, totalUnits: 0 },
-  total: { bundles: 0, looseUnits: 0, totalUnits: 0 },
-  exchanges: 0,
-  observations: '',
-};
+const AGUAS_REFRESH_DELAY_MS = 2500;
 
 function normalizeText(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -47,66 +56,6 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   AGUAS_ERROR: { label: 'Error Aguas', color: '#B91C1C' },
   CANCELLED: { label: 'Cancelado', color: '#6B7280' },
 };
-
-function buildInitialFormValues(
-  products: Product[],
-  items: StockControlItem[],
-): Record<string, ProductControlValues> {
-  const itemMap = new Map(items.map((item) => [item.productId, item]));
-  const result: Record<string, ProductControlValues> = {};
-
-  for (const product of products) {
-    const item = itemMap.get(product.id);
-    if (!item) {
-      result[product.id] = EMPTY_PRODUCT_VALUES;
-      continue;
-    }
-
-    const hasBundles = product.packQuantity > 1;
-    if (hasBundles) {
-      result[product.id] = {
-        full: {
-          bundles: Math.floor(item.fullQuantity / product.packQuantity),
-          looseUnits: item.fullQuantity % product.packQuantity,
-          totalUnits: item.fullQuantity,
-        },
-        total: {
-          bundles: Math.floor(item.totalQuantity / product.packQuantity),
-          looseUnits: item.totalQuantity % product.packQuantity,
-          totalUnits: item.totalQuantity,
-        },
-        exchanges: item.exchangeQuantity,
-        observations: item.observations ?? '',
-      };
-    } else {
-      result[product.id] = {
-        full: { bundles: 0, looseUnits: 0, totalUnits: item.fullQuantity },
-        total: { bundles: 0, looseUnits: 0, totalUnits: item.totalQuantity },
-        exchanges: item.exchangeQuantity,
-        observations: item.observations ?? '',
-      };
-    }
-  }
-
-  return result;
-}
-
-function buildItems(products: Product[], formValues: Record<string, ProductControlValues>) {
-  return products
-    .map((product) => {
-      const values = formValues[product.id] ?? EMPTY_PRODUCT_VALUES;
-      const { full, total, exchanges, observations } = values;
-      if (total.totalUnits === 0 && full.totalUnits === 0 && exchanges === 0) return null;
-      return {
-        productId: product.id,
-        totalQuantity: total.totalUnits,
-        fullQuantity: full.totalUnits,
-        exchangeQuantity: exchanges,
-        observations: observations.trim() || undefined,
-      };
-    })
-    .filter((item): item is NonNullable<typeof item> => item !== null);
-}
 
 // ─── Read-only item list for non-editable controls ───────────────────────────
 
@@ -149,6 +98,7 @@ export default function EditControlScreen() {
   const router = useRouter();
   const keyboardHeight = useKeyboardHeight();
   const insets = useSafeAreaInsets();
+  const { user } = useAuthStore();
   // La barra de guardar es siempre visible, así que la lista siempre le deja lugar.
   const listPaddingBottom = 96 + insets.bottom;
 
@@ -161,16 +111,38 @@ export default function EditControlScreen() {
   const [saving, setSaving] = useState(false);
   const [productSearch, setProductSearch] = useState('');
 
+  // Corrección (SUPERVISOR, controles ENTRY enviados/errados a Aguas)
+  const [correcting, setCorrecting] = useState(false);
+  const [startingCorrection, setStartingCorrection] = useState(false);
+  const [reason, setReason] = useState('');
+  const [truckOrdered, setTruckOrdered] = useState(true);
+
+  const aguasRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (aguasRefreshTimeoutRef.current) {
+        clearTimeout(aguasRefreshTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const loadProductsAndForm = useCallback(async (ctrl: StockControl) => {
+    const prods = await getProducts();
+    setProducts(prods);
+    setFormValues(buildInitialFormValues(prods, ctrl.items));
+  }, []);
+
   useEffect(() => {
     async function loadData() {
       try {
-        const [ctrl, prods] = await Promise.all([getStockControl(id), getProducts()]);
+        const ctrl = await getStockControl(id);
         setControl(ctrl);
         setObservations(ctrl.observations ?? '');
+        setTruckOrdered(ctrl.truckOrdered);
 
         if (ctrl.status === 'CONTROLLED') {
-          setProducts(prods);
-          setFormValues(buildInitialFormValues(prods, ctrl.items));
+          await loadProductsAndForm(ctrl);
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Error al cargar el control');
@@ -179,7 +151,7 @@ export default function EditControlScreen() {
       }
     }
     loadData();
-  }, [id]);
+  }, [id, loadProductsAndForm]);
 
   const handleProductChange = useCallback(
     (productId: string, values: ProductControlValues) => {
@@ -208,6 +180,93 @@ export default function EditControlScreen() {
       ]);
     } catch (e) {
       Alert.alert('Error al guardar', e instanceof Error ? e.message : 'Intentá de nuevo');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleStartCorrection() {
+    if (!control || startingCorrection) return;
+    setReason('');
+    setObservations(control.observations ?? '');
+    setTruckOrdered(control.truckOrdered);
+    // Los productos se cargan sólo la primera vez que hacen falta (edición normal o corrección).
+    if (products.length === 0) {
+      setStartingCorrection(true);
+      try {
+        await loadProductsAndForm(control);
+        setCorrecting(true);
+      } catch (e) {
+        Alert.alert('Error', e instanceof Error ? e.message : 'No se pudieron cargar los productos');
+      } finally {
+        setStartingCorrection(false);
+      }
+    } else {
+      setFormValues(buildInitialFormValues(products, control.items));
+      setCorrecting(true);
+    }
+  }
+
+  function handleCancelCorrection() {
+    if (!control) return;
+    setCorrecting(false);
+    setReason('');
+    setObservations(control.observations ?? '');
+    setTruckOrdered(control.truckOrdered);
+  }
+
+  async function handleConfirmCorrection() {
+    if (!control) return;
+
+    const trimmedReason = reason.trim();
+    const reasonError = validateCorrectionReason(reason);
+    if (reasonError) {
+      const title = trimmedReason ? 'Motivo demasiado largo' : 'Falta el motivo';
+      Alert.alert(title, reasonError);
+      return;
+    }
+
+    const items = buildItems(products, formValues);
+    if (items.length === 0) {
+      Alert.alert('Sin productos', 'Ingresá cantidades para al menos un producto');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const updated = await correctStockControl(control.id, {
+        reason: trimmedReason,
+        observations: observations.trim() || undefined,
+        truckOrdered,
+        items,
+      });
+      setControl(updated);
+      setObservations(updated.observations ?? '');
+      setCorrecting(false);
+      setReason('');
+
+      Alert.alert(
+        'Control corregido',
+        'La corrección se envió correctamente. El remito de Aguas puede tardar unos segundos en actualizarse.',
+      );
+
+      // El reenvío a Aguas es asíncrono en background: pedimos el control de nuevo
+      // después de un breve delay para reflejar el remito/formulario actualizado.
+      // El timer se guarda en un ref y se cancela en el cleanup del useEffect de
+      // desmontaje para evitar setControl sobre un componente ya desmontado
+      // (ej. el usuario navega hacia atrás antes de que venza el delay).
+      if (aguasRefreshTimeoutRef.current) {
+        clearTimeout(aguasRefreshTimeoutRef.current);
+      }
+      aguasRefreshTimeoutRef.current = setTimeout(() => {
+        getStockControl(control.id)
+          .then(setControl)
+          .catch(() => {
+            // Silencioso: si falla el refresco, el usuario ya ve el control recién corregido.
+          });
+      }, AGUAS_REFRESH_DELAY_MS);
+    } catch (e) {
+      Alert.alert('Error al corregir', e instanceof Error ? e.message : 'Intentá de nuevo');
     } finally {
       setSaving(false);
     }
@@ -244,9 +303,11 @@ export default function EditControlScreen() {
   const [cy, cm, cd] = control.controlDate.split('-');
   const dateFormatted = `${cd}/${cm}/${cy}`;
   const title = isExit ? 'Control de Salida' : 'Control de Entrada';
+  const isCorrectable = isControlCorrectable(control, user?.role);
+  const hasAguasInfo = !!control.aguasFormulario || control.aguasNroRemito != null;
 
   // ── Read-only view ──
-  if (!isEditable) {
+  if (!isEditable && !correcting) {
     return (
       <>
         <Stack.Screen options={{ title }} />
@@ -272,12 +333,51 @@ export default function EditControlScreen() {
                   <Text style={styles.controlDate}>{dateFormatted}</Text>
                 </View>
 
+                {hasAguasInfo ? (
+                  <View style={styles.aguasBox}>
+                    <View style={styles.aguasBoxHeader}>
+                      <Ionicons name="water-outline" size={15} color={C.supervisor} />
+                      <Text style={styles.aguasBoxLabel}>Datos de Aguas</Text>
+                    </View>
+                    {control.aguasFormulario ? (
+                      <Text style={styles.aguasBoxText}>
+                        Formulario <Text style={styles.aguasBoxValue}>{control.aguasFormulario}</Text>
+                      </Text>
+                    ) : null}
+                    {control.aguasNroRemito != null ? (
+                      <Text style={styles.aguasBoxText}>
+                        Remito <Text style={styles.aguasBoxValue}>{control.aguasNroRemito}</Text>
+                      </Text>
+                    ) : null}
+                  </View>
+                ) : null}
+
                 {control.observations ? (
                   <View style={styles.obsBox}>
                     <Text style={styles.obsBoxLabel}>Observaciones</Text>
                     <Text style={styles.obsBoxText}>{control.observations}</Text>
                   </View>
                 ) : null}
+
+                {isCorrectable && (
+                  <TouchableOpacity
+                    style={[styles.correctBtn, startingCorrection && styles.correctBtnDisabled]}
+                    onPress={handleStartCorrection}
+                    disabled={startingCorrection}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel="Corregir control"
+                  >
+                    {startingCorrection ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <>
+                        <Ionicons name="shield-checkmark-outline" size={18} color="#fff" />
+                        <Text style={styles.correctBtnText}>Corregir control</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
 
                 <Text style={styles.sectionTitle}>Productos ({control.items.length})</Text>
                 <ReadOnlyItemList items={control.items} />
@@ -290,7 +390,7 @@ export default function EditControlScreen() {
     );
   }
 
-  // ── Editable view ──
+  // ── Editable view (edición normal o corrección) ──
   const EditHeader = (
     <View>
       <View style={styles.headerBanner}>
@@ -307,6 +407,46 @@ export default function EditControlScreen() {
         <Text style={styles.branchName}>{control.branchName}</Text>
         <Text style={styles.controlDate}>{dateFormatted}</Text>
       </View>
+
+      {correcting && (
+        <View style={styles.correctionModeBar}>
+          <Ionicons name="shield-checkmark-outline" size={15} color="#fff" />
+          <Text style={styles.correctionModeBarText}>MODO CORRECCIÓN</Text>
+        </View>
+      )}
+
+      {correcting && (
+        <View style={styles.correctionBanner}>
+          <Ionicons name="alert-circle-outline" size={16} color={C.supervisorDark} />
+          <Text style={styles.correctionBannerText}>
+            Estás corrigiendo un control ya enviado a Aguas. Esta acción queda
+            auditada y los productos cargados reemplazan por completo a los actuales.
+          </Text>
+        </View>
+      )}
+
+      {correcting && (
+        <>
+          <TextInput
+            style={[styles.observationsInput, styles.reasonInput]}
+            placeholder="Motivo de la corrección (obligatorio)"
+            placeholderTextColor={C.textMuted}
+            value={reason}
+            onChangeText={setReason}
+            maxLength={REASON_MAX_LENGTH}
+            multiline
+          />
+
+          <View style={styles.switchRow}>
+            <Text style={styles.switchLabel}>Camión ordenado</Text>
+            <Switch
+              value={truckOrdered}
+              onValueChange={setTruckOrdered}
+              trackColor={{ true: C.primary }}
+            />
+          </View>
+        </>
+      )}
 
       <TextInput
         style={styles.observationsInput}
@@ -389,18 +529,43 @@ export default function EditControlScreen() {
             { paddingBottom: keyboardHeight > 0 ? 12 : Math.max(insets.bottom, 14) },
           ]}
         >
-          <TouchableOpacity
-            style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-            onPress={handleSave}
-            disabled={saving}
-            activeOpacity={0.85}
-          >
-            {saving ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.saveBtnText}>Guardar Cambios</Text>
-            )}
-          </TouchableOpacity>
+          {correcting ? (
+            <View style={styles.correctionActions}>
+              <TouchableOpacity
+                style={[styles.cancelBtn]}
+                onPress={handleCancelCorrection}
+                disabled={saving}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.cancelBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveBtn, styles.correctionConfirmBtn, saving && styles.saveBtnDisabled]}
+                onPress={handleConfirmCorrection}
+                disabled={saving}
+                activeOpacity={0.85}
+              >
+                {saving ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.saveBtnText}>Confirmar corrección</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+              onPress={handleSave}
+              disabled={saving}
+              activeOpacity={0.85}
+            >
+              {saving ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.saveBtnText}>Guardar Cambios</Text>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       </KeyboardAvoidingView>
     </>
@@ -501,6 +666,42 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
+  // Aguas info — acento morado alineado al color del estado "Enviado a Aguas"
+  // en STATUS_LABELS, para que se reconozca de un vistazo como info del
+  // sistema externo (distinta de las observaciones internas del control).
+  aguasBox: {
+    backgroundColor: C.surface,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: R.lg,
+    borderLeftWidth: 3,
+    borderLeftColor: C.supervisor,
+    padding: 16,
+    gap: 4,
+    ...Shdw.card,
+  },
+  aguasBoxHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  aguasBoxLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: C.supervisor,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  aguasBoxText: {
+    fontSize: 14,
+    color: C.textSub,
+  },
+  aguasBoxValue: {
+    fontWeight: '700',
+    color: C.text,
+  },
+
   // Observations
   obsBox: {
     backgroundColor: C.surface,
@@ -534,6 +735,110 @@ const styles = StyleSheet.create({
     minHeight: 52,
     marginHorizontal: 16,
     marginTop: 12,
+  },
+  reasonInput: {
+    borderColor: C.warning,
+  },
+
+  // Correct control (SUPERVISOR) — color "supervisor" (morado), no warning:
+  // es una acción deliberada de rol elevado, no una alerta.
+  correctBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: C.supervisor,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: R.lg,
+    paddingVertical: 14,
+    minHeight: 44,
+    ...Shdw.card,
+  },
+  correctBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  correctBtnDisabled: {
+    opacity: 0.55,
+  },
+  // Barra sólida que marca el modo corrección de forma inequívoca en el header
+  // del formulario — más fuerte que el banner informativo de abajo, porque
+  // corregir un control ya enviado a un sistema externo (con auditoría) es
+  // un flujo distinto a la edición normal de un control recién creado.
+  correctionModeBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: C.supervisor,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: R.md,
+    paddingVertical: 8,
+  },
+  correctionModeBarText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+  correctionBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: C.supervisorLight,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: R.lg,
+    padding: 12,
+  },
+  correctionBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: C.textSub,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: C.surface,
+    borderRadius: R.lg,
+    borderWidth: 1,
+    borderColor: C.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginHorizontal: 16,
+    marginTop: 12,
+  },
+  switchLabel: {
+    fontSize: 15,
+    color: C.text,
+    fontWeight: '500',
+  },
+  correctionActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  cancelBtn: {
+    flex: 1,
+    borderRadius: R.lg,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: C.surfaceSunken,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  cancelBtnText: {
+    color: C.textSub,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  correctionConfirmBtn: {
+    flex: 2,
+    backgroundColor: C.supervisor,
   },
 
   // Section title

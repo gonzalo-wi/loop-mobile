@@ -64,6 +64,8 @@ export type StockControl = {
   approvedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  aguasFormulario: string | null;
+  aguasNroRemito: number | null;
 };
 
 export type BundleQuantity = {
@@ -95,6 +97,13 @@ export type CreateControlPayload = {
   controlDate?: string;
   truckOrdered: boolean;
   observations?: string;
+  items: CreateControlItemPayload[];
+};
+
+export type CorrectControlPayload = {
+  reason: string;
+  observations?: string;
+  truckOrdered?: boolean;
   items: CreateControlItemPayload[];
 };
 

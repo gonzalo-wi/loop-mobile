@@ -3,6 +3,7 @@ import type {
   StockControl,
   CreateControlPayload,
   CreateControlItemPayload,
+  CorrectControlPayload,
   PaginatedResponse,
   PendingArrivals,
 } from '../types';
@@ -51,6 +52,14 @@ export async function updateStockControl(
 
 export async function approveStockControl(id: string): Promise<void> {
   await api.post(`/stock-controls/${id}/approve`);
+}
+
+export async function correctStockControl(
+  id: string,
+  payload: CorrectControlPayload
+): Promise<StockControl> {
+  const response = await api.post<SingleResponse>(`/stock-controls/${id}/correct`, payload);
+  return response.data.data;
 }
 
 export async function getPendingArrivals(date?: string): Promise<PendingArrivals> {
