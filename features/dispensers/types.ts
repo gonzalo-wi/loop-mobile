@@ -75,9 +75,17 @@ export type OdooAvailableEquipment = {
   equipos: OdooEquipment[];
 };
 
-/** Resultado normalizado de validar una serie contra Odoo (shape a confirmar contra stage). */
+/**
+ * Resultado normalizado de validar una serie contra Odoo
+ * (POST /dispenser-movements/odoo/validate-equipment). Contrato confirmado
+ * contra stage: los campos cambian según disponibilidad.
+ *  - disponible=true  → trae `serie_odoo` y `ubicacion` (motivo null)
+ *  - disponible=false → trae `motivo` (serie_odoo y ubicacion null)
+ */
 export type OdooValidationResult = {
   serie: string;
   disponible: boolean;
   motivo: string | null;
+  serie_odoo: string | null;
+  ubicacion: string | null;
 };

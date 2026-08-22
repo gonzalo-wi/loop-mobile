@@ -49,35 +49,31 @@ export async function getOdooAvailableEquipment(): Promise<OdooEquipment[]> {
 }
 
 /**
- * Normaliza el resultado crudo de Odoo a `OdooValidationResult[]`.
- * // shape a confirmar contra stage: puede venir como array plano, o envuelto
- * en `{ resultados: [...] }` / `{ equipos: [...] }`. Cualquier item que no
- * tenga forma reconocible se descarta (defensivo, no explota la UI).
+ * Normaliza la respuesta de validación de Odoo a `OdooValidationResult[]`.
+ *
+ * Contrato real (confirmado contra stage): `data` es un objeto
+ * `{ success, equipos: [...] }` (NO una lista pelada). Cada item cambia de
+ * forma según disponibilidad:
+ *   - disponible=true  → { serie, serie_odoo, disponible, ubicacion }  (sin motivo)
+ *   - disponible=false → { serie, disponible, motivo }                 (sin serie_odoo/ubicacion)
+ *
+ * Se mantiene defensivo: si falta `equipos` o un item no tiene forma
+ * reconocible, se descarta sin romper la UI.
  */
 function parseValidationResult(data: unknown): OdooValidationResult[] {
-  let list: unknown[];
+  if (!data || typeof data !== 'object') return [];
 
-  if (Array.isArray(data)) {
-    list = data;
-  } else if (data && typeof data === 'object') {
-    const obj = data as Record<string, unknown>;
-    if (Array.isArray(obj.resultados)) {
-      list = obj.resultados;
-    } else if (Array.isArray(obj.equipos)) {
-      list = obj.equipos;
-    } else {
-      list = [];
-    }
-  } else {
-    list = [];
-  }
+  const equipos = (data as Record<string, unknown>).equipos;
+  if (!Array.isArray(equipos)) return [];
 
-  return list
+  return equipos
     .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
     .map((item) => ({
       serie: typeof item.serie === 'string' ? item.serie : '',
       disponible: item.disponible === true,
       motivo: typeof item.motivo === 'string' ? item.motivo : null,
+      serie_odoo: typeof item.serie_odoo === 'string' ? item.serie_odoo : null,
+      ubicacion: typeof item.ubicacion === 'string' ? item.ubicacion : null,
     }))
     .filter((item) => item.serie.length > 0);
 }

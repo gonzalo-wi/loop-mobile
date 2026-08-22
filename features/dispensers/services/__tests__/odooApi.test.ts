@@ -155,63 +155,71 @@ describe('validateOdooEquipment', () => {
     });
   });
 
-  it('parsea data como array plano', async () => {
+  it('parsea el contrato real: objeto { success, equipos }, con campos que cambian según disponibilidad', async () => {
+    // JSON real confirmado contra stage.
     api.post.mockResolvedValueOnce({
       data: {
-        data: [
-          { serie: 'SN-001', disponible: true, motivo: null },
-          { serie: 'SN-002', disponible: false, motivo: 'Ya asignado' },
-        ],
+        data: {
+          success: true,
+          equipos: [
+            {
+              serie: 'TEST-LOOP-01',
+              serie_odoo: 'TEST-LOOP-01',
+              disponible: true,
+              ubicacion: 'AC/EQUIPOS FC REPARADOS',
+            },
+            {
+              serie: 'NO-EXISTE-999',
+              disponible: false,
+              motivo: 'El número de serie no existe en Odoo',
+            },
+          ],
+        },
         message: null,
       },
     });
 
-    const result = await validateOdooEquipment(['SN-001', 'SN-002']);
+    const result = await validateOdooEquipment(['TEST-LOOP-01', 'NO-EXISTE-999']);
 
     expect(result).toEqual([
-      { serie: 'SN-001', disponible: true, motivo: null },
-      { serie: 'SN-002', disponible: false, motivo: 'Ya asignado' },
+      {
+        serie: 'TEST-LOOP-01',
+        disponible: true,
+        motivo: null,
+        serie_odoo: 'TEST-LOOP-01',
+        ubicacion: 'AC/EQUIPOS FC REPARADOS',
+      },
+      {
+        serie: 'NO-EXISTE-999',
+        disponible: false,
+        motivo: 'El número de serie no existe en Odoo',
+        serie_odoo: null,
+        ubicacion: null,
+      },
     ]);
   });
 
-  it('parsea data envuelto en { resultados: [...] }', async () => {
+  it('devuelve [] si data no trae la lista `equipos` (o no es objeto)', async () => {
     api.post.mockResolvedValueOnce({
-      data: {
-        data: {
-          resultados: [{ serie: 'SN-001', disponible: true, motivo: null }],
-        },
-        message: null,
-      },
+      data: { data: { success: true }, message: null },
     });
 
     const result = await validateOdooEquipment(['SN-001']);
 
-    expect(result).toEqual([{ serie: 'SN-001', disponible: true, motivo: null }]);
-  });
-
-  it('parsea data envuelto en { equipos: [...] }', async () => {
-    api.post.mockResolvedValueOnce({
-      data: {
-        data: {
-          equipos: [{ serie: 'SN-001', disponible: false, motivo: 'No encontrado en Odoo' }],
-        },
-        message: null,
-      },
-    });
-
-    const result = await validateOdooEquipment(['SN-001']);
-
-    expect(result).toEqual([{ serie: 'SN-001', disponible: false, motivo: 'No encontrado en Odoo' }]);
+    expect(result).toEqual([]);
   });
 
   it('normaliza disponible que no es exactamente `true` a false', async () => {
     api.post.mockResolvedValueOnce({
       data: {
-        data: [
-          { serie: 'SN-001', disponible: 'true', motivo: null },
-          { serie: 'SN-002', disponible: 1, motivo: null },
-          { serie: 'SN-003', disponible: undefined, motivo: null },
-        ],
+        data: {
+          success: true,
+          equipos: [
+            { serie: 'SN-001', disponible: 'true' },
+            { serie: 'SN-002', disponible: 1 },
+            { serie: 'SN-003', disponible: undefined },
+          ],
+        },
         message: null,
       },
     });
@@ -219,43 +227,50 @@ describe('validateOdooEquipment', () => {
     const result = await validateOdooEquipment(['SN-001', 'SN-002', 'SN-003']);
 
     expect(result).toEqual([
-      { serie: 'SN-001', disponible: false, motivo: null },
-      { serie: 'SN-002', disponible: false, motivo: null },
-      { serie: 'SN-003', disponible: false, motivo: null },
+      { serie: 'SN-001', disponible: false, motivo: null, serie_odoo: null, ubicacion: null },
+      { serie: 'SN-002', disponible: false, motivo: null, serie_odoo: null, ubicacion: null },
+      { serie: 'SN-003', disponible: false, motivo: null, serie_odoo: null, ubicacion: null },
     ]);
   });
 
-  it('normaliza motivo ausente a null', async () => {
+  it('normaliza motivo/serie_odoo/ubicacion ausentes a null', async () => {
     api.post.mockResolvedValueOnce({
       data: {
-        data: [{ serie: 'SN-001', disponible: true }],
+        data: { success: true, equipos: [{ serie: 'SN-001', disponible: true }] },
         message: null,
       },
     });
 
     const result = await validateOdooEquipment(['SN-001']);
 
-    expect(result).toEqual([{ serie: 'SN-001', disponible: true, motivo: null }]);
+    expect(result).toEqual([
+      { serie: 'SN-001', disponible: true, motivo: null, serie_odoo: null, ubicacion: null },
+    ]);
   });
 
   it('descarta items sin `serie` válida (ausente, no-string o vacía)', async () => {
     api.post.mockResolvedValueOnce({
       data: {
-        data: [
-          { serie: 'SN-001', disponible: true, motivo: null },
-          { disponible: true, motivo: null },
-          { serie: 123, disponible: true, motivo: null },
-          { serie: '', disponible: true, motivo: null },
-          null,
-          'not-an-object',
-        ],
+        data: {
+          success: true,
+          equipos: [
+            { serie: 'SN-001', disponible: true },
+            { disponible: true },
+            { serie: 123, disponible: true },
+            { serie: '', disponible: true },
+            null,
+            'not-an-object',
+          ],
+        },
         message: null,
       },
     });
 
     const result = await validateOdooEquipment(['SN-001']);
 
-    expect(result).toEqual([{ serie: 'SN-001', disponible: true, motivo: null }]);
+    expect(result).toEqual([
+      { serie: 'SN-001', disponible: true, motivo: null, serie_odoo: null, ubicacion: null },
+    ]);
   });
 
   it('en un shape inesperado (peor caso) devuelve [] sin explotar', async () => {
