@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -25,12 +25,26 @@ import {
   getUnregisteredSerials,
   normalizeSerial,
 } from '@/features/dispensers/services/dispenserValidationApi';
+import {
+  getOdooAvailableEquipment,
+  validateOdooEquipment,
+} from '@/features/dispensers/services/odooApi';
+import { pollOdooStatus } from '@/features/dispensers/hooks/useOdooPolling';
 import type {
   AguasCatalog,
   AguasCatalogItem,
   DispenserMovementType,
+  OdooEquipment,
+  OdooValidationResult,
 } from '@/features/dispensers/types';
 import { C, R, S, F, W, Shdw } from '@/lib/theme';
+
+// Tiempo de éxito visible antes de resolver el estado de Odoo y resetear el form.
+const SUCCESS_OVERLAY_MS = 1600;
+// Ventana de polling de Odoo tras crear el movimiento (ver useOdooPolling).
+const ODOO_RESULT_OVERLAY_MS = 2200;
+// Debounce para no spammear la validación Odoo mientras se escanea en tanda.
+const ODOO_VALIDATE_DEBOUNCE_MS = 900;
 
 type SerialSource = 'scan' | 'manual';
 /** `valid: false` = no registrado en Aguas. Se muestra en rojo y NO se envía. */
@@ -99,6 +113,17 @@ export default function DispensersScreen() {
   // Seriales "no registrados" en Aguas del día: se rechazan al cargar.
   const [invalidSerials, setInvalidSerials] = useState<Set<string>>(new Set());
 
+  // Panel "Equipos disponibles en Odoo" — solo informativo, solo para LOAD.
+  const [odooEquipment, setOdooEquipment] = useState<OdooEquipment[]>([]);
+  const [odooEquipmentLoading, setOdooEquipmentLoading] = useState(false);
+  const [odooEquipmentError, setOdooEquipmentError] = useState<string | null>(null);
+
+  // Validación Odoo de series agregadas (independiente de la de Aguas).
+  const [odooValidation, setOdooValidation] = useState<Map<string, OdooValidationResult>>(
+    new Map(),
+  );
+  const odooValidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [submitting, setSubmitting] = useState(false);
   const [overlay, setOverlay] = useState<{
     visible: boolean;
@@ -142,6 +167,27 @@ export default function DispensersScreen() {
     refreshInvalidSerials();
   }, [refreshInvalidSerials]);
 
+  /**
+   * Equipos disponibles en Odoo para cargar (solo LOAD). Es un panel
+   * informativo: si falla, no bloqueamos el trabajo del operario.
+   */
+  const loadOdooEquipment = useCallback(async () => {
+    setOdooEquipmentLoading(true);
+    setOdooEquipmentError(null);
+    try {
+      const equipos = await getOdooAvailableEquipment();
+      setOdooEquipment(equipos);
+    } catch (e) {
+      setOdooEquipmentError(e instanceof Error ? e.message : 'No se pudo consultar Odoo');
+    } finally {
+      setOdooEquipmentLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (type === 'LOAD') loadOdooEquipment();
+  }, [type, loadOdooEquipment]);
+
   // Al cargar catálogos o cambiar de tipo, pre-selecciona el default de ese tipo.
   useEffect(() => {
     if (!locations || !states) return;
@@ -161,6 +207,11 @@ export default function DispensersScreen() {
   const serialCodes = serials.map((s) => s.code);
   const validSerials = serials.filter((s) => s.valid);
   const invalidCount = serials.length - validSerials.length;
+  // Series marcadas por Odoo como no disponibles (aviso independiente del de Aguas).
+  const odooUnavailableCount = serials.filter((s) => {
+    const result = odooValidation.get(s.code);
+    return result ? !result.disponible : false;
+  }).length;
 
   const addSerial = useCallback((code: string, source: SerialSource) => {
     const clean = code.replace(/\s+/g, ''); // saca todos los espacios (puntas e internos)
@@ -189,6 +240,34 @@ export default function DispensersScreen() {
     setSerials([]);
   }
 
+  /**
+   * Validación Odoo de las series agregadas (independiente de la de Aguas).
+   * Se dispara en batch con debounce para no spammear el endpoint mientras
+   * se escanea la tanda. Solo aplica a LOAD; no bloquea el submit, solo avisa.
+   */
+  useEffect(() => {
+    if (type !== 'LOAD') return;
+    if (odooValidateTimer.current) clearTimeout(odooValidateTimer.current);
+
+    if (serialCodes.length === 0) {
+      setOdooValidation(new Map());
+      return;
+    }
+
+    odooValidateTimer.current = setTimeout(async () => {
+      try {
+        const results = await validateOdooEquipment(serialCodes);
+        setOdooValidation(new Map(results.map((r) => [r.serie, r])));
+      } catch {
+        // Sin conexión con Odoo → no avisamos, pero tampoco bloqueamos.
+      }
+    }, ODOO_VALIDATE_DEBOUNCE_MS);
+
+    return () => {
+      if (odooValidateTimer.current) clearTimeout(odooValidateTimer.current);
+    };
+  }, [serialCodes.join(','), type]);
+
   const canSubmit =
     routeCode.trim().length > 0 &&
     technician.trim().length > 0 &&
@@ -199,7 +278,7 @@ export default function DispensersScreen() {
     setSubmitting(true);
     setOverlay({ visible: true, status: 'loading', title: 'Registrando movimiento...' });
     try {
-      await createDispenserMovement({
+      const created = await createDispenserMovement({
         type,
         routeCode: routeCode.trim(),
         technician: technician.trim(),
@@ -209,17 +288,53 @@ export default function DispensersScreen() {
         serials: validSerials.map((s) => s.code), // los inexistentes no se envían
       });
 
+      const count = validSerials.length;
+      const isLoadMovement = type === 'LOAD';
+
       setOverlay({
         visible: true,
         status: 'success',
         title: '¡Movimiento registrado!',
-        message: `${validSerials.length} dispenser${validSerials.length !== 1 ? 's' : ''} · Reparto ${routeCode.trim()}. Se está enviando a Aguas.`,
+        message: isLoadMovement
+          ? `${count} dispenser${count !== 1 ? 's' : ''} · Reparto ${routeCode.trim()}. Enviando a Aguas y Odoo...`
+          : `${count} dispenser${count !== 1 ? 's' : ''} · Reparto ${routeCode.trim()}. Se está enviando a Aguas.`,
       });
+
+      // El reset del form es rápido para no trabar al operario; el resultado
+      // de Odoo (asíncrono) se resuelve aparte y solo actualiza el overlay
+      // mientras siga visible.
       setTimeout(() => {
         setOverlay((o) => ({ ...o, visible: false }));
         setRouteCode('');
         setSerials([]);
-      }, 1600);
+      }, SUCCESS_OVERLAY_MS);
+
+      if (isLoadMovement) {
+        pollOdooStatus(created.id)
+          .then((resolved) => {
+            const odooMessage =
+              resolved.odooStatus === 'SENT'
+                ? `Registrado en Odoo · ${resolved.odooPickingName ?? 'comprobante generado'}.`
+                : resolved.odooStatus === 'ERROR'
+                  ? 'Odoo rechazó la carga. Revisalo en Movimientos.'
+                  : 'Odoo sigue procesando, revisalo en Movimientos.';
+            const odooStatusForOverlay: OverlayStatus =
+              resolved.odooStatus === 'ERROR' ? 'error' : 'success';
+
+            setOverlay({
+              visible: true,
+              status: odooStatusForOverlay,
+              title: resolved.odooStatus === 'ERROR' ? 'Aviso de Odoo' : '¡Movimiento registrado!',
+              message: odooMessage,
+            });
+            setTimeout(() => {
+              setOverlay((o) => ({ ...o, visible: false }));
+            }, ODOO_RESULT_OVERLAY_MS);
+          })
+          .catch(() => {
+            // Si falla la reconsulta, no molestamos: el estado se puede ver en Movimientos.
+          });
+      }
     } catch (e) {
       setOverlay({
         visible: true,
@@ -322,18 +437,57 @@ export default function DispensersScreen() {
         </View>
       </View>
 
+      {/* Equipos disponibles en Odoo — solo informativo, solo LOAD */}
+      {isLoad && (
+        <View style={styles.odooPanel}>
+          <View style={styles.odooPanelHeader}>
+            <View style={styles.odooBadge}>
+              <Ionicons name="cube-outline" size={12} color="#fff" />
+              <Text style={styles.odooBadgeText}>ODOO</Text>
+            </View>
+            <Text style={styles.odooPanelTitle}>Equipos disponibles para cargar</Text>
+          </View>
+          {odooEquipmentLoading ? (
+            <View style={styles.odooPanelRow}>
+              <ActivityIndicator size="small" color={C.odoo} />
+              <Text style={styles.odooPanelText}>Consultando Odoo...</Text>
+            </View>
+          ) : odooEquipmentError ? (
+            <View style={styles.odooPanelRow}>
+              <Ionicons name="cloud-offline-outline" size={15} color={C.textMuted} />
+              <Text style={styles.odooPanelText} numberOfLines={1}>
+                No se pudo consultar Odoo (no bloquea la carga)
+              </Text>
+              <TouchableOpacity onPress={loadOdooEquipment} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={styles.odooRetryText}>Reintentar</Text>
+              </TouchableOpacity>
+            </View>
+          ) : odooEquipment.length === 0 ? (
+            <View style={styles.odooPanelRow}>
+              <Ionicons name="file-tray-outline" size={15} color={C.textMuted} />
+              <Text style={styles.odooPanelText}>Sin equipos disponibles por ahora</Text>
+            </View>
+          ) : (
+            <>
+              <Text style={styles.odooPanelText}>
+                {odooEquipment.length} equipo{odooEquipment.length !== 1 ? 's' : ''} listo
+                {odooEquipment.length !== 1 ? 's' : ''} para cargar
+              </Text>
+              <Text style={styles.odooPanelSample} numberOfLines={2}>
+                {odooEquipment.slice(0, 6).map((e) => e.serie).join(' · ')}
+                {odooEquipment.length > 6 ? '…' : ''}
+              </Text>
+            </>
+          )}
+        </View>
+      )}
+
       {/* Dispensers */}
       <View style={styles.serialsHeader}>
         <Text style={styles.sectionLabel}>Dispensers</Text>
         <View style={styles.countPill}>
           <Text style={styles.countPillText}>{validSerials.length}</Text>
         </View>
-        {invalidCount > 0 && (
-          <View style={styles.invalidPill}>
-            <Ionicons name="alert-circle" size={11} color={C.danger} />
-            <Text style={styles.invalidPillText}>{invalidCount} inexistente{invalidCount !== 1 ? 's' : ''}</Text>
-          </View>
-        )}
         {serials.length > 0 && (
           <TouchableOpacity style={styles.clearBtn} onPress={clearSerials} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name="trash-outline" size={14} color={C.danger} />
@@ -341,6 +495,27 @@ export default function DispensersScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      {(invalidCount > 0 || (isLoad && odooUnavailableCount > 0)) && (
+        <View style={styles.warnPillsRow}>
+          {invalidCount > 0 && (
+            <View style={styles.invalidPill}>
+              <Ionicons name="close-circle" size={11} color={C.danger} />
+              <Text style={styles.invalidPillText}>
+                {invalidCount} inexistente{invalidCount !== 1 ? 's' : ''} en Aguas
+              </Text>
+            </View>
+          )}
+          {isLoad && odooUnavailableCount > 0 && (
+            <View style={styles.odooWarnPill}>
+              <Ionicons name="alert-circle" size={11} color={C.odoo} />
+              <Text style={styles.odooWarnPillText}>
+                {odooUnavailableCount} no disponible{odooUnavailableCount !== 1 ? 's' : ''} en Odoo
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
 
       {/* CTA escanear */}
       <TouchableOpacity
@@ -431,38 +606,52 @@ export default function DispensersScreen() {
         data={serials}
         keyExtractor={(item) => item.code}
         ListHeaderComponent={Header}
-        renderItem={({ item, index }) => (
-          <View style={[styles.serialRow, !item.valid && styles.serialRowInvalid]}>
-            <View style={[styles.serialIndex, !item.valid && styles.serialIndexInvalid]}>
-              {item.valid ? (
-                <Text style={styles.serialIndexText}>{index + 1}</Text>
-              ) : (
-                <Ionicons name="close" size={15} color={C.danger} />
-              )}
-            </View>
-            <Ionicons
-              name={item.source === 'scan' ? 'barcode-outline' : 'create-outline'}
-              size={16}
-              color={item.valid ? C.textMuted : C.danger}
-            />
-            <View style={styles.serialBody}>
-              <Text
-                style={[styles.serialText, !item.valid && styles.serialTextInvalid]}
-                numberOfLines={1}
+        renderItem={({ item, index }) => {
+          const odooResult = isLoad ? odooValidation.get(item.code) : undefined;
+          const odooUnavailable = odooResult ? !odooResult.disponible : false;
+          return (
+            <View style={[styles.serialRow, !item.valid && styles.serialRowInvalid]}>
+              <View style={[styles.serialIndex, !item.valid && styles.serialIndexInvalid]}>
+                {item.valid ? (
+                  <Text style={styles.serialIndexText}>{index + 1}</Text>
+                ) : (
+                  <Ionicons name="close" size={15} color={C.danger} />
+                )}
+              </View>
+              <Ionicons
+                name={item.source === 'scan' ? 'barcode-outline' : 'create-outline'}
+                size={16}
+                color={item.valid ? C.textMuted : C.danger}
+              />
+              <View style={styles.serialBody}>
+                <Text
+                  style={[styles.serialText, !item.valid && styles.serialTextInvalid]}
+                  numberOfLines={1}
+                >
+                  {item.code}
+                </Text>
+                {!item.valid && (
+                  <Text style={styles.serialInvalidTag}>Aguas: inexistente · no se envía</Text>
+                )}
+                {item.valid && odooUnavailable && (
+                  <View style={styles.serialOdooTagRow}>
+                    <Ionicons name="alert-circle" size={11} color={C.odoo} />
+                    <Text style={styles.serialOdooTag} numberOfLines={1}>
+                      Odoo: no disponible{odooResult?.motivo ? ` · ${odooResult.motivo}` : ''}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              {item.valid && <Ionicons name="checkmark-circle" size={19} color={C.success} />}
+              <TouchableOpacity
+                onPress={() => removeSerial(item.code)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                {item.code}
-              </Text>
-              {!item.valid && <Text style={styles.serialInvalidTag}>Inexistente · no se envía</Text>}
+                <Ionicons name="close-circle" size={22} color={C.textMuted} />
+              </TouchableOpacity>
             </View>
-            {item.valid && <Ionicons name="checkmark-circle" size={19} color={C.success} />}
-            <TouchableOpacity
-              onPress={() => removeSerial(item.code)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="close-circle" size={22} color={C.textMuted} />
-            </TouchableOpacity>
-          </View>
-        )}
+          );
+        }}
         ListEmptyComponent={
           <View style={styles.emptySerials}>
             <View style={styles.emptyIcon}>
@@ -642,6 +831,34 @@ const styles = StyleSheet.create({
     color: C.text,
   },
 
+  // Panel "Equipos disponibles en Odoo"
+  odooPanel: {
+    backgroundColor: C.odooLight,
+    borderRadius: R.lg,
+    borderWidth: 1,
+    borderColor: C.odooBorder,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 4,
+    gap: 6,
+  },
+  odooPanelHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  odooBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: C.odoo,
+    borderRadius: R.xs,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  odooBadgeText: { fontSize: 9, fontWeight: W.extra, color: '#fff', letterSpacing: 0.4 },
+  odooPanelTitle: { flex: 1, fontSize: F.sm + 1, fontWeight: W.extra, color: C.textStrong },
+  odooPanelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  odooPanelText: { flex: 1, fontSize: F.sm, fontWeight: W.medium, color: C.textSub },
+  odooPanelSample: { fontSize: F.xs, color: C.textMuted, fontWeight: W.medium },
+  odooRetryText: { fontSize: F.xs + 1, fontWeight: W.bold, color: C.odoo },
+
   // Serials header
   serialsHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
   countPill: {
@@ -653,6 +870,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   countPillText: { fontSize: F.sm, fontWeight: W.extra, color: C.primary },
+  warnPillsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: S.xs + 2, marginTop: -2 },
   invalidPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -660,9 +878,19 @@ const styles = StyleSheet.create({
     backgroundColor: C.dangerLight,
     borderRadius: R.full,
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
   },
   invalidPillText: { fontSize: F.xs, fontWeight: W.extra, color: C.danger },
+  odooWarnPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: C.odooLight,
+    borderRadius: R.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  odooWarnPillText: { fontSize: F.xs, fontWeight: W.extra, color: C.odoo },
   clearBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -754,6 +982,8 @@ const styles = StyleSheet.create({
   serialIndexInvalid: { backgroundColor: '#FBDADB' },
   serialTextInvalid: { color: C.danger, textDecorationLine: 'line-through' },
   serialInvalidTag: { fontSize: F.xs, fontWeight: W.bold, color: C.danger, marginTop: 1 },
+  serialOdooTagRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 1 },
+  serialOdooTag: { fontSize: F.xs, fontWeight: W.bold, color: C.odoo },
 
   emptySerials: { alignItems: 'center', paddingVertical: 30, gap: 6 },
   emptyIcon: {

@@ -49,6 +49,13 @@ export const C = {
   supervisorLight: '#EDE4FC',
   supervisorDark: '#5321A8',
 
+  // Integración Odoo (ERP externo, distinto de Aguas). Morado-violeta propio
+  // para no pisar `accent` (cian, ya usado en otras pantallas) ni confundirse
+  // con `warning`/`danger` de los estados de validación.
+  odoo: '#8B5CF6',
+  odooLight: '#F0EAFE',
+  odooBorder: '#DCCCFB',
+
   // Texto (escala slate)
   text: '#0E1726',
   textStrong: '#0A111E',

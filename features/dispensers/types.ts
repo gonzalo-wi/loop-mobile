@@ -22,6 +22,9 @@ export type AguasCatalog = {
   vuelta_camion: AguasCatalogItem[];
 };
 
+/** Estado del envío a Odoo. `null` = todavía sin resolver (pendiente/en proceso). */
+export type OdooStatus = 'SENT' | 'ERROR' | null;
+
 export type DispenserMovement = {
   id: string;
   type: DispenserMovementType;
@@ -37,6 +40,12 @@ export type DispenserMovement = {
   registeredByUsername: string;
   createdAt: string;
   updatedAt: string;
+  // Integración Odoo — solo aplica a movimientos LOAD. Es asíncrona: no viene
+  // resuelta en la respuesta del POST de creación, hay que re-consultar.
+  odooStatus: OdooStatus;
+  odooPickingName: string | null;
+  odooPickingId: number | null;
+  odooReference: string | null;
 };
 
 export type CreateMovementPayload = {
@@ -48,4 +57,27 @@ export type CreateMovementPayload = {
   stateId?: number;
   movementDate?: string;
   serials: string[];
+};
+
+/** Equipo disponible en Odoo para cargar (GET /dispenser-movements/odoo/available-equipment). */
+export type OdooEquipment = {
+  serie: string;
+  producto: string;
+  ubicacion: string;
+  fecha_disponible: string;
+};
+
+/** Respuesta paginada del listado de equipos disponibles en Odoo. */
+export type OdooAvailableEquipment = {
+  success: boolean;
+  total: number;
+  devueltos: number;
+  equipos: OdooEquipment[];
+};
+
+/** Resultado normalizado de validar una serie contra Odoo (shape a confirmar contra stage). */
+export type OdooValidationResult = {
+  serie: string;
+  disponible: boolean;
+  motivo: string | null;
 };

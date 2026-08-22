@@ -16,6 +16,7 @@ import type {
   DispenserMovement,
   DispenserMovementType,
   DispenserMovementStatus,
+  OdooStatus,
 } from '@/features/dispensers/types';
 import { C, R, S, F, W, Shdw } from '@/lib/theme';
 
@@ -42,9 +43,27 @@ const STATUS_INFO: Record<
   CANCELLED: { label: 'Cancelado', color: C.textMuted, bg: C.inputBg, icon: 'close-circle' },
 };
 
+// Chip Odoo compacto — solo se muestra en cards de LOAD, independiente del de Aguas.
+const ODOO_CHIP_INFO: Record<
+  'PENDING' | 'SENT' | 'ERROR',
+  { label: string; color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }
+> = {
+  PENDING: { label: 'Enviando…', color: C.warning, bg: C.warningLight, icon: 'sync-outline' },
+  SENT: { label: 'OK', color: C.odoo, bg: C.odooLight, icon: 'checkmark-circle' },
+  ERROR: { label: 'Rechazado', color: C.danger, bg: C.dangerLight, icon: 'alert-circle' },
+};
+
+function odooChipKey(status: OdooStatus): 'PENDING' | 'SENT' | 'ERROR' {
+  if (status === 'SENT') return 'SENT';
+  if (status === 'ERROR') return 'ERROR';
+  return 'PENDING';
+}
+
 function MovementCard({ mov, onPress }: { mov: DispenserMovement; onPress: () => void }) {
   const status = STATUS_INFO[mov.status] ?? STATUS_INFO.REGISTERED;
   const isCancelled = mov.status === 'CANCELLED';
+  const isLoad = mov.type === 'LOAD';
+  const odooChip = isLoad ? ODOO_CHIP_INFO[odooChipKey(mov.odooStatus)] : null;
 
   return (
     <TouchableOpacity
@@ -64,9 +83,20 @@ function MovementCard({ mov, onPress }: { mov: DispenserMovement; onPress: () =>
             {mov.technician} · {formatTime(mov.createdAt)}
           </Text>
         </View>
-        <View style={[styles.statusChip, { backgroundColor: status.bg }]}>
-          <Ionicons name={status.icon} size={13} color={status.color} />
-          <Text style={[styles.statusChipText, { color: status.color }]}>{status.label}</Text>
+        <View style={styles.chipsCol}>
+          <View style={[styles.statusChip, { backgroundColor: status.bg }]}>
+            <Ionicons name={status.icon} size={13} color={status.color} />
+            <Text style={[styles.statusChipText, { color: status.color }]}>{status.label}</Text>
+          </View>
+          {odooChip && (
+            <View style={[styles.statusChip, styles.odooChip, { backgroundColor: odooChip.bg }]}>
+              <View style={styles.odooChipMark}>
+                <Ionicons name="cube" size={8} color="#fff" />
+              </View>
+              <Ionicons name={odooChip.icon} size={13} color={odooChip.color} />
+              <Text style={[styles.statusChipText, { color: odooChip.color }]}>{odooChip.label}</Text>
+            </View>
+          )}
         </View>
       </View>
     </TouchableOpacity>
@@ -257,6 +287,7 @@ const styles = StyleSheet.create({
   cardInfo: { flex: 1 },
   cardCount: { fontSize: F.md, fontWeight: W.extra, color: C.text },
   cardMeta: { fontSize: F.sm, color: C.textMuted, fontWeight: W.medium, marginTop: 2 },
+  chipsCol: { alignItems: 'flex-end', gap: 5, maxWidth: 140 },
   statusChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -264,6 +295,15 @@ const styles = StyleSheet.create({
     borderRadius: R.full,
     paddingHorizontal: 10,
     paddingVertical: 5,
+  },
+  odooChip: { paddingLeft: 5 },
+  odooChipMark: {
+    width: 14,
+    height: 14,
+    borderRadius: R.xs,
+    backgroundColor: C.odoo,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statusChipText: { fontSize: F.xs + 1, fontWeight: W.bold },
 

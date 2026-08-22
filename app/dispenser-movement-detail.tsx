@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -17,9 +17,14 @@ import {
   updateDispenserMovement,
   cancelDispenserMovement,
 } from '@/features/dispensers/services/dispenserApi';
+import { pollOdooStatus } from '@/features/dispensers/hooks/useOdooPolling';
 import { HeroHeader } from '@/components/HeroHeader';
 import { BarcodeScannerModal } from '@/features/dispensers/components/BarcodeScannerModal';
-import type { DispenserMovement, DispenserMovementStatus } from '@/features/dispensers/types';
+import type {
+  DispenserMovement,
+  DispenserMovementStatus,
+  OdooStatus,
+} from '@/features/dispensers/types';
 import { C, R, S, F, W, Shdw } from '@/lib/theme';
 
 function formatDate(dateStr: string): string {
@@ -36,6 +41,22 @@ const STATUS_INFO: Record<
   AGUAS_ERROR: { label: 'Error — reintentando', color: C.danger, bg: C.dangerLight, icon: 'alert-circle' },
   CANCELLED: { label: 'Cancelado', color: C.textMuted, bg: C.inputBg, icon: 'close-circle' },
 };
+
+// Estado del envío a Odoo — banner independiente del de Aguas, solo para LOAD.
+const ODOO_STATUS_INFO: Record<
+  'PENDING' | 'SENT' | 'ERROR',
+  { label: string; color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }
+> = {
+  PENDING: { label: 'Enviando a Odoo…', color: C.warning, bg: C.warningLight, icon: 'sync-outline' },
+  SENT: { label: 'Registrado en Odoo', color: C.odoo, bg: C.odooLight, icon: 'checkmark-circle' },
+  ERROR: { label: 'Odoo rechazó la carga', color: C.danger, bg: C.dangerLight, icon: 'alert-circle' },
+};
+
+function odooStatusKey(status: OdooStatus): 'PENDING' | 'SENT' | 'ERROR' {
+  if (status === 'SENT') return 'SENT';
+  if (status === 'ERROR') return 'ERROR';
+  return 'PENDING';
+}
 
 export default function DispenserMovementDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -73,6 +94,31 @@ export default function DispenserMovementDetailScreen() {
   useEffect(() => {
     loadMov();
   }, [loadMov]);
+
+  /**
+   * Polling corto del estado de Odoo mientras siga pendiente (solo LOAD).
+   * Corta apenas resuelve (`SENT`/`ERROR`) o se agota la ventana del helper.
+   */
+  const odooPollAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    if (!mov || mov.type !== 'LOAD' || mov.odooStatus !== null) return;
+
+    const controller = new AbortController();
+    odooPollAbortRef.current = controller;
+
+    pollOdooStatus(mov.id, { signal: controller.signal })
+      .then((resolved) => {
+        if (controller.signal.aborted) return;
+        setMov(resolved);
+      })
+      .catch(() => {
+        // AbortError esperado al desmontar/cambiar de movimiento.
+      });
+
+    return () => controller.abort();
+    // Solo re-disparamos cuando cambia el id del movimiento (evita loop: el
+    // polling ya actualiza `mov` con el estado resuelto).
+  }, [mov?.id, mov?.type, mov?.odooStatus]);
 
   function startEdit() {
     if (!mov) return;
@@ -185,6 +231,8 @@ export default function DispenserMovementDetailScreen() {
   const status = STATUS_INFO[mov.status] ?? STATUS_INFO.REGISTERED;
   const isCancelled = mov.status === 'CANCELLED';
   const displaySerials = editing ? serials : mov.serials;
+  // Odoo es independiente de Aguas: un movimiento puede estar SENT_TO_AGUAS y odooStatus=ERROR.
+  const odooStatus = isLoad ? ODOO_STATUS_INFO[odooStatusKey(mov.odooStatus)] : null;
 
   return (
     <View style={styles.screen}>
@@ -200,10 +248,48 @@ export default function DispenserMovementDetailScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Estado */}
-        <View style={[styles.statusBanner, { backgroundColor: status.bg }]}>
-          <Ionicons name={status.icon} size={20} color={status.color} />
-          <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
+        {/* Estados por sistema: Aguas y Odoo son integraciones independientes. */}
+        <View style={styles.statusGroup}>
+          <Text style={styles.statusGroupLabel}>Estado por sistema</Text>
+
+          {/* Estado Aguas */}
+          <View style={[styles.statusBanner, { backgroundColor: status.bg }]}>
+            <View style={styles.systemTag}>
+              <Ionicons name="water" size={11} color={C.textStrong} />
+              <Text style={styles.systemTagText}>AGUAS</Text>
+            </View>
+            <View style={styles.statusBannerRow}>
+              <Ionicons name={status.icon} size={19} color={status.color} />
+              <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
+            </View>
+          </View>
+
+          {/* Estado Odoo — independiente del de Aguas, solo LOAD */}
+          {odooStatus && (
+            <View
+              style={[
+                styles.statusBanner,
+                styles.odooBanner,
+                { backgroundColor: odooStatus.bg, borderLeftColor: odooStatus.color },
+              ]}
+            >
+              <View style={[styles.systemTag, styles.systemTagOdoo]}>
+                <Ionicons name="cube" size={11} color="#fff" />
+                <Text style={[styles.systemTagText, styles.systemTagTextOdoo]}>ODOO</Text>
+              </View>
+              <View style={styles.statusBannerRow}>
+                <Ionicons name={odooStatus.icon} size={19} color={odooStatus.color} />
+                <View style={styles.odooStatusBody}>
+                  <Text style={[styles.statusText, { color: odooStatus.color }]}>{odooStatus.label}</Text>
+                  {mov.odooStatus === 'SENT' && mov.odooPickingName ? (
+                    <Text style={[styles.odooStatusSub, { color: odooStatus.color }]} numberOfLines={1}>
+                      Comprobante: {mov.odooPickingName}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Datos */}
@@ -243,6 +329,15 @@ export default function DispenserMovementDetailScreen() {
                 <View style={styles.infoRow}>
                   <Ionicons name="id-card-outline" size={17} color={C.textMuted} />
                   <Text style={styles.infoText}>Registró: {mov.registeredByUsername}</Text>
+                </View>
+              ) : null}
+              {isLoad && mov.odooPickingName ? (
+                <View style={styles.infoRow}>
+                  <Ionicons name="receipt-outline" size={17} color={C.odoo} />
+                  <Text style={styles.infoText}>
+                    <Text style={styles.infoTextMuted}>Odoo · </Text>
+                    {mov.odooPickingName}
+                  </Text>
                 </View>
               ) : null}
             </>
@@ -377,15 +472,50 @@ const styles = StyleSheet.create({
   retryBtn: { paddingHorizontal: 22, paddingVertical: 10, backgroundColor: C.primary, borderRadius: R.md },
   retryText: { color: '#fff', fontSize: F.base, fontWeight: W.bold },
 
+  statusGroup: { gap: S.sm },
+  statusGroupLabel: {
+    fontSize: F.xs + 1,
+    fontWeight: W.extra,
+    color: C.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
   statusBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: S.sm + 2,
+    gap: S.sm,
     borderRadius: R.lg,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
+  odooBanner: {
+    borderLeftWidth: 3,
+  },
+  statusBannerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: S.sm + 2,
+  },
   statusText: { fontSize: F.base, fontWeight: W.bold, flex: 1 },
+  odooStatusBody: { flex: 1 },
+  odooStatusSub: { fontSize: F.sm, fontWeight: W.semibold, marginTop: 2, opacity: 0.85 },
+
+  systemTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    backgroundColor: 'rgba(14,23,38,0.08)',
+    borderRadius: R.xs,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  systemTagText: {
+    fontSize: 9,
+    fontWeight: W.extra,
+    color: C.textStrong,
+    letterSpacing: 0.5,
+  },
+  systemTagOdoo: { backgroundColor: C.odoo },
+  systemTagTextOdoo: { color: '#fff' },
 
   card: {
     backgroundColor: C.surface,
@@ -396,6 +526,7 @@ const styles = StyleSheet.create({
   },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   infoText: { fontSize: F.base, color: C.text, fontWeight: W.semibold },
+  infoTextMuted: { color: C.textMuted, fontWeight: W.medium },
   fieldLabel: {
     fontSize: F.xs,
     color: C.textMuted,
