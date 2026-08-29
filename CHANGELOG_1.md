@@ -25,7 +25,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 -
 
 ### Fixed
--
+- La lista de movimientos ahora muestra las cargas registradas en el día: antes filtraba por la fecha del movimiento (que en las cargas es el próximo día de reparto), así que las cargas creadas hoy no aparecían hasta el día siguiente. Ahora filtra por fecha de registro.
 
 ### Removed
 -

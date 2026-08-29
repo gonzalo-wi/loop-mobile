@@ -39,6 +39,8 @@ export async function getDispenserMovements(params?: {
   status?: string;
   from?: string;
   to?: string;
+  createdFrom?: string;
+  createdTo?: string;
   size?: number;
 }): Promise<{ movements: DispenserMovement[]; totalElements: number }> {
   const res = await api.get<PaginatedResponse<DispenserMovement>>('/dispenser-movements', {

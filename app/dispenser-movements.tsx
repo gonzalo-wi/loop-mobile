@@ -115,8 +115,14 @@ export default function DispenserMovementsScreen() {
     if (!silent) setLoading(true);
     setError(null);
     try {
+      // Se filtra por fecha de registro (createdAt), no por la fecha del movimiento: una carga se
+      // registra hoy pero se fecha para el próximo día de reparto, así que igual debe verse hoy.
       const today = getTodayDate();
-      const { movements: data } = await getDispenserMovements({ from: today, to: today, size: 100 });
+      const { movements: data } = await getDispenserMovements({
+        createdFrom: today,
+        createdTo: today,
+        size: 100,
+      });
       setMovements(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al cargar movimientos');
