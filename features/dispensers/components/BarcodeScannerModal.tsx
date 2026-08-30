@@ -17,10 +17,14 @@ import {
   type BarcodeScanningResult,
   type BarcodeType,
 } from 'expo-camera';
+import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import { Ionicons } from '@expo/vector-icons';
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight';
 import { normalizeSerial } from '../services/dispenserValidationApi';
 import { C, R, S, F, W } from '@/lib/theme';
+
+const SCAN_OK_SOUND = require('@/assets/sounds/scan-ok.wav');
+const SCAN_ERROR_SOUND = require('@/assets/sounds/scan-error.wav');
 
 type Props = {
   visible: boolean;
@@ -76,8 +80,46 @@ export function BarcodeScannerModal({
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scanLine = useRef(new Animated.Value(0)).current;
   const flash = useRef(new Animated.Value(0)).current;
+  const okPlayerRef = useRef<AudioPlayer | null>(null);
+  const errorPlayerRef = useRef<AudioPlayer | null>(null);
 
   const count = existingSerials.length;
+
+  // Precarga los sonidos de feedback (ok/error) y habilita reproducción con el
+  // teléfono en silencio. Se libera al desmontar; nunca debe bloquear el escaneo.
+  useEffect(() => {
+    try {
+      setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
+      okPlayerRef.current = createAudioPlayer(SCAN_OK_SOUND);
+      errorPlayerRef.current = createAudioPlayer(SCAN_ERROR_SOUND);
+    } catch {
+      okPlayerRef.current = null;
+      errorPlayerRef.current = null;
+    }
+    return () => {
+      try {
+        okPlayerRef.current?.remove();
+        errorPlayerRef.current?.remove();
+      } catch {
+        // noop: liberar el player no debe romper el desmontaje del modal
+      }
+      okPlayerRef.current = null;
+      errorPlayerRef.current = null;
+    };
+  }, []);
+
+  // Reproduce el sonido de feedback correspondiente al resultado del escaneo.
+  // Nunca debe bloquear ni interrumpir el flujo de escaneo si falla.
+  function playFeedbackSound(type: 'ok' | 'dup' | 'invalid') {
+    try {
+      const player = type === 'ok' ? okPlayerRef.current : errorPlayerRef.current;
+      if (!player) return;
+      player.seekTo(0).catch(() => {});
+      player.play();
+    } catch {
+      // noop
+    }
+  }
 
   // Línea de escaneo animada mientras la cámara está activa.
   useEffect(() => {
@@ -142,6 +184,7 @@ export function BarcodeScannerModal({
 
     if (existingSerials.includes(code)) {
       Vibration.vibrate(70);
+      playFeedbackSound('dup');
       showFeedback({ type: 'dup', code });
       return false;
     }
@@ -150,6 +193,7 @@ export function BarcodeScannerModal({
     const invalid = invalidSerials?.has(normalizeSerial(code)) ?? false;
 
     Vibration.vibrate(invalid ? [0, 90, 70, 90] : 35);
+    playFeedbackSound(invalid ? 'invalid' : 'ok');
     flashFrame();
     onAdd(code);
     setRecent((prev) => [{ code, invalid }, ...prev.filter((r) => r.code !== code)].slice(0, 4));
@@ -158,8 +202,9 @@ export function BarcodeScannerModal({
   }
 
   function handleScan(res: BarcodeScanningResult) {
-    const code = res.data?.trim();
-    if (!code) return;
+    const raw = res.data?.trim();
+    if (!raw) return;
+    const code = raw.replace(/\s+/g, ''); // misma normalización que usa commitCode
 
     const now = Date.now();
     if (code === lastRef.current.value && now - lastRef.current.t < 2000) return;
@@ -223,6 +268,8 @@ export function BarcodeScannerModal({
                 style={[styles.iconBtn, torch && styles.iconBtnActive]}
                 onPress={() => setTorch((t) => !t)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel={torch ? 'Apagar linterna' : 'Encender linterna'}
               >
                 <Ionicons name={torch ? 'flashlight' : 'flashlight-outline'} size={20} color="#fff" />
               </TouchableOpacity>
@@ -231,6 +278,8 @@ export function BarcodeScannerModal({
               style={styles.iconBtn}
               onPress={onClose}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar escáner"
             >
               <Ionicons name="close" size={22} color="#fff" />
             </TouchableOpacity>
@@ -318,6 +367,8 @@ export function BarcodeScannerModal({
                   style={[styles.manualAddBtn, !manualValue.trim() && styles.manualAddBtnOff]}
                   onPress={handleManualAdd}
                   disabled={!manualValue.trim()}
+                  accessibilityRole="button"
+                  accessibilityLabel="Agregar código"
                 >
                   <Ionicons name="add" size={24} color="#fff" />
                 </TouchableOpacity>
@@ -326,6 +377,7 @@ export function BarcodeScannerModal({
                 style={styles.backToScanBtn}
                 onPress={() => { setManualOpen(false); setManualValue(''); }}
                 activeOpacity={0.85}
+                accessibilityRole="button"
               >
                 <Ionicons name="barcode-outline" size={18} color="#fff" />
                 <Text style={styles.backToScanText}>Volver a escanear</Text>
@@ -356,6 +408,7 @@ export function BarcodeScannerModal({
                 style={styles.manualToggle}
                 onPress={() => setManualOpen(true)}
                 activeOpacity={0.85}
+                accessibilityRole="button"
               >
                 <Ionicons name="create-outline" size={18} color="#fff" />
                 <Text style={styles.manualToggleText}>Sin código de barras · escribir a mano</Text>
