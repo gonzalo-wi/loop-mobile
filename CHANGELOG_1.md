@@ -31,6 +31,10 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 - El escáner de dispensers normaliza el código (sin espacios) antes del
   cooldown anti-duplicado de 2s, para que la deduplicación opere sobre el
   mismo valor que finalmente se agrega.
+- Interno: la lógica del escáner (commit/scan/feedback/cooldown) se extrajo a
+  un hook puro `useBarcodeCommit`, con la garantía de que un fallo de audio o
+  vibración nunca corta el escaneo. Sin cambios visibles; habilita tests
+  reales del hook (RTL + jsdom por-archivo).
 
 ### Fixed
 - La lista de movimientos ahora muestra las cargas registradas en el día: antes filtraba por la fecha del movimiento (que en las cargas es el próximo día de reparto), así que las cargas creadas hoy no aparecían hasta el día siguiente. Ahora filtra por fecha de registro.
