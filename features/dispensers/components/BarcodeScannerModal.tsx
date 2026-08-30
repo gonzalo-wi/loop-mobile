@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import {
   Modal,
   View,
@@ -20,7 +20,7 @@ import {
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import { Ionicons } from '@expo/vector-icons';
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight';
-import { normalizeSerial } from '../services/dispenserValidationApi';
+import { useBarcodeCommit, type FeedbackKind } from '../hooks/useBarcodeCommit';
 import { C, R, S, F, W } from '@/lib/theme';
 
 const SCAN_OK_SOUND = require('@/assets/sounds/scan-ok.wav');
@@ -36,8 +36,6 @@ type Props = {
   onAdd: (serial: string) => void;
   onClose: () => void;
 };
-
-type Feedback = { type: 'ok' | 'dup' | 'invalid'; code: string } | null;
 
 const FRAME_W = 264;
 const FRAME_H = 172;
@@ -69,15 +67,11 @@ export function BarcodeScannerModal({
   // para que el teclado no tape el input de carga manual.
   const keyboardHeight = useKeyboardHeight();
   const [permission, requestPermission] = useCameraPermissions();
-  const [feedback, setFeedback] = useState<Feedback>(null);
   const [torch, setTorch] = useState(false);
-  const [recent, setRecent] = useState<{ code: string; invalid: boolean }[]>([]);
   // Carga manual dentro del escáner (dispensers sin código de barras).
   const [manualOpen, setManualOpen] = useState(false);
   const [manualValue, setManualValue] = useState('');
 
-  const lastRef = useRef<{ value: string; t: number }>({ value: '', t: 0 });
-  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scanLine = useRef(new Animated.Value(0)).current;
   const flash = useRef(new Animated.Value(0)).current;
   const okPlayerRef = useRef<AudioPlayer | null>(null);
@@ -109,17 +103,16 @@ export function BarcodeScannerModal({
   }, []);
 
   // Reproduce el sonido de feedback correspondiente al resultado del escaneo.
-  // Nunca debe bloquear ni interrumpir el flujo de escaneo si falla.
-  function playFeedbackSound(type: 'ok' | 'dup' | 'invalid') {
-    try {
-      const player = type === 'ok' ? okPlayerRef.current : errorPlayerRef.current;
-      if (!player) return;
-      player.seekTo(0).catch(() => {});
-      player.play();
-    } catch {
-      // noop
-    }
-  }
+  // La garantía de "no bloquear el flujo de escaneo si esto falla" la da
+  // `useBarcodeCommit` (envuelve esta llamada en try/catch); acá solo
+  // absorbemos el rechazo async de `seekTo` para no dejar una unhandled
+  // rejection colgada.
+  const playFeedbackSound = useCallback((type: FeedbackKind) => {
+    const player = type === 'ok' ? okPlayerRef.current : errorPlayerRef.current;
+    if (!player) return;
+    player.seekTo(0).catch(() => {});
+    player.play();
+  }, []);
 
   // Línea de escaneo animada mientras la cámara está activa.
   useEffect(() => {
@@ -145,72 +138,40 @@ export function BarcodeScannerModal({
     return () => loop.stop();
   }, [visible, permission?.granted, scanLine]);
 
-  // Limpia el estado efímero al cerrar.
-  useEffect(() => {
-    if (!visible) {
-      setRecent([]);
-      setFeedback(null);
-      setTorch(false);
-      setManualOpen(false);
-      setManualValue('');
-    }
-  }, [visible]);
-
-  useEffect(() => {
-    return () => {
-      if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
-    };
-  }, []);
-
-  function flashFrame() {
+  const flashFrame = useCallback(() => {
     flash.setValue(1);
     Animated.timing(flash, {
       toValue: 0,
       duration: 350,
       useNativeDriver: false,
     }).start();
-  }
+  }, [flash]);
 
-  function showFeedback(next: Feedback) {
-    setFeedback(next);
-    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
-    feedbackTimer.current = setTimeout(() => setFeedback(null), 1400);
-  }
+  const vibrate = useCallback((pattern: number | number[]) => {
+    Vibration.vibrate(pattern);
+  }, []);
 
-  // Agrega un código (venga del escáner o de la carga manual). Devuelve true si se agregó.
-  function commitCode(raw: string): boolean {
-    const code = raw.replace(/\s+/g, ''); // saca todos los espacios (puntas e internos)
-    if (!code) return false;
+  const { feedback, recent, commitCode, handleScan: handleBarcodeScan, reset } = useBarcodeCommit({
+    existingSerials,
+    invalidSerials,
+    onAdd,
+    playFeedbackSound,
+    vibrate,
+    flashFrame,
+  });
 
-    if (existingSerials.includes(code)) {
-      Vibration.vibrate(70);
-      playFeedbackSound('dup');
-      showFeedback({ type: 'dup', code });
-      return false;
+  // Limpia el estado efímero al cerrar.
+  useEffect(() => {
+    if (!visible) {
+      reset();
+      setTorch(false);
+      setManualOpen(false);
+      setManualValue('');
     }
-
-    // No registrado en Aguas: se agrega igual, pero marcado en rojo (no se enviará).
-    const invalid = invalidSerials?.has(normalizeSerial(code)) ?? false;
-
-    Vibration.vibrate(invalid ? [0, 90, 70, 90] : 35);
-    playFeedbackSound(invalid ? 'invalid' : 'ok');
-    flashFrame();
-    onAdd(code);
-    setRecent((prev) => [{ code, invalid }, ...prev.filter((r) => r.code !== code)].slice(0, 4));
-    showFeedback({ type: invalid ? 'invalid' : 'ok', code });
-    return true;
-  }
+  }, [visible, reset]);
 
   function handleScan(res: BarcodeScanningResult) {
-    const raw = res.data?.trim();
-    if (!raw) return;
-    const code = raw.replace(/\s+/g, ''); // misma normalización que usa commitCode
-
-    const now = Date.now();
-    if (code === lastRef.current.value && now - lastRef.current.t < 2000) return;
-    lastRef.current = { value: code, t: now };
-
-    commitCode(code);
+    handleBarcodeScan(res.data);
   }
 
   function handleManualAdd() {
