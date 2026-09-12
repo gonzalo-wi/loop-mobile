@@ -7,8 +7,9 @@ import {
   FlatList,
   StyleSheet,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
-import { useRouter, Stack } from 'expo-router';
+import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/store/authStore';
@@ -117,6 +118,14 @@ export default function DispensersScreen() {
   const [odooEquipment, setOdooEquipment] = useState<OdooEquipment[]>([]);
   const [odooEquipmentLoading, setOdooEquipmentLoading] = useState(false);
   const [odooEquipmentError, setOdooEquipmentError] = useState<string | null>(null);
+  // Distingue la primera consulta (panel vacío, tapa todo con el loading) de
+  // una re-consulta posterior —foco o pull-to-refresh— donde preferimos
+  // mantener a la vista el último resultado y marcar "Actualizando" en vez
+  // de taparlo, para que no parpadee la info que el operario ya vio.
+  const [odooEquipmentLoaded, setOdooEquipmentLoaded] = useState(false);
+
+  // Pull-to-refresh del panel Odoo + seriales inválidos de Aguas.
+  const [refreshing, setRefreshing] = useState(false);
 
   // Validación Odoo de series agregadas (independiente de la de Aguas).
   const [odooValidation, setOdooValidation] = useState<Map<string, OdooValidationResult>>(
@@ -153,6 +162,7 @@ export default function DispensersScreen() {
   /**
    * Refresca la lista de seriales no registrados en Aguas (del día de hoy).
    * Si falla, dejamos la lista como está: preferimos no bloquear la carga.
+   * La carga inicial (al montar) queda a cargo del `useFocusEffect` de abajo.
    */
   const refreshInvalidSerials = useCallback(async () => {
     try {
@@ -163,30 +173,56 @@ export default function DispensersScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    refreshInvalidSerials();
-  }, [refreshInvalidSerials]);
-
   /**
    * Equipos disponibles en Odoo para cargar (solo LOAD). Es un panel
    * informativo: si falla, no bloqueamos el trabajo del operario.
    */
   const loadOdooEquipment = useCallback(async () => {
     setOdooEquipmentLoading(true);
-    setOdooEquipmentError(null);
+    // El error/dataset previo se mantiene a la vista mientras se re-consulta
+    // (foco o pull-to-refresh) y solo se reemplaza al tener la respuesta
+    // nueva, para que el panel no "parpadee" a un estado vacío intermedio.
     try {
       const equipos = await getOdooAvailableEquipment();
       setOdooEquipment(equipos);
+      setOdooEquipmentError(null);
     } catch (e) {
       setOdooEquipmentError(e instanceof Error ? e.message : 'No se pudo consultar Odoo');
     } finally {
       setOdooEquipmentLoading(false);
+      setOdooEquipmentLoaded(true);
     }
   }, []);
 
-  useEffect(() => {
-    if (type === 'LOAD') loadOdooEquipment();
-  }, [type, loadOdooEquipment]);
+  /**
+   * Al enfocar la pantalla (montaje inicial o volver a ella), traemos datos
+   * frescos: equipos de Odoo (solo LOAD) y seriales no registrados en Aguas.
+   * Así evitamos depender del re-montaje (cerrar sesión) para ver altas
+   * hechas en Odoo mientras el operario ya estaba en esta pantalla.
+   *
+   * `type` está en las deps del callback memoizado: como `useFocusEffect`
+   * re-ejecuta el efecto cuando cambia la identidad del callback (además de
+   * en cada foco), cambiar de UNLOAD→LOAD estando ya parado en la pantalla
+   * también dispara esta carga — sin necesidad de un `useEffect` aparte que
+   * duplicaría el pedido.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      if (type === 'LOAD') loadOdooEquipment();
+      refreshInvalidSerials();
+    }, [type, loadOdooEquipment, refreshInvalidSerials]),
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const tasks: Promise<void>[] = [refreshInvalidSerials()];
+      if (type === 'LOAD') tasks.push(loadOdooEquipment());
+      await Promise.all(tasks);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [type, loadOdooEquipment, refreshInvalidSerials]);
 
   // Al cargar catálogos o cambiar de tipo, pre-selecciona el default de ese tipo.
   useEffect(() => {
@@ -446,8 +482,14 @@ export default function DispensersScreen() {
               <Text style={styles.odooBadgeText}>ODOO</Text>
             </View>
             <Text style={styles.odooPanelTitle}>Equipos disponibles para cargar</Text>
+            {odooEquipmentLoading && odooEquipmentLoaded && (
+              <View style={styles.odooRefreshingTag}>
+                <ActivityIndicator size="small" color={C.odoo} />
+                <Text style={styles.odooRefreshingText}>Actualizando</Text>
+              </View>
+            )}
           </View>
-          {odooEquipmentLoading ? (
+          {odooEquipmentLoading && !odooEquipmentLoaded ? (
             <View style={styles.odooPanelRow}>
               <ActivityIndicator size="small" color={C.odoo} />
               <Text style={styles.odooPanelText}>Consultando Odoo...</Text>
@@ -665,6 +707,9 @@ export default function DispensersScreen() {
         }
         contentContainerStyle={[styles.list, { paddingBottom: 100 + insets.bottom }]}
         keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
+        }
       />
 
       {/* Botón flotante de envío */}
@@ -842,7 +887,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     gap: 6,
   },
-  odooPanelHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  odooPanelHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', rowGap: 4 },
   odooBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -853,7 +898,16 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   odooBadgeText: { fontSize: 9, fontWeight: W.extra, color: '#fff', letterSpacing: 0.4 },
-  odooPanelTitle: { flex: 1, fontSize: F.sm + 1, fontWeight: W.extra, color: C.textStrong },
+  odooPanelTitle: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 120,
+    fontSize: F.sm + 1,
+    fontWeight: W.extra,
+    color: C.textStrong,
+  },
+  odooRefreshingTag: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  odooRefreshingText: { fontSize: F.xs, fontWeight: W.bold, color: C.odoo },
   odooPanelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   odooPanelText: { flex: 1, fontSize: F.sm, fontWeight: W.medium, color: C.textSub },
   odooPanelSample: { fontSize: F.xs, color: C.textMuted, fontWeight: W.medium },
