@@ -45,6 +45,13 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   default 400ms) antes de agregar un escaneo de cámara; la carga manual sigue
   siendo inmediata.
 - La lista de movimientos ahora muestra las cargas registradas en el día: antes filtraba por la fecha del movimiento (que en las cargas es el próximo día de reparto), así que las cargas creadas hoy no aparecían hasta el día siguiente. Ahora filtra por fecha de registro.
+- La pantalla de dispensers ahora refresca los datos: el panel "Equipos
+  disponibles en Odoo" y los seriales inexistentes en Aguas solo se cargaban
+  al montar la pantalla, así que había que cerrar sesión y volver a entrar
+  para ver equipos nuevos de Odoo. Se agrega recarga automática al enfocar la
+  pantalla (`useFocusEffect`) y pull-to-refresh en la lista. Durante el
+  refresh el panel mantiene el contenido y muestra un indicador
+  "Actualizando", sin parpadeos.
 
 ### Removed
 -
