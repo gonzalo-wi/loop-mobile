@@ -230,7 +230,7 @@ describe('useBarcodeCommit — commitCode', () => {
 });
 
 describe('useBarcodeCommit — handleScan', () => {
-  it('código con espacios internos escaneado 2 veces seguidas (<cooldown) agrega una sola vez (dedupe sobre valor normalizado)', () => {
+  it('código con espacios internos escaneado 2 veces seguidas (<cooldown) agrega una sola vez (la 2da lectura idéntica confirma y comitea, no se vuelve a agregar después por el gate ya consumido)', () => {
     const onAdd = jest.fn();
 
     const { result } = renderHook(() =>
@@ -238,10 +238,10 @@ describe('useBarcodeCommit — handleScan', () => {
     );
 
     act(() => {
-      result.current.handleScan('SN 001 234');
+      result.current.handleScan('SN 001 234'); // 1ra lectura: todavía no confirma (confirmReads default = 2)
     });
     act(() => {
-      result.current.handleScan('SN001234'); // mismo código normalizado, llamado enseguida
+      result.current.handleScan('SN001234'); // mismo código normalizado, llamado enseguida: confirma y comitea
     });
 
     expect(onAdd).toHaveBeenCalledTimes(1);
@@ -254,7 +254,10 @@ describe('useBarcodeCommit — handleScan', () => {
       const onAdd = jest.fn();
 
       const { result } = renderHook(() =>
-        useBarcodeCommit(buildOptions({ onAdd, cooldownMs: 2000 })),
+        // confirmReads: 1 mantiene la intención original del test (comitear
+        // en la primera lectura de cada tanda) sin acoplarlo al gate de
+        // confirmación, que se testea aparte.
+        useBarcodeCommit(buildOptions({ onAdd, cooldownMs: 2000, confirmReads: 1 })),
       );
 
       act(() => {
@@ -299,6 +302,174 @@ describe('useBarcodeCommit — handleScan', () => {
     expect(playFeedbackSound).not.toHaveBeenCalled();
     expect(vibrate).not.toHaveBeenCalled();
     expect(flashFrame).not.toHaveBeenCalled();
+  });
+});
+
+describe('useBarcodeCommit — gate de confirmación', () => {
+  it('una sola lectura NO comitea (default confirmReads=2)', () => {
+    const onAdd = jest.fn();
+
+    const { result } = renderHook(() => useBarcodeCommit(buildOptions({ onAdd })));
+
+    act(() => {
+      result.current.handleScan('ABC.123');
+    });
+
+    expect(onAdd).not.toHaveBeenCalled();
+    expect(result.current.feedback).toBeNull();
+    expect(result.current.recent).toEqual([]);
+  });
+
+  it('dos lecturas idénticas consecutivas (dentro de la ventana) comitean UNA vez', () => {
+    const onAdd = jest.fn();
+
+    const { result } = renderHook(() => useBarcodeCommit(buildOptions({ onAdd })));
+
+    act(() => {
+      result.current.handleScan('ABC.123');
+    });
+    act(() => {
+      result.current.handleScan('ABC.123');
+    });
+
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    expect(onAdd).toHaveBeenCalledWith('ABC.123');
+  });
+
+  it('valor que cambia a mitad de camino no confirma (ninguno llega a 2 consecutivas)', () => {
+    const onAdd = jest.fn();
+
+    const { result } = renderHook(() => useBarcodeCommit(buildOptions({ onAdd })));
+
+    act(() => {
+      result.current.handleScan('AAA');
+    });
+    act(() => {
+      result.current.handleScan('BBB');
+    });
+    act(() => {
+      result.current.handleScan('AAA');
+    });
+
+    expect(onAdd).not.toHaveBeenCalled();
+  });
+
+  it('ventana vencida reinicia el candidato: dos lecturas iguales separadas por más de confirmWindowMs NO comitean', () => {
+    jest.useFakeTimers();
+    try {
+      const onAdd = jest.fn();
+
+      const { result } = renderHook(() =>
+        useBarcodeCommit(buildOptions({ onAdd, confirmWindowMs: 400 })),
+      );
+
+      act(() => {
+        result.current.handleScan('ABC.123');
+      });
+      act(() => {
+        jest.advanceTimersByTime(401);
+      });
+      act(() => {
+        result.current.handleScan('ABC.123');
+      });
+
+      expect(onAdd).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('confirmReads: 3 recién comitea en la 3ra lectura idéntica, no antes', () => {
+    const onAdd = jest.fn();
+
+    const { result } = renderHook(() =>
+      useBarcodeCommit(buildOptions({ onAdd, confirmReads: 3 })),
+    );
+
+    act(() => {
+      result.current.handleScan('ABC.123');
+    });
+    expect(onAdd).not.toHaveBeenCalled();
+
+    act(() => {
+      result.current.handleScan('ABC.123');
+    });
+    expect(onAdd).not.toHaveBeenCalled();
+
+    act(() => {
+      result.current.handleScan('ABC.123');
+    });
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    expect(onAdd).toHaveBeenCalledWith('ABC.123');
+  });
+
+  it('espacios internos entre lecturas normalizan al mismo valor, confirman y comitean una vez con el valor sin espacios', () => {
+    const onAdd = jest.fn();
+
+    const { result } = renderHook(() => useBarcodeCommit(buildOptions({ onAdd })));
+
+    act(() => {
+      result.current.handleScan('AB C');
+    });
+    act(() => {
+      result.current.handleScan('ABC');
+    });
+
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    expect(onAdd).toHaveBeenCalledWith('ABC');
+  });
+
+  it('interacción gate + cooldown: tras confirmar y comitear, seguir mandando el mismo código dentro del cooldown no vuelve a agregar', () => {
+    jest.useFakeTimers();
+    try {
+      const onAdd = jest.fn();
+
+      const { result } = renderHook(() =>
+        useBarcodeCommit(buildOptions({ onAdd, cooldownMs: 2000 })),
+      );
+
+      act(() => {
+        result.current.handleScan('ABC.123'); // 1ra lectura: no confirma
+      });
+      act(() => {
+        result.current.handleScan('ABC.123'); // 2da lectura: confirma y comitea
+      });
+      expect(onAdd).toHaveBeenCalledTimes(1);
+
+      act(() => {
+        jest.advanceTimersByTime(500); // sigue dentro del cooldown de 2000ms
+      });
+      act(() => {
+        result.current.handleScan('ABC.123');
+      });
+      act(() => {
+        result.current.handleScan('ABC.123');
+      });
+
+      expect(onAdd).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('reset() limpia el candidato pendiente: una lectura a medio confirmar se descarta y no cuenta para la siguiente', () => {
+    const onAdd = jest.fn();
+
+    const { result } = renderHook(() => useBarcodeCommit(buildOptions({ onAdd })));
+
+    act(() => {
+      result.current.handleScan('ABC.123'); // candidato a medio confirmar (count=1)
+    });
+
+    act(() => {
+      result.current.reset();
+    });
+
+    act(() => {
+      result.current.handleScan('ABC.123'); // si no se hubiera reseteado, esta sería la 2da y confirmaría
+    });
+
+    expect(onAdd).not.toHaveBeenCalled();
   });
 });
 

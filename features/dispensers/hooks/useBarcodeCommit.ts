@@ -24,6 +24,20 @@ export type UseBarcodeCommitOptions = {
   feedbackDurationMs?: number;
   /** Ventana de cooldown (ms) para descartar el mismo código repetido. Default 2000. */
   cooldownMs?: number;
+  /**
+   * Cantidad de lecturas idénticas consecutivas (de la cámara) requeridas
+   * antes de comitear un escaneo. Sirve para filtrar misreads por motion
+   * blur: un código mal leído por movimiento es ruido y no se repite
+   * igual, uno bien enfocado sí decodifica lo mismo varias veces seguidas.
+   * Default 2.
+   */
+  confirmReads?: number;
+  /**
+   * Ventana máxima (ms) entre lecturas idénticas para que cuenten como
+   * consecutivas y sumen al conteo de confirmación. Si pasa más tiempo que
+   * esto o cambia el valor leído, el candidato se reinicia. Default 400.
+   */
+  confirmWindowMs?: number;
 };
 
 export type UseBarcodeCommitResult = {
@@ -33,7 +47,7 @@ export type UseBarcodeCommitResult = {
   recent: RecentCode[];
   /** Agrega un código (venga del escáner o de la carga manual). Devuelve true si se agregó. */
   commitCode: (raw: string) => boolean;
-  /** Maneja un resultado de escaneo de cámara: normaliza, aplica cooldown y comitea. */
+  /** Maneja un resultado de escaneo de cámara: normaliza, aplica cooldown, exige confirmación por lecturas repetidas y comitea. */
   handleScan: (data: string | undefined) => void;
   /** Limpia el estado efímero (feedback, recientes). Útil al cerrar el modal. */
   reset: () => void;
@@ -42,7 +56,14 @@ export type UseBarcodeCommitResult = {
 /**
  * Lógica pura (sin JSX) de commit de códigos escaneados/ingresados a mano en
  * el escáner de dispensers: normalización, detección de duplicado/inválido,
- * feedback visual/sonoro/háptico y cooldown de re-escaneo.
+ * feedback visual/sonoro/háptico, cooldown de re-escaneo y gate de
+ * confirmación por lecturas repetidas.
+ *
+ * El gate de confirmación solo aplica a la ruta de cámara (`handleScan`):
+ * exige que la cámara decodifique el mismo valor `confirmReads` veces
+ * seguidas dentro de `confirmWindowMs` antes de comitear, para filtrar
+ * misreads producidos por motion blur cuando el celular se mueve. La carga
+ * manual (`commitCode`) no pasa por este gate: comitea de inmediato.
  *
  * Los efectos con dependencias nativas (sonido, vibración, flash del marco)
  * se reciben como callbacks inyectables para poder testear esta lógica sin
@@ -58,12 +79,19 @@ export function useBarcodeCommit(options: UseBarcodeCommitOptions): UseBarcodeCo
     flashFrame,
     feedbackDurationMs = 1400,
     cooldownMs = 2000,
+    confirmReads = 2,
+    confirmWindowMs = 400,
   } = options;
 
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [recent, setRecent] = useState<RecentCode[]>([]);
 
   const lastRef = useRef<{ value: string; t: number }>({ value: '', t: 0 });
+  const pendingRef = useRef<{ value: string; count: number; lastT: number }>({
+    value: '',
+    count: 0,
+    lastT: 0,
+  });
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showFeedback = useCallback(
@@ -130,11 +158,24 @@ export function useBarcodeCommit(options: UseBarcodeCommitOptions): UseBarcodeCo
 
       const now = Date.now();
       if (code === lastRef.current.value && now - lastRef.current.t < cooldownMs) return;
+
+      // Gate de confirmación: una mala lectura por motion blur es ruido y no
+      // se repite idéntica, así que exigimos varias lecturas iguales
+      // seguidas antes de comitear (solo en la ruta de cámara).
+      if (code === pendingRef.current.value && now - pendingRef.current.lastT <= confirmWindowMs) {
+        pendingRef.current = { value: code, count: pendingRef.current.count + 1, lastT: now };
+      } else {
+        pendingRef.current = { value: code, count: 1, lastT: now };
+      }
+
+      if (pendingRef.current.count < confirmReads) return;
+
       lastRef.current = { value: code, t: now };
+      pendingRef.current = { value: '', count: 0, lastT: 0 };
 
       commitCode(code);
     },
-    [commitCode, cooldownMs],
+    [commitCode, cooldownMs, confirmReads, confirmWindowMs],
   );
 
   const reset = useCallback(() => {
@@ -144,6 +185,8 @@ export function useBarcodeCommit(options: UseBarcodeCommitOptions): UseBarcodeCo
     }
     setRecent([]);
     setFeedback(null);
+    pendingRef.current = { value: '', count: 0, lastT: 0 };
+    lastRef.current = { value: '', t: 0 };
   }, []);
 
   return { feedback, recent, commitCode, handleScan, reset };
