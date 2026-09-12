@@ -37,6 +37,13 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   reales del hook (RTL + jsdom por-archivo).
 
 ### Fixed
+- El escáner de dispensers ya no interpreta códigos equivocados cuando se
+  escanea con el celular en movimiento: antes comiteaba en el primer frame
+  decodificado, así que un frame con motion blur podía guardar un número mal
+  leído. Ahora `handleScan` exige N lecturas idénticas consecutivas
+  (`confirmReads`, default 2) dentro de una ventana corta (`confirmWindowMs`,
+  default 400ms) antes de agregar un escaneo de cámara; la carga manual sigue
+  siendo inmediata.
 - La lista de movimientos ahora muestra las cargas registradas en el día: antes filtraba por la fecha del movimiento (que en las cargas es el próximo día de reparto), así que las cargas creadas hoy no aparecían hasta el día siguiente. Ahora filtra por fecha de registro.
 
 ### Removed
