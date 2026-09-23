@@ -30,12 +30,19 @@ type Props = {
   visible: boolean;
   /** Seriales ya agregados; sirve para avisar duplicados. */
   existingSerials: string[];
-  /** Seriales "no registrados" en Aguas (normalizados): se rechazan al escanear. */
+  /** Seriales no normalizados según jMobile (normalizados para comparar): se marcan al escanear. */
   invalidSerials?: Set<string>;
+  /**
+   * Prefijo del feedback cuando el serial está en `invalidSerials`. En descargas no es un
+   * rechazo (el no normalizado se deriva a Odoo), así que la pantalla puede ajustar el texto.
+   */
+  invalidFeedbackLabel?: string;
   /** Se llama con cada serial nuevo escaneado. */
   onAdd: (serial: string) => void;
   onClose: () => void;
 };
+
+const DEFAULT_INVALID_FEEDBACK_LABEL = 'No normalizado: ';
 
 const FRAME_W = 264;
 const FRAME_H = 172;
@@ -59,6 +66,7 @@ export function BarcodeScannerModal({
   visible,
   existingSerials,
   invalidSerials,
+  invalidFeedbackLabel = DEFAULT_INVALID_FEEDBACK_LABEL,
   onAdd,
   onClose,
 }: Props) {
@@ -291,7 +299,7 @@ export function BarcodeScannerModal({
               {feedback.type === 'ok'
                 ? 'Agregado: '
                 : feedback.type === 'invalid'
-                  ? 'Dispenser inexistente: '
+                  ? invalidFeedbackLabel
                   : 'Ya escaneado: '}
               {feedback.code}
             </Text>

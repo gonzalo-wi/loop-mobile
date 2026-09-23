@@ -8,6 +8,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,6 +32,11 @@ import {
   validateOdooEquipment,
 } from '@/features/dispensers/services/odooApi';
 import { pollOdooStatus } from '@/features/dispensers/hooks/useOdooPolling';
+import {
+  expectsOdooDispatch,
+  getExclusionNotice,
+  shouldSendSerial,
+} from '@/features/dispensers/lib/movementOutcome';
 import type {
   AguasCatalog,
   AguasCatalogItem,
@@ -48,7 +54,11 @@ const ODOO_RESULT_OVERLAY_MS = 2200;
 const ODOO_VALIDATE_DEBOUNCE_MS = 900;
 
 type SerialSource = 'scan' | 'manual';
-/** `valid: false` = no registrado en Aguas. Se muestra en rojo y NO se envía. */
+/**
+ * `valid: false` = no registrado (no normalizado) según jMobile.
+ * LOAD: se muestra en rojo y NO se envía. UNLOAD: se envía igual y el backend lo deriva a la
+ * ubicación de no normalizados en Odoo (ver `shouldSendSerial`).
+ */
 type SerialEntry = { code: string; source: SerialSource; valid: boolean };
 
 function toDateString(date: Date): string {
@@ -111,7 +121,7 @@ export default function DispensersScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
 
-  // Seriales "no registrados" en Aguas del día: se rechazan al cargar.
+  // Seriales no normalizados del día según jMobile (ver `shouldSendSerial` para qué se envía).
   const [invalidSerials, setInvalidSerials] = useState<Set<string>>(new Set());
 
   // Panel "Equipos disponibles en Odoo" — solo informativo, solo para LOAD.
@@ -160,7 +170,7 @@ export default function DispensersScreen() {
   }, [loadCatalogs]);
 
   /**
-   * Refresca la lista de seriales no registrados en Aguas (del día de hoy).
+   * Refresca la lista de seriales no normalizados en jMobile (del día de hoy).
    * Si falla, dejamos la lista como está: preferimos no bloquear la carga.
    * La carga inicial (al montar) queda a cargo del `useFocusEffect` de abajo.
    */
@@ -196,7 +206,7 @@ export default function DispensersScreen() {
 
   /**
    * Al enfocar la pantalla (montaje inicial o volver a ella), traemos datos
-   * frescos: equipos de Odoo (solo LOAD) y seriales no registrados en Aguas.
+   * frescos: equipos de Odoo (solo LOAD) y seriales no normalizados en jMobile.
    * Así evitamos depender del re-montaje (cerrar sesión) para ver altas
    * hechas en Odoo mientras el operario ya estaba en esta pantalla.
    *
@@ -241,8 +251,8 @@ export default function DispensersScreen() {
   }, [type, dateTouched]);
 
   const serialCodes = serials.map((s) => s.code);
-  const validSerials = serials.filter((s) => s.valid);
-  const invalidCount = serials.length - validSerials.length;
+  const sendableSerials = serials.filter((s) => shouldSendSerial(type, s.valid));
+  const invalidCount = serials.filter((s) => !s.valid).length;
   // Series marcadas por Odoo como no disponibles (aviso independiente del de Aguas).
   const odooUnavailableCount = serials.filter((s) => {
     const result = odooValidation.get(s.code);
@@ -252,7 +262,7 @@ export default function DispensersScreen() {
   const addSerial = useCallback((code: string, source: SerialSource) => {
     const clean = code.replace(/\s+/g, ''); // saca todos los espacios (puntas e internos)
     if (!clean) return;
-    // Los no registrados en Aguas se agregan igual, pero marcados en rojo y sin enviarse.
+    // Los no normalizados (jMobile) se agregan igual, marcados; si se envían depende del tipo.
     const valid = !invalidSerials.has(normalizeSerial(clean));
     setSerials((prev) =>
       prev.some((s) => s.code === clean) ? prev : [...prev, { code: clean, source, valid }],
@@ -307,7 +317,7 @@ export default function DispensersScreen() {
   const canSubmit =
     routeCode.trim().length > 0 &&
     technician.trim().length > 0 &&
-    validSerials.length > 0 &&
+    sendableSerials.length > 0 &&
     !submitting;
 
   async function handleSubmit() {
@@ -321,19 +331,23 @@ export default function DispensersScreen() {
         locationId: location?.id,
         stateId: movState?.id,
         movementDate: toDateString(movementDate),
-        serials: validSerials.map((s) => s.code), // los inexistentes no se envían
+        serials: sendableSerials.map((s) => s.code),
       });
 
-      const count = validSerials.length;
+      const count = sendableSerials.length;
       const isLoadMovement = type === 'LOAD';
+      const notice = getExclusionNotice(created);
+      const nothingSentToAguas = created.status === 'SKIPPED_UNREGISTERED';
 
       setOverlay({
         visible: true,
         status: 'success',
         title: '¡Movimiento registrado!',
-        message: isLoadMovement
-          ? `${count} dispenser${count !== 1 ? 's' : ''} · Reparto ${routeCode.trim()}. Enviando a Aguas y Odoo...`
-          : `${count} dispenser${count !== 1 ? 's' : ''} · Reparto ${routeCode.trim()}. Se está enviando a Aguas.`,
+        message: nothingSentToAguas
+          ? `${count} dispenser${count !== 1 ? 's' : ''} · Reparto ${routeCode.trim()}. No se envió a Aguas.`
+          : isLoadMovement
+            ? `${count} dispenser${count !== 1 ? 's' : ''} · Reparto ${routeCode.trim()}. Enviando a Aguas y Odoo...`
+            : `${count} dispenser${count !== 1 ? 's' : ''} · Reparto ${routeCode.trim()}. Se está enviando a Aguas.`,
       });
 
       // El reset del form es rápido para no trabar al operario; el resultado
@@ -343,9 +357,17 @@ export default function DispensersScreen() {
         setOverlay((o) => ({ ...o, visible: false }));
         setRouteCode('');
         setSerials([]);
+        // Los excluidos se avisan con un diálogo (no un toast) para que no pasen desapercibidos:
+        // es el caso en que el operario cree que cargó algo que no fue a Aguas.
+        if (notice) {
+          Alert.alert(notice.title, notice.message, [{ text: 'Entendido' }], {
+            cancelable: !notice.requiresConfirmation,
+          });
+        }
       }, SUCCESS_OVERLAY_MS);
 
-      if (isLoadMovement) {
+      // Sin nada enviado a Aguas no hay salida a Odoo: el polling esperaría en vano.
+      if (expectsOdooDispatch(created)) {
         pollOdooStatus(created.id)
           .then((resolved) => {
             const odooMessage =
@@ -528,7 +550,7 @@ export default function DispensersScreen() {
       <View style={styles.serialsHeader}>
         <Text style={styles.sectionLabel}>Dispensers</Text>
         <View style={styles.countPill}>
-          <Text style={styles.countPillText}>{validSerials.length}</Text>
+          <Text style={styles.countPillText}>{sendableSerials.length}</Text>
         </View>
         {serials.length > 0 && (
           <TouchableOpacity style={styles.clearBtn} onPress={clearSerials} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -540,11 +562,19 @@ export default function DispensersScreen() {
 
       {(invalidCount > 0 || (isLoad && odooUnavailableCount > 0)) && (
         <View style={styles.warnPillsRow}>
-          {invalidCount > 0 && (
+          {invalidCount > 0 && isLoad && (
             <View style={styles.invalidPill}>
               <Ionicons name="close-circle" size={11} color={C.danger} />
               <Text style={styles.invalidPillText}>
-                {invalidCount} inexistente{invalidCount !== 1 ? 's' : ''} en Aguas
+                {invalidCount} no normalizado{invalidCount !== 1 ? 's' : ''} · no se envía{invalidCount !== 1 ? 'n' : ''}
+              </Text>
+            </View>
+          )}
+          {invalidCount > 0 && !isLoad && (
+            <View style={styles.noNormalizadoPill}>
+              <Ionicons name="git-branch-outline" size={11} color={C.warning} />
+              <Text style={styles.noNormalizadoPillText}>
+                {invalidCount} no normalizado{invalidCount !== 1 ? 's' : ''} · van a Odoo
               </Text>
             </View>
           )}
@@ -651,29 +681,52 @@ export default function DispensersScreen() {
         renderItem={({ item, index }) => {
           const odooResult = isLoad ? odooValidation.get(item.code) : undefined;
           const odooUnavailable = odooResult ? !odooResult.disponible : false;
+          // LOAD: no registrado = rechazado (rojo, no se envía).
+          // UNLOAD: no registrado = no normalizado (ámbar, se envía y el backend lo deriva a Odoo).
+          const rejected = !item.valid && isLoad;
+          const noNormalizado = !item.valid && !isLoad;
           return (
-            <View style={[styles.serialRow, !item.valid && styles.serialRowInvalid]}>
-              <View style={[styles.serialIndex, !item.valid && styles.serialIndexInvalid]}>
-                {item.valid ? (
-                  <Text style={styles.serialIndexText}>{index + 1}</Text>
-                ) : (
+            <View
+              style={[
+                styles.serialRow,
+                rejected && styles.serialRowInvalid,
+                noNormalizado && styles.serialRowNoNormalizado,
+              ]}
+            >
+              <View
+                style={[
+                  styles.serialIndex,
+                  rejected && styles.serialIndexInvalid,
+                  noNormalizado && styles.serialIndexNoNormalizado,
+                ]}
+              >
+                {rejected ? (
                   <Ionicons name="close" size={15} color={C.danger} />
+                ) : noNormalizado ? (
+                  <Ionicons name="git-branch-outline" size={14} color={C.warning} />
+                ) : (
+                  <Text style={styles.serialIndexText}>{index + 1}</Text>
                 )}
               </View>
               <Ionicons
                 name={item.source === 'scan' ? 'barcode-outline' : 'create-outline'}
                 size={16}
-                color={item.valid ? C.textMuted : C.danger}
+                color={rejected ? C.danger : noNormalizado ? C.warning : C.textMuted}
               />
               <View style={styles.serialBody}>
                 <Text
-                  style={[styles.serialText, !item.valid && styles.serialTextInvalid]}
+                  style={[styles.serialText, rejected && styles.serialTextInvalid]}
                   numberOfLines={1}
                 >
                   {item.code}
                 </Text>
-                {!item.valid && (
-                  <Text style={styles.serialInvalidTag}>Aguas: inexistente · no se envía</Text>
+                {rejected && (
+                  <Text style={styles.serialInvalidTag}>No normalizado (jMobile) · no se envía</Text>
+                )}
+                {noNormalizado && (
+                  <Text style={styles.serialNoNormalizadoTag} numberOfLines={1}>
+                    No normalizado · va a Odoo (no normalizados)
+                  </Text>
                 )}
                 {item.valid && odooUnavailable && (
                   <View style={styles.serialOdooTagRow}>
@@ -725,7 +778,7 @@ export default function DispensersScreen() {
           <>
             <Ionicons name="cloud-upload-outline" size={20} color="#fff" />
             <Text style={styles.submitText}>
-              Enviar{serials.length > 0 ? ` · ${serials.length}` : ''}
+              Enviar{sendableSerials.length > 0 ? ` · ${sendableSerials.length}` : ''}
             </Text>
           </>
         )}
@@ -746,6 +799,7 @@ export default function DispensersScreen() {
         visible={showScanner}
         existingSerials={serialCodes}
         invalidSerials={invalidSerials}
+        invalidFeedbackLabel={isLoad ? 'No normalizado · no se envía: ' : 'No normalizado → Odoo: '}
         onAdd={addScanned}
         onClose={() => setShowScanner(false)}
       />
@@ -935,6 +989,16 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   invalidPillText: { fontSize: F.xs, fontWeight: W.extra, color: C.danger },
+  noNormalizadoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: C.warningLight,
+    borderRadius: R.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  noNormalizadoPillText: { fontSize: F.xs, fontWeight: W.extra, color: C.warning },
   odooWarnPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1027,7 +1091,7 @@ const styles = StyleSheet.create({
   serialIndexText: { fontSize: F.xs, fontWeight: W.extra, color: C.textSub },
   serialBody: { flex: 1 },
   serialText: { fontSize: F.base, fontWeight: W.semibold, color: C.text },
-  // No registrado en Aguas: fila en rojo, no se envía.
+  // No normalizado en una carga: fila en rojo, no se envía.
   serialRowInvalid: {
     backgroundColor: C.dangerLight,
     borderWidth: 1,
@@ -1038,6 +1102,14 @@ const styles = StyleSheet.create({
   serialInvalidTag: { fontSize: F.xs, fontWeight: W.bold, color: C.danger, marginTop: 1 },
   serialOdooTagRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 1 },
   serialOdooTag: { fontSize: F.xs, fontWeight: W.bold, color: C.odoo },
+  // No normalizado en una descarga: fila ámbar, se envía y el backend la deriva a Odoo.
+  serialRowNoNormalizado: {
+    backgroundColor: C.warningLight,
+    borderWidth: 1,
+    borderColor: C.warningBorder,
+  },
+  serialIndexNoNormalizado: { backgroundColor: C.surface },
+  serialNoNormalizadoTag: { fontSize: F.xs, fontWeight: W.bold, color: C.warning, marginTop: 1 },
 
   emptySerials: { alignItems: 'center', paddingVertical: 30, gap: 6 },
   emptyIcon: {

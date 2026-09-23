@@ -1,4 +1,4 @@
-import { pollOdooStatus } from '../useOdooPolling';
+import { noNormalizadoPending, pollOdooStatus } from '../useOdooPolling';
 import { getDispenserMovement } from '../../services/dispenserApi';
 import type { DispenserMovement } from '../../types';
 
@@ -105,6 +105,22 @@ describe('pollOdooStatus', () => {
     const result = await runWithFakeTimers(promise, 10);
 
     expect(mockedGetDispenserMovement).toHaveBeenCalledTimes(3);
+    expect(result.odooStatus).toBeNull();
+  });
+
+  it('con isPending=noNormalizadoPending espera la derivación de no normalizados, no la salida', async () => {
+    mockedGetDispenserMovement
+      .mockResolvedValueOnce(buildMovement({ type: 'UNLOAD', odooNoNormalizadoStatus: null }))
+      .mockResolvedValueOnce(
+        buildMovement({ type: 'UNLOAD', odooNoNormalizadoStatus: 'SENT', odooNoNormalizadoPickingName: 'AC/FCNN/00001' }),
+      );
+
+    const promise = pollOdooStatus('mov-1', { intervalMs: 10, maxAttempts: 5, isPending: noNormalizadoPending });
+    const result = await runWithFakeTimers(promise, 10);
+
+    expect(mockedGetDispenserMovement).toHaveBeenCalledTimes(2);
+    expect(result.odooNoNormalizadoStatus).toBe('SENT');
+    // odooStatus sigue en null (UNLOAD sin salida): con el default habría seguido esperando.
     expect(result.odooStatus).toBeNull();
   });
 

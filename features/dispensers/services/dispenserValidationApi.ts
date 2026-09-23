@@ -1,10 +1,12 @@
 /**
- * Validación de seriales contra Aguas.
+ * Dispensers no normalizados según jMobile.
  *
- * Aguas expone un listado de dispensers "no registrados" del día: si un serial
- * aparece ahí, no existe como equipo válido y no se puede cargar en un movimiento.
+ * jMobile expone el listado del día de dispensers "no registrados" (no normalizados: no están
+ * asociados a ningún cliente). Si un serial aparece ahí:
+ *  - LOAD: no se envía.
+ *  - UNLOAD: se envía igual; el backend lo deriva a la ubicación de no normalizados en Odoo.
  *
- * OJO: pega directo al host de Aguas (no pasa por nuestro backend). Si en algún
+ * OJO: pega directo al host de jMobile (no pasa por nuestro backend). Si en algún
  * momento se puede proxear desde el backend, conviene moverlo ahí.
  */
 
@@ -22,7 +24,7 @@ export function normalizeSerial(serial: string): string {
 }
 
 /**
- * Seriales "no registrados" en Aguas para esa fecha (`YYYY-MM-DD`).
+ * Seriales no normalizados en jMobile para esa fecha (`YYYY-MM-DD`).
  * Devuelve un Set normalizado, listo para comparar contra lo escaneado.
  */
 export async function getUnregisteredSerials(date: string): Promise<Set<string>> {

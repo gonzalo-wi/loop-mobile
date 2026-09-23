@@ -38,6 +38,7 @@ export const C = {
   dangerLight: '#FDECEC',
   warning: '#E8870B',
   warningLight: '#FDF1DC',
+  warningBorder: '#F6D9A8',
   success: '#0FA968',
   successLight: '#DCF5EA',
   accent: '#0EA5C4',

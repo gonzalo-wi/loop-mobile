@@ -10,7 +10,7 @@ export type RecentCode = { code: string; invalid: boolean };
 export type UseBarcodeCommitOptions = {
   /** Seriales ya agregados; sirve para avisar duplicados. */
   existingSerials: string[];
-  /** Seriales "no registrados" en Aguas (normalizados): se rechazan al escanear. */
+  /** Seriales no normalizados según jMobile (normalizados para comparar): se marcan al escanear. */
   invalidSerials?: Set<string>;
   /** Se llama con cada serial nuevo escaneado. */
   onAdd: (serial: string) => void;
@@ -127,7 +127,7 @@ export function useBarcodeCommit(options: UseBarcodeCommitOptions): UseBarcodeCo
         return false;
       }
 
-      // No registrado en Aguas: se agrega igual, pero marcado en rojo (no se enviará).
+      // No normalizado (jMobile): se agrega igual pero marcado; la pantalla decide si se envía.
       const invalid = invalidSerials?.has(normalizeSerial(code)) ?? false;
 
       safeCall(() => vibrate(invalid ? [0, 90, 70, 90] : 35));

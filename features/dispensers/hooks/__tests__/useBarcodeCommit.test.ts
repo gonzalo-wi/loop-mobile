@@ -91,7 +91,7 @@ describe('useBarcodeCommit — commitCode', () => {
     expect(result.current.recent).toEqual([]);
   });
 
-  it('código inexistente en Aguas (normalizado, en invalidSerials): SÍ llama onAdd, playFeedbackSound("invalid"), feedback "invalid", y lo marca invalid en recent', () => {
+  it('código no normalizado en jMobile (en invalidSerials): SÍ llama onAdd, playFeedbackSound("invalid"), feedback "invalid", y lo marca invalid en recent', () => {
     const onAdd = jest.fn();
     const playFeedbackSound = jest.fn();
     const vibrate = jest.fn();

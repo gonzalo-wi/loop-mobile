@@ -17,7 +17,13 @@ import {
   updateDispenserMovement,
   cancelDispenserMovement,
 } from '@/features/dispensers/services/dispenserApi';
-import { pollOdooStatus } from '@/features/dispensers/hooks/useOdooPolling';
+import { noNormalizadoPending, pollOdooStatus } from '@/features/dispensers/hooks/useOdooPolling';
+import {
+  expectsNoNormalizadoIntake,
+  expectsOdooDispatch,
+  getExcludedSerials,
+  getExclusionNotice,
+} from '@/features/dispensers/lib/movementOutcome';
 import { HeroHeader } from '@/components/HeroHeader';
 import { BarcodeScannerModal } from '@/features/dispensers/components/BarcodeScannerModal';
 import type {
@@ -39,7 +45,19 @@ const STATUS_INFO: Record<
   REGISTERED: { label: 'Registrado · enviando a Aguas', color: C.warning, bg: C.warningLight, icon: 'sync-outline' },
   SENT_TO_AGUAS: { label: 'Enviado a Aguas', color: C.entry, bg: C.entryLight, icon: 'checkmark-circle' },
   AGUAS_ERROR: { label: 'Error — reintentando', color: C.danger, bg: C.dangerLight, icon: 'alert-circle' },
+  // Final: nunca cambia solo, así que sin ícono de "sincronizando".
+  SKIPPED_UNREGISTERED: { label: 'No enviado a Aguas · todos excluidos', color: C.textSub, bg: C.inputBg, icon: 'ban-outline' },
   CANCELLED: { label: 'Cancelado', color: C.textMuted, bg: C.inputBg, icon: 'close-circle' },
+};
+
+// Derivación de no normalizados a Odoo — solo UNLOAD con excluidos.
+const NO_NORMALIZADO_STATUS_INFO: Record<
+  'PENDING' | 'SENT' | 'ERROR',
+  { label: string; color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }
+> = {
+  PENDING: { label: 'Derivando no normalizados a Odoo…', color: C.warning, bg: C.warningLight, icon: 'sync-outline' },
+  SENT: { label: 'No normalizados en Odoo', color: C.odoo, bg: C.odooLight, icon: 'checkmark-circle' },
+  ERROR: { label: 'Odoo rechazó los no normalizados · reintentando', color: C.danger, bg: C.dangerLight, icon: 'alert-circle' },
 };
 
 // Estado del envío a Odoo — banner independiente del de Aguas, solo para LOAD.
@@ -101,7 +119,7 @@ export default function DispenserMovementDetailScreen() {
    */
   const odooPollAbortRef = useRef<AbortController | null>(null);
   useEffect(() => {
-    if (!mov || mov.type !== 'LOAD' || mov.odooStatus !== null) return;
+    if (!mov || !expectsOdooDispatch(mov) || mov.odooStatus !== null) return;
 
     const controller = new AbortController();
     odooPollAbortRef.current = controller;
@@ -118,7 +136,25 @@ export default function DispenserMovementDetailScreen() {
     return () => controller.abort();
     // Solo re-disparamos cuando cambia el id del movimiento (evita loop: el
     // polling ya actualiza `mov` con el estado resuelto).
-  }, [mov?.id, mov?.type, mov?.odooStatus]);
+  }, [mov?.id, mov?.type, mov?.status, mov?.odooStatus]);
+
+  /** Mismo polling corto, para la derivación de no normalizados (UNLOAD con excluidos). */
+  const awaitingNoNormalizado = mov ? expectsNoNormalizadoIntake(mov) && noNormalizadoPending(mov) : false;
+  useEffect(() => {
+    if (!mov || !awaitingNoNormalizado) return;
+
+    const controller = new AbortController();
+    pollOdooStatus(mov.id, { signal: controller.signal, isPending: noNormalizadoPending })
+      .then((resolved) => {
+        if (controller.signal.aborted) return;
+        setMov(resolved);
+      })
+      .catch(() => {
+        // AbortError esperado al desmontar/cambiar de movimiento.
+      });
+
+    return () => controller.abort();
+  }, [mov?.id, awaitingNoNormalizado]);
 
   function startEdit() {
     if (!mov) return;
@@ -162,8 +198,13 @@ export default function DispenserMovementDetailScreen() {
         movementDate: mov.movementDate,
         serials,
       });
-      // PUT crea un movimiento nuevo (nuevo id) → volvemos a la lista.
-      Alert.alert('Corregido', 'Se registró la corrección y se reenvió a Aguas.', [
+      // PUT crea un movimiento nuevo (nuevo id) y revalida los excluidos → volvemos a la lista.
+      const notice = getExclusionNotice(updated);
+      const baseMessage =
+        updated.status === 'SKIPPED_UNREGISTERED'
+          ? 'Se registró la corrección, pero no se envió a Aguas.'
+          : 'Se registró la corrección y se reenvió a Aguas.';
+      Alert.alert('Corregido', notice ? `${baseMessage}\n\n${notice.message}` : baseMessage, [
         { text: 'OK', onPress: () => router.back() },
       ]);
       setMov(updated);
@@ -231,8 +272,14 @@ export default function DispenserMovementDetailScreen() {
   const status = STATUS_INFO[mov.status] ?? STATUS_INFO.REGISTERED;
   const isCancelled = mov.status === 'CANCELLED';
   const displaySerials = editing ? serials : mov.serials;
+  // Al editar, la lista es la nueva: el backend revalida los excluidos en el PUT.
+  const excludedSet = new Set(editing ? [] : getExcludedSerials(mov));
   // Odoo es independiente de Aguas: un movimiento puede estar SENT_TO_AGUAS y odooStatus=ERROR.
-  const odooStatus = isLoad ? ODOO_STATUS_INFO[odooStatusKey(mov.odooStatus)] : null;
+  const odooStatus = expectsOdooDispatch(mov) ? ODOO_STATUS_INFO[odooStatusKey(mov.odooStatus)] : null;
+  const noNormalizadoStatus = expectsNoNormalizadoIntake(mov)
+    ? NO_NORMALIZADO_STATUS_INFO[odooStatusKey(mov.odooNoNormalizadoStatus ?? null)]
+    : null;
+  const excludedTag = isLoad ? 'No disponible en Odoo · no enviado' : 'No normalizado · derivado a Odoo';
 
   return (
     <View style={styles.screen}>
@@ -284,6 +331,35 @@ export default function DispenserMovementDetailScreen() {
                   {mov.odooStatus === 'SENT' && mov.odooPickingName ? (
                     <Text style={[styles.odooStatusSub, { color: odooStatus.color }]} numberOfLines={1}>
                       Comprobante: {mov.odooPickingName}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Derivación de no normalizados — independiente de Aguas y de reparación, solo UNLOAD */}
+          {noNormalizadoStatus && (
+            <View
+              style={[
+                styles.statusBanner,
+                styles.odooBanner,
+                { backgroundColor: noNormalizadoStatus.bg, borderLeftColor: noNormalizadoStatus.color },
+              ]}
+            >
+              <View style={[styles.systemTag, styles.systemTagOdoo]}>
+                <Ionicons name="cube" size={11} color={C.surface} />
+                <Text style={[styles.systemTagText, styles.systemTagTextOdoo]}>ODOO · NO NORMALIZADOS</Text>
+              </View>
+              <View style={styles.statusBannerRow}>
+                <Ionicons name={noNormalizadoStatus.icon} size={19} color={noNormalizadoStatus.color} />
+                <View style={styles.odooStatusBody}>
+                  <Text style={[styles.statusText, { color: noNormalizadoStatus.color }]}>
+                    {noNormalizadoStatus.label}
+                  </Text>
+                  {mov.odooNoNormalizadoStatus === 'SENT' && mov.odooNoNormalizadoPickingName ? (
+                    <Text style={[styles.odooStatusSub, { color: noNormalizadoStatus.color }]} numberOfLines={1}>
+                      Comprobante: {mov.odooNoNormalizadoPickingName}
                     </Text>
                   ) : null}
                 </View>
@@ -385,12 +461,25 @@ export default function DispenserMovementDetailScreen() {
           {displaySerials.length === 0 ? (
             <Text style={styles.noSerials}>Sin dispensers</Text>
           ) : (
-            displaySerials.map((code, i) => (
+            displaySerials.map((code, i) => {
+              const excluded = excludedSet.has(code);
+              return (
               <View key={code} style={[styles.serialRow, i > 0 && styles.serialRowBorder]}>
-                <View style={styles.serialIndex}>
-                  <Text style={styles.serialIndexText}>{i + 1}</Text>
+                <View style={[styles.serialIndex, excluded && styles.serialIndexExcluded]}>
+                  {excluded ? (
+                    <Ionicons name="alert" size={14} color={C.warning} />
+                  ) : (
+                    <Text style={styles.serialIndexText}>{i + 1}</Text>
+                  )}
                 </View>
-                <Text style={styles.serialText} numberOfLines={1}>{code}</Text>
+                <View style={styles.serialBody}>
+                  <Text style={[styles.serialText, excluded && styles.serialTextExcluded]} numberOfLines={1}>
+                    {code}
+                  </Text>
+                  {excluded && (
+                    <Text style={styles.serialExcludedTag} numberOfLines={1}>{excludedTag}</Text>
+                  )}
+                </View>
                 {editing && (
                   <TouchableOpacity
                     onPress={() => removeSerial(code)}
@@ -400,7 +489,8 @@ export default function DispenserMovementDetailScreen() {
                   </TouchableOpacity>
                 )}
               </View>
-            ))
+              );
+            })
           )}
         </View>
       </ScrollView>
@@ -613,7 +703,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   serialIndexText: { fontSize: F.xs, fontWeight: W.extra, color: C.textSub },
-  serialText: { flex: 1, fontSize: F.base, fontWeight: W.semibold, color: C.text },
+  serialBody: { flex: 1 },
+  serialText: { fontSize: F.base, fontWeight: W.semibold, color: C.text },
+  // Excluido por el backend (no normalizado en UNLOAD / no disponible en Odoo en LOAD).
+  serialIndexExcluded: { backgroundColor: C.warningLight },
+  serialTextExcluded: { color: C.textSub },
+  serialExcludedTag: { fontSize: F.xs, fontWeight: W.bold, color: C.warning, marginTop: 1 },
 
   actionBar: {
     flexDirection: 'row',

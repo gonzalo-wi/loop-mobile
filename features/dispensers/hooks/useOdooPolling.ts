@@ -25,25 +25,38 @@ function wait(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
+/** Por defecto se espera la salida a Odoo (LOAD). */
+const odooDispatchPending = (movement: DispenserMovement): boolean => movement.odooStatus === null;
+
+/** Derivación de no normalizados (UNLOAD): pendiente mientras el backend no la resolvió. */
+export const noNormalizadoPending = (movement: DispenserMovement): boolean =>
+  (movement.odooNoNormalizadoStatus ?? null) === null;
+
 /**
- * Reconsulta un movimiento hasta que `odooStatus` deje de ser `null` o se
- * agote la cantidad de intentos. Devuelve el último movimiento obtenido
- * (con `odooStatus` resuelto, o todavía `null` si se agotó la ventana).
+ * Reconsulta un movimiento mientras `isPending` sea true (por defecto: `odooStatus`
+ * en `null`) o hasta agotar los intentos. Devuelve el último movimiento obtenido
+ * (resuelto, o todavía pendiente si se agotó la ventana).
  *
  * Cancelable vía `AbortSignal`: si se aborta, corta el loop y rechaza con
  * `AbortError` (el caller puede ignorarlo).
  */
 export async function pollOdooStatus(
   id: string,
-  options?: { intervalMs?: number; maxAttempts?: number; signal?: AbortSignal },
+  options?: {
+    intervalMs?: number;
+    maxAttempts?: number;
+    signal?: AbortSignal;
+    isPending?: (movement: DispenserMovement) => boolean;
+  },
 ): Promise<DispenserMovement> {
   const intervalMs = options?.intervalMs ?? DEFAULT_INTERVAL_MS;
   const maxAttempts = options?.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
   const signal = options?.signal;
+  const isPending = options?.isPending ?? odooDispatchPending;
 
   let movement = await getDispenserMovement(id);
 
-  for (let attempt = 1; attempt < maxAttempts && movement.odooStatus === null; attempt++) {
+  for (let attempt = 1; attempt < maxAttempts && isPending(movement); attempt++) {
     if (signal?.aborted) return movement;
     await wait(intervalMs, signal ?? new AbortController().signal);
     if (signal?.aborted) return movement;

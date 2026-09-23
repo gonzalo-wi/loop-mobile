@@ -8,6 +8,16 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
+- Dispensers no normalizados (los que figuran en la lista de jMobile) en las
+  descargas: ahora se envían al backend, que los deriva a la ubicación de no
+  normalizados en Odoo sin pasar por reparación. En pantalla se ven en ámbar
+  ("No normalizado · va a Odoo"), y en el detalle hay un banner con el estado
+  de esa derivación y su comprobante. En las cargas siguen sin enviarse.
+- Aviso con diálogo después de registrar o corregir un movimiento cuando el
+  backend dejó seriales afuera (`excludedSerials`), con la lista de seriales.
+  Los excluidos también se marcan en el detalle y se cuentan en el listado.
+- Soporte del estado `SKIPPED_UNREGISTERED` ("No enviado"), que es final y se
+  muestra sin spinner. Antes quedaba colgado en "Enviando…" para siempre.
 - Integración con Odoo para el flujo de carga (LOAD) de dispensers, en
   paralelo a Aguas y sin cambiar el registro del movimiento: 4 campos nuevos
   (`odooStatus`, `odooPickingName`, `odooPickingId`, `odooReference`), re-fetch
@@ -28,6 +38,8 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   botones de ícono del escáner (linterna, cerrar, agregar a mano).
 
 ### Changed
+- Los textos de la validación de seriales hablan de "no normalizado (jMobile)"
+  en vez de "inexistente en Aguas", que es de donde sale realmente la lista.
 - El escáner de dispensers normaliza el código (sin espacios) antes del
   cooldown anti-duplicado de 2s, para que la deduplicación opere sobre el
   mismo valor que finalmente se agrega.

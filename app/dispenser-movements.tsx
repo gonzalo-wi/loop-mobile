@@ -12,6 +12,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getDispenserMovements } from '@/features/dispensers/services/dispenserApi';
 import { HeroHeader } from '@/components/HeroHeader';
+import { expectsOdooDispatch, getExcludedSerials } from '@/features/dispensers/lib/movementOutcome';
 import type {
   DispenserMovement,
   DispenserMovementType,
@@ -40,6 +41,8 @@ const STATUS_INFO: Record<
   REGISTERED: { label: 'Enviando…', color: C.warning, bg: C.warningLight, icon: 'sync-outline' },
   SENT_TO_AGUAS: { label: 'Enviado', color: C.entry, bg: C.entryLight, icon: 'checkmark-circle' },
   AGUAS_ERROR: { label: 'Error', color: C.danger, bg: C.dangerLight, icon: 'alert-circle' },
+  // Final (nada que enviar a Aguas): sin spinner.
+  SKIPPED_UNREGISTERED: { label: 'No enviado', color: C.textSub, bg: C.inputBg, icon: 'ban-outline' },
   CANCELLED: { label: 'Cancelado', color: C.textMuted, bg: C.inputBg, icon: 'close-circle' },
 };
 
@@ -63,7 +66,11 @@ function MovementCard({ mov, onPress }: { mov: DispenserMovement; onPress: () =>
   const status = STATUS_INFO[mov.status] ?? STATUS_INFO.REGISTERED;
   const isCancelled = mov.status === 'CANCELLED';
   const isLoad = mov.type === 'LOAD';
-  const odooChip = isLoad ? ODOO_CHIP_INFO[odooChipKey(mov.odooStatus)] : null;
+  const odooChip = expectsOdooDispatch(mov) ? ODOO_CHIP_INFO[odooChipKey(mov.odooStatus)] : null;
+  const excludedCount = getExcludedSerials(mov).length;
+  const excludedLabel = isLoad
+    ? `${excludedCount} no disponible${excludedCount !== 1 ? 's' : ''} en Odoo`
+    : `${excludedCount} no normalizado${excludedCount !== 1 ? 's' : ''} → Odoo`;
 
   return (
     <TouchableOpacity
@@ -82,6 +89,12 @@ function MovementCard({ mov, onPress }: { mov: DispenserMovement; onPress: () =>
           <Text style={styles.cardMeta} numberOfLines={1}>
             {mov.technician} · {formatTime(mov.createdAt)}
           </Text>
+          {excludedCount > 0 && (
+            <View style={styles.excludedRow}>
+              <Ionicons name="alert-circle" size={12} color={C.warning} />
+              <Text style={styles.excludedText} numberOfLines={1}>{excludedLabel}</Text>
+            </View>
+          )}
         </View>
         <View style={styles.chipsCol}>
           <View style={[styles.statusChip, { backgroundColor: status.bg }]}>
@@ -293,6 +306,8 @@ const styles = StyleSheet.create({
   cardInfo: { flex: 1 },
   cardCount: { fontSize: F.md, fontWeight: W.extra, color: C.text },
   cardMeta: { fontSize: F.sm, color: C.textMuted, fontWeight: W.medium, marginTop: 2 },
+  excludedRow: { flexDirection: 'row', alignItems: 'center', gap: S.xs, marginTop: S.xs },
+  excludedText: { fontSize: F.xs + 1, fontWeight: W.bold, color: C.warning },
   chipsCol: { alignItems: 'flex-end', gap: 5, maxWidth: 140 },
   statusChip: {
     flexDirection: 'row',
