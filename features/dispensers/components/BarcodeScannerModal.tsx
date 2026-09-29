@@ -21,6 +21,7 @@ import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-aud
 import { Ionicons } from '@expo/vector-icons';
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight';
 import { useBarcodeCommit, type FeedbackKind } from '../hooks/useBarcodeCommit';
+import { getFrameRect, isWithinFrame } from '../lib/scanRegion';
 import { C, R, S, F, W } from '@/lib/theme';
 
 const SCAN_OK_SOUND = require('@/assets/sounds/scan-ok.wav');
@@ -79,6 +80,9 @@ export function BarcodeScannerModal({
   // Carga manual dentro del escáner (dispensers sin código de barras).
   const [manualOpen, setManualOpen] = useState(false);
   const [manualValue, setManualValue] = useState('');
+  // Tamaño real de la cámara en pantalla (se conoce recién con onLayout); se
+  // usa para ubicar el recuadro de escaneo y filtrar lecturas fuera de él.
+  const [cameraSize, setCameraSize] = useState({ width: 0, height: 0 });
 
   const scanLine = useRef(new Animated.Value(0)).current;
   const flash = useRef(new Animated.Value(0)).current;
@@ -179,6 +183,13 @@ export function BarcodeScannerModal({
   }, [visible, reset]);
 
   function handleScan(res: BarcodeScanningResult) {
+    // Filtra lecturas fuera del recuadro visual. Si todavía no llegó el
+    // layout de la cámara (tamaño 0) no filtramos, para no perder lecturas
+    // iniciales; el código fuera del recuadro se ignora en silencio.
+    if (cameraSize.width > 0 && cameraSize.height > 0) {
+      const rect = getFrameRect(cameraSize.width, cameraSize.height, FRAME_W, FRAME_H);
+      if (!isWithinFrame(res, rect)) return;
+    }
     handleBarcodeScan(res.data);
   }
 
@@ -197,7 +208,13 @@ export function BarcodeScannerModal({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={styles.root}>
+      <View
+        style={styles.root}
+        onLayout={(e) => {
+          const { width, height } = e.nativeEvent.layout;
+          setCameraSize({ width, height });
+        }}
+      >
         {visible && permission?.granted ? (
           <CameraView
             style={StyleSheet.absoluteFill}
