@@ -49,6 +49,17 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   reales del hook (RTL + jsdom por-archivo).
 
 ### Fixed
+- El escáner de dispensers ahora solo lee los códigos que caen dentro del
+  recuadro visual: antes el recuadro era decorativo y se escaneaba cualquier
+  código del encuadre. Ahora se filtra por posición (centro de la lectura vs.
+  el recuadro centrado, con 12% de tolerancia) y las lecturas de afuera se
+  descartan en silencio. Si falta el layout de la cámara o la lectura no trae
+  geometría, no se filtra para no perder lecturas.
+- Los seriales de dispensers se sanean al ingresarlos (escaneo y carga manual,
+  en ambas pantallas): antes solo se sacaban espacios, así que caracteres como
+  `<` o `>` quedaban en el código y rompían la deduplicación, la validación
+  contra jMobile/Odoo y lo que se enviaba al backend. Ahora se conserva solo el
+  charset válido (`[A-Za-z0-9-]`, respetando mayúsculas/minúsculas).
 - El escáner de dispensers ya no interpreta códigos equivocados cuando se
   escanea con el celular en movimiento: antes comiteaba en el primer frame
   decodificado, así que un frame con motion blur podía guardar un número mal
