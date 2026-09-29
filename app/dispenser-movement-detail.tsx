@@ -18,6 +18,7 @@ import {
   cancelDispenserMovement,
 } from '@/features/dispensers/services/dispenserApi';
 import { noNormalizadoPending, pollOdooStatus } from '@/features/dispensers/hooks/useOdooPolling';
+import { sanitizeSerial } from '@/features/dispensers/services/dispenserValidationApi';
 import {
   expectsNoNormalizadoIntake,
   expectsOdooDispatch,
@@ -166,7 +167,7 @@ export default function DispenserMovementDetailScreen() {
   }
 
   const addSerial = useCallback((code: string) => {
-    const clean = code.trim();
+    const clean = sanitizeSerial(code); // deja solo [A-Za-z0-9-]: saca espacios y cualquier otro carácter (p. ej. < >)
     if (!clean) return;
     setSerials((prev) => (prev.includes(clean) ? prev : [...prev, clean]));
   }, []);

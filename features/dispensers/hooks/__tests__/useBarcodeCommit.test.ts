@@ -124,6 +124,45 @@ describe('useBarcodeCommit — commitCode', () => {
     expect(result.current.recent).toEqual([{ code: 'sn002', invalid: true }]);
   });
 
+  it('código con < > y otros caracteres inválidos: sanea antes de comitear, onAdd recibe el valor SANEADO', () => {
+    const onAdd = jest.fn();
+
+    const { result } = renderHook(() => useBarcodeCommit(buildOptions({ onAdd })));
+
+    let added: boolean = false;
+    act(() => {
+      added = result.current.commitCode('<SN-005>');
+    });
+
+    expect(added).toBe(true);
+    expect(onAdd).toHaveBeenCalledWith('SN-005');
+    expect(result.current.recent).toEqual([{ code: 'SN-005', invalid: false }]);
+  });
+
+  it('código que queda vacío tras sanear (solo caracteres inválidos): no llama onAdd ni feedback, devuelve false', () => {
+    const onAdd = jest.fn();
+    const playFeedbackSound = jest.fn();
+    const vibrate = jest.fn();
+    const flashFrame = jest.fn();
+
+    const { result } = renderHook(() =>
+      useBarcodeCommit(buildOptions({ onAdd, playFeedbackSound, vibrate, flashFrame })),
+    );
+
+    let added: boolean = true;
+    act(() => {
+      added = result.current.commitCode('<>');
+    });
+
+    expect(added).toBe(false);
+    expect(onAdd).not.toHaveBeenCalled();
+    expect(vibrate).not.toHaveBeenCalled();
+    expect(playFeedbackSound).not.toHaveBeenCalled();
+    expect(flashFrame).not.toHaveBeenCalled();
+    expect(result.current.feedback).toBeNull();
+    expect(result.current.recent).toEqual([]);
+  });
+
   it('código vacío o solo espacios: no hace nada y devuelve false', () => {
     const onAdd = jest.fn();
     const playFeedbackSound = jest.fn();
@@ -276,6 +315,48 @@ describe('useBarcodeCommit — handleScan', () => {
     }
   });
 
+  it('escaneo de cámara con < > se sanea: dos lecturas idénticas de "<SN-005>" confirman y comitean con el valor saneado', () => {
+    const onAdd = jest.fn();
+
+    const { result } = renderHook(() => useBarcodeCommit(buildOptions({ onAdd })));
+
+    act(() => {
+      result.current.handleScan('<SN-005>'); // 1ra lectura: no confirma (confirmReads default = 2)
+    });
+    expect(onAdd).not.toHaveBeenCalled();
+
+    act(() => {
+      result.current.handleScan('<SN-005>'); // 2da lectura idéntica (ya saneada internamente): confirma y comitea
+    });
+
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    expect(onAdd).toHaveBeenCalledWith('SN-005');
+  });
+
+  it('escaneo de cámara que queda vacío tras sanear ("<>"): no hace nada, ni siquiera cuenta para el gate de confirmación', () => {
+    const onAdd = jest.fn();
+    const playFeedbackSound = jest.fn();
+    const vibrate = jest.fn();
+    const flashFrame = jest.fn();
+
+    const { result } = renderHook(() =>
+      useBarcodeCommit(buildOptions({ onAdd, playFeedbackSound, vibrate, flashFrame })),
+    );
+
+    act(() => {
+      result.current.handleScan('<>');
+    });
+    act(() => {
+      result.current.handleScan('<>');
+    });
+
+    expect(onAdd).not.toHaveBeenCalled();
+    expect(playFeedbackSound).not.toHaveBeenCalled();
+    expect(vibrate).not.toHaveBeenCalled();
+    expect(flashFrame).not.toHaveBeenCalled();
+    expect(result.current.feedback).toBeNull();
+  });
+
   it('data undefined o vacío ("") no hace nada (no llama onAdd ni deps)', () => {
     const onAdd = jest.fn();
     const playFeedbackSound = jest.fn();
@@ -333,7 +414,8 @@ describe('useBarcodeCommit — gate de confirmación', () => {
     });
 
     expect(onAdd).toHaveBeenCalledTimes(1);
-    expect(onAdd).toHaveBeenCalledWith('ABC.123');
+    // sanitizeSerial saca el '.' (no forma parte de [A-Za-z0-9-])
+    expect(onAdd).toHaveBeenCalledWith('ABC123');
   });
 
   it('valor que cambia a mitad de camino no confirma (ninguno llega a 2 consecutivas)', () => {
@@ -400,7 +482,8 @@ describe('useBarcodeCommit — gate de confirmación', () => {
       result.current.handleScan('ABC.123');
     });
     expect(onAdd).toHaveBeenCalledTimes(1);
-    expect(onAdd).toHaveBeenCalledWith('ABC.123');
+    // sanitizeSerial saca el '.' (no forma parte de [A-Za-z0-9-])
+    expect(onAdd).toHaveBeenCalledWith('ABC123');
   });
 
   it('espacios internos entre lecturas normalizan al mismo valor, confirman y comitean una vez con el valor sin espacios', () => {

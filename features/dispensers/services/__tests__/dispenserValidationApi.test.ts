@@ -1,4 +1,4 @@
-import { getUnregisteredSerials, normalizeSerial } from '../dispenserValidationApi';
+import { getUnregisteredSerials, normalizeSerial, sanitizeSerial } from '../dispenserValidationApi';
 
 /**
  * `getUnregisteredSerials` pega directo a Aguas con `fetch` global (no pasa
@@ -33,6 +33,37 @@ describe('normalizeSerial', () => {
 
   it('cadena vacía devuelve cadena vacía', () => {
     expect(normalizeSerial('')).toBe('');
+  });
+});
+
+describe('sanitizeSerial', () => {
+  it('saca los caracteres < y >', () => {
+    expect(sanitizeSerial('<ABC123>')).toBe('ABC123');
+  });
+
+  it('conserva los guiones', () => {
+    expect(sanitizeSerial('SN-001')).toBe('SN-001');
+  });
+
+  it('mantiene el case (no mayusculiza ni minusculiza)', () => {
+    expect(sanitizeSerial('sn-Abc')).toBe('sn-Abc');
+  });
+
+  it('saca espacios internos y de las puntas', () => {
+    expect(sanitizeSerial('  SN 001 ')).toBe('SN001');
+  });
+
+  it('un string de solo caracteres inválidos da cadena vacía', () => {
+    expect(sanitizeSerial('<<< >>>')).toBe('');
+  });
+
+  it('saca guiones bajos, puntos y barras (no forman parte del charset permitido)', () => {
+    // charset permitido: [A-Za-z0-9-]; '_', '.', '/' no están incluidos y se descartan
+    expect(sanitizeSerial('SN_001.2/3')).toBe('SN00123');
+  });
+
+  it('cadena vacía devuelve cadena vacía', () => {
+    expect(sanitizeSerial('')).toBe('');
   });
 });
 

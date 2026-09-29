@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { normalizeSerial } from '../services/dispenserValidationApi';
+import { normalizeSerial, sanitizeSerial } from '../services/dispenserValidationApi';
 
 export type FeedbackKind = 'ok' | 'dup' | 'invalid';
 
@@ -117,7 +117,7 @@ export function useBarcodeCommit(options: UseBarcodeCommitOptions): UseBarcodeCo
 
   const commitCode = useCallback(
     (raw: string): boolean => {
-      const code = raw.replace(/\s+/g, ''); // saca todos los espacios (puntas e internos)
+      const code = sanitizeSerial(raw); // deja solo [A-Za-z0-9-]: saca espacios y cualquier otro carácter (p. ej. < >)
       if (!code) return false;
 
       if (existingSerials.includes(code)) {
@@ -154,7 +154,8 @@ export function useBarcodeCommit(options: UseBarcodeCommitOptions): UseBarcodeCo
     (data: string | undefined) => {
       const raw = data?.trim();
       if (!raw) return;
-      const code = raw.replace(/\s+/g, ''); // misma normalización que usa commitCode
+      const code = sanitizeSerial(raw); // misma sanitización que usa commitCode
+      if (!code) return;
 
       const now = Date.now();
       if (code === lastRef.current.value && now - lastRef.current.t < cooldownMs) return;

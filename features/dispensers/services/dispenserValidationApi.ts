@@ -23,6 +23,11 @@ export function normalizeSerial(serial: string): string {
   return serial.replace(/\s+/g, '').toUpperCase();
 }
 
+/** Deja solo el charset válido del serial ([A-Za-z0-9-]); saca espacios y cualquier otro carácter (p. ej. < >). Mantiene el case. */
+export function sanitizeSerial(serial: string): string {
+  return serial.replace(/[^A-Za-z0-9-]/g, '');
+}
+
 /**
  * Seriales no normalizados en jMobile para esa fecha (`YYYY-MM-DD`).
  * Devuelve un Set normalizado, listo para comparar contra lo escaneado.

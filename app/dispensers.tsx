@@ -26,6 +26,7 @@ import {
 import {
   getUnregisteredSerials,
   normalizeSerial,
+  sanitizeSerial,
 } from '@/features/dispensers/services/dispenserValidationApi';
 import {
   getOdooAvailableEquipment,
@@ -260,7 +261,7 @@ export default function DispensersScreen() {
   }).length;
 
   const addSerial = useCallback((code: string, source: SerialSource) => {
-    const clean = code.replace(/\s+/g, ''); // saca todos los espacios (puntas e internos)
+    const clean = sanitizeSerial(code); // deja solo [A-Za-z0-9-]: saca espacios y cualquier otro carácter (p. ej. < >)
     if (!clean) return;
     // Los no normalizados (jMobile) se agregan igual, marcados; si se envían depende del tipo.
     const valid = !invalidSerials.has(normalizeSerial(clean));
