@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Modal,
   View,
@@ -21,42 +21,40 @@ type Props = {
   onClose: () => void;
 };
 
+const SEARCH_DEBOUNCE_MS = 300;
+
 export function RouteSearchModal({ visible, onSelect, onClose }: Props) {
   const [routes, setRoutes] = useState<Route[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (visible && routes.length === 0) {
-      loadRoutes();
-    }
-  }, [visible]);
+  // Cada búsqueda incrementa el id; solo la respuesta más reciente pisa el estado,
+  // así una respuesta lenta de una búsqueda vieja no sobrescribe a la nueva.
+  const reqId = useRef(0);
 
-  async function loadRoutes() {
+  const loadRoutes = useCallback(async (searchTerm: string) => {
+    const id = ++reqId.current;
     setLoading(true);
     setError(null);
     try {
-      const data = await getAllRoutes();
-      setRoutes(data);
+      const data = await getAllRoutes(searchTerm);
+      if (id === reqId.current) setRoutes(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error al cargar repartos');
+      if (id === reqId.current) {
+        setError(e instanceof Error ? e.message : 'Error al cargar repartos');
+      }
     } finally {
-      setLoading(false);
+      if (id === reqId.current) setLoading(false);
     }
-  }
+  }, []);
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return routes;
-    const lower = search.toLowerCase();
-    return routes.filter(
-      (r) =>
-        r.code.toLowerCase().includes(lower) ||
-        r.branchName.toLowerCase().includes(lower) ||
-        r.branchCode.toLowerCase().includes(lower) ||
-        (r.driverName?.toLowerCase().includes(lower) ?? false)
-    );
-  }, [routes, search]);
+  // Recarga desde el backend al abrir y cada vez que cambia el texto (con debounce).
+  useEffect(() => {
+    if (!visible) return;
+    const handle = setTimeout(() => loadRoutes(search), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(handle);
+  }, [visible, search, loadRoutes]);
 
   const handleSelect = useCallback(
     (route: Route) => {
@@ -91,18 +89,18 @@ export function RouteSearchModal({ visible, onSelect, onClose }: Props) {
             returnKeyType="search"
           />
 
-          {loading ? (
+          {loading && routes.length === 0 ? (
             <ActivityIndicator size="large" color="#007AFF" style={styles.loader} />
           ) : error ? (
             <View style={styles.centered}>
               <Text style={styles.errorText}>{error}</Text>
-              <TouchableOpacity onPress={loadRoutes} style={styles.retryBtn}>
+              <TouchableOpacity onPress={() => loadRoutes(search)} style={styles.retryBtn}>
                 <Text style={styles.retryText}>Reintentar</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <FlatList
-              data={filtered}
+              data={routes}
               keyExtractor={(item) => item.id}
               keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => (
