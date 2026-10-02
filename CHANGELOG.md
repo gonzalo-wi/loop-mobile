@@ -49,6 +49,14 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   reales del hook (RTL + jsdom por-archivo).
 
 ### Fixed
+- Al escanear, los seriales conservan el punto `.` y el asterisco `*`: antes
+  `sanitizeSerial` los borraba junto con el resto de caracteres especiales,
+  pero algunos códigos de barras los incluyen y quedaban mutilados (no
+  macheaban con Aguas/Odoo). El charset válido pasó a `[A-Za-z0-9.*-]`.
+- La carga manual de seriales (panel "a mano" del escáner y los campos de
+  ambas pantallas) ahora se guarda en MAYÚSCULAS. Los seriales en Aguas
+  (jMobile) y Odoo son mayúsculas, así que cargarlos en minúscula no macheaba.
+  El escaneo de cámara no cambia (los códigos ya vienen en mayúscula).
 - El escáner de dispensers ahora solo lee los códigos que caen dentro del
   recuadro visual: antes el recuadro era decorativo y se escaneaba cualquier
   código del encuadre. Ahora se filtra por posición (centro de la lectura vs.
