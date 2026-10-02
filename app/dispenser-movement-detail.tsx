@@ -166,8 +166,10 @@ export default function DispenserMovementDetailScreen() {
     setEditing(true);
   }
 
-  const addSerial = useCallback((code: string) => {
-    const clean = sanitizeSerial(code); // deja solo [A-Za-z0-9-]: saca espacios y cualquier otro carácter (p. ej. < >)
+  const addSerial = useCallback((code: string, manual = false) => {
+    // deja solo [A-Za-z0-9.*-]: saca espacios y cualquier otro carácter (p. ej. < >, _, /).
+    // Carga manual pasa a mayúsculas (si no, no machea contra Aguas/Odoo); el escaneo preserva el case del barcode.
+    const clean = sanitizeSerial(code, { uppercase: manual });
     if (!clean) return;
     setSerials((prev) => (prev.includes(clean) ? prev : [...prev, clean]));
   }, []);
@@ -175,7 +177,7 @@ export default function DispenserMovementDetailScreen() {
   function handleAddManual() {
     const clean = manualSerial.trim();
     if (!clean) return;
-    addSerial(clean);
+    addSerial(clean, true);
     setManualSerial('');
   }
 

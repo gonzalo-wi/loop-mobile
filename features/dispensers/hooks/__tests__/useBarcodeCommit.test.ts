@@ -268,6 +268,92 @@ describe('useBarcodeCommit — commitCode', () => {
   });
 });
 
+describe('useBarcodeCommit — commitCode con options.manual (carga manual en mayúsculas)', () => {
+  it('manual: true mayusculiza y conserva el punto: "abc.123" -> onAdd("ABC.123")', () => {
+    const onAdd = jest.fn();
+
+    const { result } = renderHook(() => useBarcodeCommit(buildOptions({ onAdd })));
+
+    let added: boolean = false;
+    act(() => {
+      added = result.current.commitCode('abc.123', { manual: true });
+    });
+
+    expect(added).toBe(true);
+    expect(onAdd).toHaveBeenCalledWith('ABC.123');
+    expect(result.current.recent).toEqual([{ code: 'ABC.123', invalid: false }]);
+  });
+
+  it('sin options (default, ruta de escaneo): "abc123" NO se mayusculiza, preserva el case', () => {
+    const onAdd = jest.fn();
+
+    const { result } = renderHook(() => useBarcodeCommit(buildOptions({ onAdd })));
+
+    act(() => {
+      result.current.commitCode('abc123');
+    });
+
+    expect(onAdd).toHaveBeenCalledWith('abc123');
+  });
+
+  it('manual vs escaneo difieren SOLO en el case: handleScan preserva "abc.123", commitCode manual lo mayusculiza a "ABC.123"', () => {
+    const onAddManual = jest.fn();
+    const onAddScan = jest.fn();
+
+    const manualHook = renderHook(() => useBarcodeCommit(buildOptions({ onAdd: onAddManual })));
+    act(() => {
+      manualHook.result.current.commitCode('abc.123', { manual: true });
+    });
+    expect(onAddManual).toHaveBeenCalledWith('ABC.123');
+
+    const scanHook = renderHook(() => useBarcodeCommit(buildOptions({ onAdd: onAddScan })));
+    // handleScan exige confirmReads lecturas idénticas consecutivas (default 2)
+    act(() => {
+      scanHook.result.current.handleScan('abc.123');
+    });
+    expect(onAddScan).not.toHaveBeenCalled();
+    act(() => {
+      scanHook.result.current.handleScan('abc.123');
+    });
+    expect(onAddScan).toHaveBeenCalledWith('abc.123');
+  });
+
+  it('dedup cruzado: "ABC123" ya en existingSerials detecta como duplicado "abc123" cargado a mano (se mayusculiza antes de comparar)', () => {
+    const onAdd = jest.fn();
+    const playFeedbackSound = jest.fn();
+    const vibrate = jest.fn();
+
+    const { result } = renderHook(() =>
+      useBarcodeCommit(
+        buildOptions({ existingSerials: ['ABC123'], onAdd, playFeedbackSound, vibrate }),
+      ),
+    );
+
+    let added: boolean = true;
+    act(() => {
+      added = result.current.commitCode('abc123', { manual: true });
+    });
+
+    expect(added).toBe(false);
+    expect(onAdd).not.toHaveBeenCalled();
+    expect(playFeedbackSound).toHaveBeenCalledWith<[FeedbackKind]>('dup');
+    expect(vibrate).toHaveBeenCalledWith(70);
+    expect(result.current.feedback).toEqual({ type: 'dup', code: 'ABC123' });
+  });
+
+  it('manual: false se comporta igual que el default (preserva case, no mayusculiza)', () => {
+    const onAdd = jest.fn();
+
+    const { result } = renderHook(() => useBarcodeCommit(buildOptions({ onAdd })));
+
+    act(() => {
+      result.current.commitCode('abc.123', { manual: false });
+    });
+
+    expect(onAdd).toHaveBeenCalledWith('abc.123');
+  });
+});
+
 describe('useBarcodeCommit — handleScan', () => {
   it('código con espacios internos escaneado 2 veces seguidas (<cooldown) agrega una sola vez (la 2da lectura idéntica confirma y comitea, no se vuelve a agregar después por el gate ya consumido)', () => {
     const onAdd = jest.fn();
@@ -414,8 +500,8 @@ describe('useBarcodeCommit — gate de confirmación', () => {
     });
 
     expect(onAdd).toHaveBeenCalledTimes(1);
-    // sanitizeSerial saca el '.' (no forma parte de [A-Za-z0-9-])
-    expect(onAdd).toHaveBeenCalledWith('ABC123');
+    // sanitizeSerial conserva el '.' (forma parte de [A-Za-z0-9.*-])
+    expect(onAdd).toHaveBeenCalledWith('ABC.123');
   });
 
   it('valor que cambia a mitad de camino no confirma (ninguno llega a 2 consecutivas)', () => {
@@ -482,8 +568,8 @@ describe('useBarcodeCommit — gate de confirmación', () => {
       result.current.handleScan('ABC.123');
     });
     expect(onAdd).toHaveBeenCalledTimes(1);
-    // sanitizeSerial saca el '.' (no forma parte de [A-Za-z0-9-])
-    expect(onAdd).toHaveBeenCalledWith('ABC123');
+    // sanitizeSerial conserva el '.' (forma parte de [A-Za-z0-9.*-])
+    expect(onAdd).toHaveBeenCalledWith('ABC.123');
   });
 
   it('espacios internos entre lecturas normalizan al mismo valor, confirman y comitean una vez con el valor sin espacios', () => {

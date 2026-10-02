@@ -23,9 +23,19 @@ export function normalizeSerial(serial: string): string {
   return serial.replace(/\s+/g, '').toUpperCase();
 }
 
-/** Deja solo el charset válido del serial ([A-Za-z0-9-]); saca espacios y cualquier otro carácter (p. ej. < >). Mantiene el case. */
-export function sanitizeSerial(serial: string): string {
-  return serial.replace(/[^A-Za-z0-9-]/g, '');
+/**
+ * Deja solo el charset válido del serial ([A-Za-z0-9.*-]); saca espacios y cualquier otro
+ * carácter (p. ej. < >, _, /). `.` y `*` son los únicos especiales válidos en los seriales
+ * de dispensers y se conservan.
+ *
+ * Por default mantiene el case (lo usa el escaneo de cámara, donde el barcode ya viene en
+ * mayúscula). Si `options.uppercase` es true, además pasa el resultado a mayúsculas: lo usa
+ * la carga manual, porque las letras de los seriales son siempre mayúsculas y si se cargan en
+ * minúscula no machean contra Aguas (jMobile) ni Odoo.
+ */
+export function sanitizeSerial(serial: string, options?: { uppercase?: boolean }): string {
+  const clean = serial.replace(/[^A-Za-z0-9.*-]/g, '');
+  return options?.uppercase ? clean.toUpperCase() : clean;
 }
 
 /**

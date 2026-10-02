@@ -194,7 +194,7 @@ export function BarcodeScannerModal({
   }
 
   function handleManualAdd() {
-    if (commitCode(manualValue)) setManualValue('');
+    if (commitCode(manualValue, { manual: true })) setManualValue('');
   }
 
   const lineTranslate = scanLine.interpolate({
