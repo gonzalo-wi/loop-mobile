@@ -18,6 +18,8 @@ export const api = axios.create({
   baseURL: BASE_URL,
   headers: {
     'Content-Type': 'application/json',
+    // Lets the backend audit log tell mobile app actions apart from panel ones.
+    'X-Client-App': 'mobile',
   },
 });
 
