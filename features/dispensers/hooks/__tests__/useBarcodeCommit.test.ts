@@ -116,12 +116,12 @@ describe('useBarcodeCommit — commitCode', () => {
     });
 
     expect(added).toBe(true);
-    expect(onAdd).toHaveBeenCalledWith('sn002'); // commitCode solo saca espacios, no mayusculiza el code guardado
+    expect(onAdd).toHaveBeenCalledWith('SN002'); // commitCode saca espacios y guarda en mayúsculas
     expect(playFeedbackSound).toHaveBeenCalledWith<[FeedbackKind]>('invalid');
     expect(vibrate).toHaveBeenCalledWith([0, 90, 70, 90]);
     expect(flashFrame).toHaveBeenCalledTimes(1);
-    expect(result.current.feedback).toEqual({ type: 'invalid', code: 'sn002' });
-    expect(result.current.recent).toEqual([{ code: 'sn002', invalid: true }]);
+    expect(result.current.feedback).toEqual({ type: 'invalid', code: 'SN002' });
+    expect(result.current.recent).toEqual([{ code: 'SN002', invalid: true }]);
   });
 
   it('código con < > y otros caracteres inválidos: sanea antes de comitear, onAdd recibe el valor SANEADO', () => {
@@ -268,15 +268,15 @@ describe('useBarcodeCommit — commitCode', () => {
   });
 });
 
-describe('useBarcodeCommit — commitCode con options.manual (carga manual en mayúsculas)', () => {
-  it('manual: true mayusculiza y conserva el punto: "abc.123" -> onAdd("ABC.123")', () => {
+describe('useBarcodeCommit — mayúsculas (escaneo y carga manual)', () => {
+  it('commitCode mayusculiza y conserva el punto: "abc.123" -> onAdd("ABC.123")', () => {
     const onAdd = jest.fn();
 
     const { result } = renderHook(() => useBarcodeCommit(buildOptions({ onAdd })));
 
     let added: boolean = false;
     act(() => {
-      added = result.current.commitCode('abc.123', { manual: true });
+      added = result.current.commitCode('abc.123');
     });
 
     expect(added).toBe(true);
@@ -284,41 +284,39 @@ describe('useBarcodeCommit — commitCode con options.manual (carga manual en ma
     expect(result.current.recent).toEqual([{ code: 'ABC.123', invalid: false }]);
   });
 
-  it('sin options (default, ruta de escaneo): "abc123" NO se mayusculiza, preserva el case', () => {
+  it('handleScan (cámara) también mayusculiza: "abc.123" escaneado -> onAdd("ABC.123")', () => {
     const onAdd = jest.fn();
 
     const { result } = renderHook(() => useBarcodeCommit(buildOptions({ onAdd })));
-
-    act(() => {
-      result.current.commitCode('abc123');
-    });
-
-    expect(onAdd).toHaveBeenCalledWith('abc123');
-  });
-
-  it('manual vs escaneo difieren SOLO en el case: handleScan preserva "abc.123", commitCode manual lo mayusculiza a "ABC.123"', () => {
-    const onAddManual = jest.fn();
-    const onAddScan = jest.fn();
-
-    const manualHook = renderHook(() => useBarcodeCommit(buildOptions({ onAdd: onAddManual })));
-    act(() => {
-      manualHook.result.current.commitCode('abc.123', { manual: true });
-    });
-    expect(onAddManual).toHaveBeenCalledWith('ABC.123');
-
-    const scanHook = renderHook(() => useBarcodeCommit(buildOptions({ onAdd: onAddScan })));
     // handleScan exige confirmReads lecturas idénticas consecutivas (default 2)
     act(() => {
-      scanHook.result.current.handleScan('abc.123');
+      result.current.handleScan('abc.123');
     });
-    expect(onAddScan).not.toHaveBeenCalled();
+    expect(onAdd).not.toHaveBeenCalled();
     act(() => {
-      scanHook.result.current.handleScan('abc.123');
+      result.current.handleScan('abc.123');
     });
-    expect(onAddScan).toHaveBeenCalledWith('abc.123');
+
+    expect(onAdd).toHaveBeenCalledWith('ABC.123');
+    expect(result.current.recent).toEqual([{ code: 'ABC.123', invalid: false }]);
   });
 
-  it('dedup cruzado: "ABC123" ya en existingSerials detecta como duplicado "abc123" cargado a mano (se mayusculiza antes de comparar)', () => {
+  it('handleScan confirma lecturas que solo difieren en el case ("abc123" y "ABC123" cuentan como la misma)', () => {
+    const onAdd = jest.fn();
+
+    const { result } = renderHook(() => useBarcodeCommit(buildOptions({ onAdd })));
+    act(() => {
+      result.current.handleScan('abc123');
+    });
+    act(() => {
+      result.current.handleScan('ABC123');
+    });
+
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    expect(onAdd).toHaveBeenCalledWith('ABC123');
+  });
+
+  it('dedup cruzado: "ABC123" ya en existingSerials detecta como duplicado "abc123" escaneado', () => {
     const onAdd = jest.fn();
     const playFeedbackSound = jest.fn();
     const vibrate = jest.fn();
@@ -329,28 +327,17 @@ describe('useBarcodeCommit — commitCode con options.manual (carga manual en ma
       ),
     );
 
-    let added: boolean = true;
     act(() => {
-      added = result.current.commitCode('abc123', { manual: true });
+      result.current.handleScan('abc123');
+    });
+    act(() => {
+      result.current.handleScan('abc123');
     });
 
-    expect(added).toBe(false);
     expect(onAdd).not.toHaveBeenCalled();
     expect(playFeedbackSound).toHaveBeenCalledWith<[FeedbackKind]>('dup');
     expect(vibrate).toHaveBeenCalledWith(70);
     expect(result.current.feedback).toEqual({ type: 'dup', code: 'ABC123' });
-  });
-
-  it('manual: false se comporta igual que el default (preserva case, no mayusculiza)', () => {
-    const onAdd = jest.fn();
-
-    const { result } = renderHook(() => useBarcodeCommit(buildOptions({ onAdd })));
-
-    act(() => {
-      result.current.commitCode('abc.123', { manual: false });
-    });
-
-    expect(onAdd).toHaveBeenCalledWith('abc.123');
   });
 });
 

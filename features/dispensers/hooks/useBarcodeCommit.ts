@@ -47,11 +47,9 @@ export type UseBarcodeCommitResult = {
   recent: RecentCode[];
   /**
    * Agrega un código (venga del escáner o de la carga manual). Devuelve true si se agregó.
-   * `options.manual` (default false): cuando es true, sanea pasando a mayúsculas (lo usa la
-   * carga manual, porque las letras del serial deben ir siempre en mayúscula para machear
-   * contra Aguas/Odoo). El escaneo de cámara no pasa este flag: preserva el case del barcode.
+   * Siempre se guarda en mayúsculas (ver `sanitizeSerial`).
    */
-  commitCode: (raw: string, options?: { manual?: boolean }) => boolean;
+  commitCode: (raw: string) => boolean;
   /** Maneja un resultado de escaneo de cámara: normaliza, aplica cooldown, exige confirmación por lecturas repetidas y comitea. */
   handleScan: (data: string | undefined) => void;
   /** Limpia el estado efímero (feedback, recientes). Útil al cerrar el modal. */
@@ -121,10 +119,9 @@ export function useBarcodeCommit(options: UseBarcodeCommitOptions): UseBarcodeCo
   }, []);
 
   const commitCode = useCallback(
-    (raw: string, options?: { manual?: boolean }): boolean => {
-      // deja solo [A-Za-z0-9.*-]: saca espacios y cualquier otro carácter (p. ej. < >, _, /).
-      // Carga manual (options.manual) pasa a mayúsculas; escaneo de cámara preserva el case.
-      const code = sanitizeSerial(raw, { uppercase: options?.manual });
+    (raw: string): boolean => {
+      // deja solo [A-Za-z0-9.*-] en mayúsculas: saca espacios y cualquier otro carácter (p. ej. < >, _, /).
+      const code = sanitizeSerial(raw);
       if (!code) return false;
 
       if (existingSerials.includes(code)) {

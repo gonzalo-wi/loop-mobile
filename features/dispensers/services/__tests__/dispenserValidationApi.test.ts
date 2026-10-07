@@ -45,8 +45,8 @@ describe('sanitizeSerial', () => {
     expect(sanitizeSerial('SN-001')).toBe('SN-001');
   });
 
-  it('mantiene el case (no mayusculiza ni minusculiza)', () => {
-    expect(sanitizeSerial('sn-Abc')).toBe('sn-Abc');
+  it('pasa las letras a mayúsculas (escaneo y carga manual por igual)', () => {
+    expect(sanitizeSerial('sn-Abc')).toBe('SN-ABC');
   });
 
   it('saca espacios internos y de las puntas', () => {
@@ -67,14 +67,6 @@ describe('sanitizeSerial', () => {
     expect(sanitizeSerial('SN*001')).toBe('SN*001');
   });
 
-  it('con options.uppercase: true pasa el resultado a mayúsculas', () => {
-    expect(sanitizeSerial('sn-abc.1*2', { uppercase: true })).toBe('SN-ABC.1*2');
-  });
-
-  it('sin options (default) mantiene el case, igual que antes', () => {
-    expect(sanitizeSerial('sn-Abc')).toBe('sn-Abc');
-  });
-
   it('cadena vacía devuelve cadena vacía', () => {
     expect(sanitizeSerial('')).toBe('');
   });
@@ -87,12 +79,8 @@ describe('sanitizeSerial', () => {
     expect(sanitizeSerial('<SN_123.4*5/6 7>')).toBe('SN123.4*567');
   });
 
-  it('con options.uppercase: true mayusculiza y de paso sigue conservando punto y asterisco', () => {
-    expect(sanitizeSerial('sn.123*a', { uppercase: true })).toBe('SN.123*A');
-  });
-
-  it('con options.uppercase: false se comporta igual que el default (preserva case)', () => {
-    expect(sanitizeSerial('sn-Abc', { uppercase: false })).toBe('sn-Abc');
+  it('mayusculiza y de paso sigue conservando punto y asterisco', () => {
+    expect(sanitizeSerial('sn.123*a')).toBe('SN.123*A');
   });
 });
 

@@ -261,9 +261,8 @@ export default function DispensersScreen() {
   }).length;
 
   const addSerial = useCallback((code: string, source: SerialSource) => {
-    // deja solo [A-Za-z0-9.*-]: saca espacios y cualquier otro carácter (p. ej. < >, _, /).
-    // Carga manual pasa a mayúsculas (si no, no machea contra Aguas/Odoo); el escaneo preserva el case del barcode.
-    const clean = sanitizeSerial(code, { uppercase: source === 'manual' });
+    // deja solo [A-Za-z0-9.*-] en mayúsculas (si no, no machea contra Aguas/Odoo).
+    const clean = sanitizeSerial(code);
     if (!clean) return;
     // Los no normalizados (jMobile) se agregan igual, marcados; si se envían depende del tipo.
     const valid = !invalidSerials.has(normalizeSerial(clean));
