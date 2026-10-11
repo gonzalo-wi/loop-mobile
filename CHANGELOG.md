@@ -44,6 +44,11 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   botones de ícono del escáner (linterna, cerrar, agregar a mano).
 
 ### Changed
+- Dispensers (Carga / Descarga) en la home ahora también lo ven los roles
+  CONTROLADOR y PICKER, no solo CARGADOR_DISPENSERS y ADMIN: en planta la misma
+  persona alterna entre controlar, pickear y cargar.
+- El login muestra la versión instalada de la app (antes decía siempre
+  `v1.0.0`), para saber qué versión tiene cada dispositivo.
 - Los textos de la validación de seriales hablan de "no normalizado (jMobile)"
   en vez de "inexistente en Aguas", que es de donde sale realmente la lista.
 - El escáner de dispensers normaliza el código (sin espacios) antes del
