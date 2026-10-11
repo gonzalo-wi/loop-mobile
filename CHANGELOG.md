@@ -8,6 +8,12 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
+- Dispensers embolsados en las descargas: cada serial escaneado se puede marcar
+  como "Embolsado" (un dispenser nuevo que no se pudo entregar y vuelve sin
+  usar) para que en planta no lo manden a reparación. La marca se ve en el
+  detalle del movimiento y se conserva y se puede cambiar al corregirlo. Queda
+  solo en Loop: igual se envía a Aguas y Odoo como cualquier descarga. Requiere
+  el backend actualizado.
 - Dispensers no normalizados (los que figuran en la lista de jMobile) en las
   descargas: ahora se envían al backend, que los deriva a la ubicación de no
   normalizados en Odoo sin pasar por reparación. En pantalla se ven en ámbar
