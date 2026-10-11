@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/store/authStore';
 import { useRouteStore } from '@/store/routeStore';
 import { getStockControls } from '@/features/stock-controls/services/stockControlApi';
+import { canAccessDispensers } from '@/features/dispensers/lib/access';
 import { HeroHeader } from '@/components/HeroHeader';
 import type { StockControl } from '@/features/stock-controls/types';
 import { C, R, F, W, Shdw } from '@/lib/theme';
@@ -38,7 +39,7 @@ function firstName(name?: string): string {
 function ControllerHome() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
-  const canDispensers = user?.role === 'ADMIN' || user?.role === 'CARGADOR_DISPENSERS';
+  const canDispensers = canAccessDispensers(user?.role);
 
   return (
     <View style={styles.screen}>
