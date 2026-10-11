@@ -20,6 +20,8 @@ import { login } from '@/features/auth/services/authApi';
 import { getAllRoutes } from '@/features/stock-controls/services/routesApi';
 import { saveToken, saveUser, saveRoute } from '@/lib/storage';
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight';
+import { formatVersionLabel } from '@/features/app-update/utils';
+import { INSTALLED_VERSION } from '@/features/app-update/installedVersion';
 import {
   AppLogo,
   AppTextField,
@@ -236,7 +238,7 @@ export default function LoginScreen() {
                 <Ionicons name="shield-checkmark" size={13} color={C.textFaint} />
                 <Text style={styles.secureText}>Acceso operativo seguro · Ivess</Text>
               </View>
-              <Text style={styles.version}>LOOP v1.0.0</Text>
+              <Text style={styles.version}>{formatVersionLabel(INSTALLED_VERSION)}</Text>
             </View>
           </View>
         </ScrollView>

@@ -7,25 +7,15 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import Constants from 'expo-constants';
-import * as Application from 'expo-application';
 import { Ionicons } from '@expo/vector-icons';
 import { getLatestVersion } from '@/features/app-update/services/appUpdateApi';
 import { downloadApk, installApk } from '@/features/app-update/services/apkInstaller';
 import { isNewerVersion } from '@/features/app-update/utils';
+import { INSTALLED_VERSION } from '@/features/app-update/installedVersion';
 import type { AppVersionInfo } from '@/features/app-update/types';
 import { C, R, F, W, Shdw } from '@/lib/theme';
 
 type Phase = 'prompt' | 'downloading' | 'installing' | 'error';
-
-/**
- * Versión instalada. Priorizamos la versión NATIVA (versionName del APK), que es
- * la única confiable en un build standalone; `expoConfig` puede venir vacío ahí.
- * Si no se puede determinar, queda null y NO se ofrece actualización (evita
- * quedar en un bucle de "actualizá siempre").
- */
-const CURRENT_VERSION: string | null =
-  Application.nativeApplicationVersion ?? Constants.expoConfig?.version ?? null;
 
 /**
  * Chequea al arrancar si hay una versión más nueva y, si corresponde, muestra
@@ -41,14 +31,14 @@ export function AppUpdateGate() {
 
   useEffect(() => {
     // Sin versión instalada confiable no comparamos: mejor no avisar que avisar siempre.
-    if (!CURRENT_VERSION) return;
+    if (!INSTALLED_VERSION) return;
 
     let active = true;
     (async () => {
       try {
         const latest = await getLatestVersion();
         if (!active) return;
-        if (isNewerVersion(latest.latestVersion, CURRENT_VERSION)) {
+        if (isNewerVersion(latest.latestVersion, INSTALLED_VERSION)) {
           setInfo(latest);
           setVisible(true);
         }
@@ -98,7 +88,7 @@ export function AppUpdateGate() {
           <Text style={styles.title}>Actualización disponible</Text>
           <Text style={styles.versionLine}>
             Versión {info.latestVersion}
-            <Text style={styles.versionCurrent}>  ·  tenés {CURRENT_VERSION}</Text>
+            <Text style={styles.versionCurrent}>  ·  tenés {INSTALLED_VERSION}</Text>
           </Text>
 
           {info.mandatory && (

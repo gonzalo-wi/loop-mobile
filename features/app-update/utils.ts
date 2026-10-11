@@ -16,3 +16,8 @@ export function isNewerVersion(latest: string, current: string): boolean {
   }
   return false;
 }
+
+/** Etiqueta de versión para mostrar en pantalla; sin versión legible, solo la marca. */
+export function formatVersionLabel(version: string | null): string {
+  return version ? `LOOP v${version}` : 'LOOP';
+}
