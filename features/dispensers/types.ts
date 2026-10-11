@@ -44,6 +44,8 @@ export type DispenserMovement = {
    * Opcional por compatibilidad con respuestas viejas; usar `getExcludedSerials`.
    */
   excludedSerials?: string[];
+  /** Series de una descarga que volvieron embolsadas (solo en Loop). Opcional por compatibilidad. */
+  baggedSerials?: string[];
   aguasMovementId: string | null;
   registeredBy: string;
   registeredByUsername: string;
@@ -71,6 +73,8 @@ export type CreateMovementPayload = {
   stateId?: number;
   movementDate?: string;
   serials: string[];
+  // Solo UNLOAD: subconjunto de `serials` que volvió embolsado (no va a reparación en planta).
+  baggedSerials?: string[];
 };
 
 /** Equipo disponible en Odoo para cargar (GET /dispenser-movements/odoo/available-equipment). */

@@ -27,6 +27,8 @@ import {
 } from '@/features/dispensers/lib/movementOutcome';
 import { HeroHeader } from '@/components/HeroHeader';
 import { BarcodeScannerModal } from '@/features/dispensers/components/BarcodeScannerModal';
+import { BaggedToggle } from '@/features/dispensers/components/BaggedToggle';
+import { baggedAmong, isBagged, toggleCode } from '@/features/dispensers/lib/bagged';
 import type {
   DispenserMovement,
   DispenserMovementStatus,
@@ -90,6 +92,7 @@ export default function DispenserMovementDetailScreen() {
   const [routeCode, setRouteCode] = useState('');
   const [technician, setTechnician] = useState('');
   const [serials, setSerials] = useState<string[]>([]);
+  const [bagged, setBagged] = useState<string[]>([]);
   const [manualSerial, setManualSerial] = useState('');
   const [showScanner, setShowScanner] = useState(false);
 
@@ -162,6 +165,7 @@ export default function DispenserMovementDetailScreen() {
     setRouteCode(mov.routeCode);
     setTechnician(mov.technician);
     setSerials([...mov.serials]);
+    setBagged([...(mov.baggedSerials ?? [])]);
     setManualSerial('');
     setEditing(true);
   }
@@ -182,6 +186,8 @@ export default function DispenserMovementDetailScreen() {
 
   function removeSerial(code: string) {
     setSerials((prev) => prev.filter((s) => s !== code));
+    // Si se vuelve a agregar, que no reaparezca marcada sin que el operario la toque.
+    setBagged((prev) => prev.filter((c) => c !== code));
   }
 
   const canSave =
@@ -199,6 +205,8 @@ export default function DispenserMovementDetailScreen() {
         stateId: mov.stateId,
         movementDate: mov.movementDate,
         serials,
+        // El PUT recrea el movimiento: sin esto se perderían las marcas de embolsado.
+        baggedSerials: baggedAmong(mov.type, serials, bagged),
       });
       // PUT crea un movimiento nuevo (nuevo id) y revalida los excluidos → volvemos a la lista.
       const notice = getExclusionNotice(updated);
@@ -274,6 +282,7 @@ export default function DispenserMovementDetailScreen() {
   const status = STATUS_INFO[mov.status] ?? STATUS_INFO.REGISTERED;
   const isCancelled = mov.status === 'CANCELLED';
   const displaySerials = editing ? serials : mov.serials;
+  const displayBagged = editing ? bagged : (mov.baggedSerials ?? []);
   // Al editar, la lista es la nueva: el backend revalida los excluidos en el PUT.
   const excludedSet = new Set(editing ? [] : getExcludedSerials(mov));
   // Odoo es independiente de Aguas: un movimiento puede estar SENT_TO_AGUAS y odooStatus=ERROR.
@@ -482,6 +491,13 @@ export default function DispenserMovementDetailScreen() {
                     <Text style={styles.serialExcludedTag} numberOfLines={1}>{excludedTag}</Text>
                   )}
                 </View>
+                {!isLoad && (
+                  <BaggedToggle
+                    code={code}
+                    bagged={isBagged(code, displayBagged)}
+                    onPress={editing ? () => setBagged((prev) => toggleCode(prev, code)) : undefined}
+                  />
+                )}
                 {editing && (
                   <TouchableOpacity
                     onPress={() => removeSerial(code)}

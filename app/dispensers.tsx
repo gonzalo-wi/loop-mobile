@@ -18,6 +18,7 @@ import { HeroHeader } from '@/components/HeroHeader';
 import { StatusOverlay, type OverlayStatus } from '@/components/ui';
 import { DatePickerModal } from '@/features/stock-controls/components/DatePickerModal';
 import { BarcodeScannerModal } from '@/features/dispensers/components/BarcodeScannerModal';
+import { BaggedToggle } from '@/features/dispensers/components/BaggedToggle';
 import {
   getAguasLocations,
   getAguasStates,
@@ -38,6 +39,7 @@ import {
   getExclusionNotice,
   shouldSendSerial,
 } from '@/features/dispensers/lib/movementOutcome';
+import { baggedSerialsToSend, toggleBagged } from '@/features/dispensers/lib/bagged';
 import type {
   AguasCatalog,
   AguasCatalogItem,
@@ -59,8 +61,9 @@ type SerialSource = 'scan' | 'manual';
  * `valid: false` = no registrado (no normalizado) según jMobile.
  * LOAD: se muestra en rojo y NO se envía. UNLOAD: se envía igual y el backend lo deriva a la
  * ubicación de no normalizados en Odoo (ver `shouldSendSerial`).
+ * `bagged` = volvió embolsado (solo se ofrece y se envía en UNLOAD).
  */
-type SerialEntry = { code: string; source: SerialSource; valid: boolean };
+type SerialEntry = { code: string; source: SerialSource; valid: boolean; bagged: boolean };
 
 function toDateString(date: Date): string {
   const y = date.getFullYear();
@@ -254,6 +257,7 @@ export default function DispensersScreen() {
   const serialCodes = serials.map((s) => s.code);
   const sendableSerials = serials.filter((s) => shouldSendSerial(type, s.valid));
   const invalidCount = serials.filter((s) => !s.valid).length;
+  const baggedCount = baggedSerialsToSend(type, sendableSerials).length;
   // Series marcadas por Odoo como no disponibles (aviso independiente del de Aguas).
   const odooUnavailableCount = serials.filter((s) => {
     const result = odooValidation.get(s.code);
@@ -267,7 +271,7 @@ export default function DispensersScreen() {
     // Los no normalizados (jMobile) se agregan igual, marcados; si se envían depende del tipo.
     const valid = !invalidSerials.has(normalizeSerial(clean));
     setSerials((prev) =>
-      prev.some((s) => s.code === clean) ? prev : [...prev, { code: clean, source, valid }],
+      prev.some((s) => s.code === clean) ? prev : [...prev, { code: clean, source, valid, bagged: false }],
     );
   }, [invalidSerials]);
 
@@ -282,6 +286,10 @@ export default function DispensersScreen() {
 
   function removeSerial(code: string) {
     setSerials((prev) => prev.filter((s) => s.code !== code));
+  }
+
+  function handleToggleBagged(code: string) {
+    setSerials((prev) => toggleBagged(prev, code));
   }
 
   function clearSerials() {
@@ -334,6 +342,7 @@ export default function DispensersScreen() {
         stateId: movState?.id,
         movementDate: toDateString(movementDate),
         serials: sendableSerials.map((s) => s.code),
+        baggedSerials: baggedSerialsToSend(type, sendableSerials),
       });
 
       const count = sendableSerials.length;
@@ -562,8 +571,16 @@ export default function DispensersScreen() {
         )}
       </View>
 
-      {(invalidCount > 0 || (isLoad && odooUnavailableCount > 0)) && (
+      {(invalidCount > 0 || (isLoad && odooUnavailableCount > 0) || baggedCount > 0) && (
         <View style={styles.warnPillsRow}>
+          {baggedCount > 0 && (
+            <View style={styles.baggedPill}>
+              <Ionicons name="bag-check" size={11} color={C.accent} />
+              <Text style={styles.baggedPillText}>
+                {baggedCount} embolsado{baggedCount !== 1 ? 's' : ''} · sin reparación
+              </Text>
+            </View>
+          )}
           {invalidCount > 0 && isLoad && (
             <View style={styles.invalidPill}>
               <Ionicons name="close-circle" size={11} color={C.danger} />
@@ -739,6 +756,13 @@ export default function DispensersScreen() {
                   </View>
                 )}
               </View>
+              {!isLoad && (
+                <BaggedToggle
+                  code={item.code}
+                  bagged={item.bagged}
+                  onPress={() => handleToggleBagged(item.code)}
+                />
+              )}
               {item.valid && <Ionicons name="checkmark-circle" size={19} color={C.success} />}
               <TouchableOpacity
                 onPress={() => removeSerial(item.code)}
@@ -1001,6 +1025,16 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   noNormalizadoPillText: { fontSize: F.xs, fontWeight: W.extra, color: C.warning },
+  baggedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: C.accentLight,
+    borderRadius: R.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  baggedPillText: { fontSize: F.xs, fontWeight: W.extra, color: C.accent },
   odooWarnPill: {
     flexDirection: 'row',
     alignItems: 'center',
