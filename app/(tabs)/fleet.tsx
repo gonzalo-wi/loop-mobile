@@ -25,61 +25,17 @@ import {
 import { useRouteStore } from '@/store/routeStore';
 import { getFleetLocation } from '@/features/fleet/services/fleetApi';
 import type { FleetLocation } from '@/features/fleet/types';
+import {
+  fleetErrorMessage,
+  formatSignal,
+  isLocationStale,
+  relativeShort,
+  vehicleStatus,
+} from '@/features/fleet/lib/fleetStatus';
 import { ApiError } from '@/lib/api';
 import { C, H, R, S, T } from '@/lib/theme';
 
 const REFRESH_MS = 20000; // refresco "en vivo" (>10s para no saturar Powerfleet)
-const STALE_MIN = 15; // a partir de acá la ubicación se considera desactualizada
-
-function errorMessage(e: unknown): string {
-  const status = e instanceof ApiError ? e.status : undefined;
-  if (status === 404) {
-    return 'No se encontró el camión en el sistema de flota. La patente puede estar mal cargada o el GPS del vehículo está inactivo.';
-  }
-  if (status === 502) {
-    return 'No se pudo conectar con el sistema de flota. Probá de nuevo en unos segundos.';
-  }
-  return e instanceof Error ? e.message : 'No se pudo obtener la ubicación.';
-}
-
-function minutesSince(iso: string): number {
-  const d = new Date(iso).getTime();
-  if (Number.isNaN(d)) return Infinity;
-  return Math.floor((Date.now() - d) / 60000);
-}
-
-/** "Hoy, 07:37" si es del día; si no "20/07, 07:37". */
-function formatSignal(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mi = String(d.getMinutes()).padStart(2, '0');
-  const today = new Date();
-  const sameDay =
-    d.getDate() === today.getDate() &&
-    d.getMonth() === today.getMonth() &&
-    d.getFullYear() === today.getFullYear();
-  if (sameDay) return `Hoy, ${hh}:${mi}`;
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  return `${dd}/${mm}, ${hh}:${mi}`;
-}
-
-function relativeShort(date: Date | null): string {
-  if (!date) return '';
-  const s = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (s < 45) return 'hace unos segundos';
-  if (s < 90) return 'hace 1 min';
-  if (s < 3600) return `hace ${Math.floor(s / 60)} min`;
-  return `hace ${Math.floor(s / 3600)} h`;
-}
-
-type StatusTone = 'neutral' | 'ok' | 'warn';
-function vehicleStatus(loc: FleetLocation): { text: string; tone: StatusTone } {
-  if (!loc.engineOn) return { text: 'Motor apagado', tone: 'neutral' };
-  if (loc.speed > 0) return { text: `En movimiento · ${loc.speed} km/h`, tone: 'ok' };
-  return { text: 'Detenido · motor encendido', tone: 'warn' };
-}
 
 export default function FleetScreen() {
   const insets = useSafeAreaInsets();
@@ -107,7 +63,8 @@ export default function FleetScreen() {
         setData(loc);
         setUpdatedAt(new Date());
       } catch (e) {
-        setError(errorMessage(e));
+        const status = e instanceof ApiError ? e.status : undefined;
+        setError(fleetErrorMessage(status, e instanceof Error ? e.message : undefined));
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -134,14 +91,15 @@ export default function FleetScreen() {
     Linking.openURL(url).catch(() => setError('No se pudo abrir la app de mapas.'));
   }
 
+  const now = new Date();
   const status = data ? vehicleStatus(data) : null;
-  const stale = data ? minutesSince(data.gpsDateTime) >= STALE_MIN : false;
+  const stale = data ? isLocationStale(data.gpsDateTime, now) : false;
 
   const headerSub = !plate
     ? 'Ubicación en tiempo real'
     : refreshing
       ? 'Actualizando ubicación...'
-      : `Actualizado ${relativeShort(updatedAt)}`;
+      : `Actualizado ${relativeShort(updatedAt, now)}`;
   const blockTone = stale ? 'orange' : 'green';
   const blockColors = BLOCK_TONE[blockTone];
 
@@ -195,7 +153,7 @@ export default function FleetScreen() {
                 {stale ? 'Ubicación desactualizada' : 'GPS activo'}
               </Text>
               <Text style={[styles.blockSub, { color: blockColors.fgSub }]}>
-                Último reporte del GPS: {formatSignal(data.gpsDateTime)}
+                Último reporte del GPS: {formatSignal(data.gpsDateTime, now)}
               </Text>
             </ColorBlock>
 
