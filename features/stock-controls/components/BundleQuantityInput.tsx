@@ -1,7 +1,27 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TextInputProps } from 'react-native';
 import type { BundleQuantity } from '../types';
-import { C, R } from '@/lib/theme';
+import { C, H, R, S, T } from '@/lib/theme';
+
+/** Cream field for white cards: 3pt border is constant so the blue focus ring doesn't shift layout. */
+export function FieldInput({ style, onFocus, onBlur, ...rest }: TextInputProps) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <TextInput
+      style={[styles.field, focused && styles.fieldFocused, style]}
+      placeholderTextColor={C.textFaint}
+      onFocus={(e) => {
+        setFocused(true);
+        onFocus?.(e);
+      }}
+      onBlur={(e) => {
+        setFocused(false);
+        onBlur?.(e);
+      }}
+      {...rest}
+    />
+  );
+}
 
 function normalizeBundleQuantity(
   bundles: number,
@@ -67,25 +87,25 @@ export function BundleQuantityInput({ label, unitsPerBundle, value, onChange }: 
   return (
     <View style={styles.row}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput
+      <FieldInput
         style={styles.input}
         keyboardType="numeric"
         value={bundlesStr}
         onChangeText={handleBundlesChange}
         placeholder="0"
-        placeholderTextColor={C.border}
         selectTextOnFocus
+        accessibilityLabel={`${label}: bultos`}
       />
       <Text style={styles.sep}>+</Text>
-      <TextInput
+      <FieldInput
         style={styles.input}
         keyboardType="numeric"
         value={looseStr}
         onChangeText={handleLooseChange}
         onBlur={handleBlur}
         placeholder="0"
-        placeholderTextColor={C.border}
         selectTextOnFocus
+        accessibilityLabel={`${label}: unidades sueltas`}
       />
       <Text style={styles.eqSep}>=</Text>
       <View style={[styles.totalWrap, displayTotal > 0 && styles.totalWrapActive]}>
@@ -97,63 +117,68 @@ export function BundleQuantityInput({ label, unitsPerBundle, value, onChange }: 
   );
 }
 
+export const FIELD_LABEL_WIDTH = 68;
+
 const styles = StyleSheet.create({
+  field: {
+    height: H.circleButton,
+    backgroundColor: C.cream,
+    borderWidth: 3,
+    borderColor: 'transparent',
+    borderRadius: R.field,
+    paddingVertical: 0,
+    textAlign: 'center',
+    ...T.data,
+    color: C.navy,
+    fontVariant: ['tabular-nums'],
+  },
+  fieldFocused: {
+    backgroundColor: C.white,
+    borderColor: C.blue,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: S.sm,
   },
   label: {
-    width: 62,
-    fontSize: 11,
-    fontWeight: '700',
-    color: C.textMuted,
+    width: FIELD_LABEL_WIDTH,
+    ...T.systemTag,
+    color: C.ink2,
     textTransform: 'uppercase',
-    letterSpacing: 0.6,
   },
   input: {
-    width: 52,
-    height: 40,
-    backgroundColor: C.inputBg,
-    borderWidth: 0,
-    borderRadius: R.sm,
-    textAlign: 'center',
-    fontSize: 16,
-    fontWeight: '600',
-    color: C.text,
+    width: 56,
   },
   sep: {
     width: 22,
     textAlign: 'center',
-    fontSize: 15,
-    color: C.border,
-    fontWeight: '700',
+    ...T.section,
+    color: C.handle,
   },
   eqSep: {
-    width: 20,
+    width: 22,
     textAlign: 'center',
-    fontSize: 15,
-    color: C.border,
-    fontWeight: '700',
-    marginLeft: 2,
+    ...T.section,
+    color: C.handle,
   },
   totalWrap: {
     flex: 1,
-    height: 40,
-    borderRadius: R.sm,
+    height: H.circleButton,
+    borderRadius: R.field,
     alignItems: 'flex-start',
     justifyContent: 'center',
-    paddingLeft: 10,
+    paddingLeft: S.md,
   },
   totalWrapActive: {
-    backgroundColor: C.primaryLight,
+    backgroundColor: C.cream,
   },
   totalText: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: C.border,
+    ...T.section,
+    color: C.handle,
+    fontVariant: ['tabular-nums'],
   },
   totalTextActive: {
-    color: C.primary,
+    color: C.navy,
   },
 });

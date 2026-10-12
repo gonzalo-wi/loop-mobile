@@ -3,15 +3,19 @@ import {
   Modal,
   View,
   Text,
-  TextInput,
   FlatList,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
+  Pressable,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppTextField } from '@/components/ui/AppTextField';
+import { SecondaryButton } from '@/components/ui/SecondaryButton';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { C, H, R, S, T } from '@/lib/theme';
+import { useKeyboardHeight } from '@/lib/useKeyboardHeight';
 import type { Route } from '../types';
 import { getAllRoutes } from '../services/routesApi';
 
@@ -24,6 +28,8 @@ type Props = {
 const SEARCH_DEBOUNCE_MS = 300;
 
 export function RouteSearchModal({ visible, onSelect, onClose }: Props) {
+  const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardHeight();
   const [routes, setRoutes] = useState<Route[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
@@ -64,24 +70,31 @@ export function RouteSearchModal({ visible, onSelect, onClose }: Props) {
     [onSelect]
   );
 
+  // With the keyboard open the sheet sits on top of it; the safe-area inset is under the keyboard.
+  const bottomSpace = keyboardHeight > 0 ? keyboardHeight + S.lg : insets.bottom + S.lg;
+
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={styles.container}>
-        <KeyboardAvoidingView
-          style={styles.inner}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+      <View style={styles.root}>
+        <Pressable style={styles.scrim} onPress={onClose} accessibilityLabel="Cerrar" />
+        <View style={[styles.sheet, { paddingBottom: bottomSpace }]}>
+          <View style={styles.handle} />
           <View style={styles.header}>
-            <Text style={styles.title}>Seleccionar Reparto</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-              <Text style={styles.closeText}>Cerrar</Text>
+            <Text style={styles.title} accessibilityRole="header">Seleccionar Reparto</Text>
+            <TouchableOpacity
+              style={styles.closeBtn}
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar"
+            >
+              <Ionicons name="close" size={24} color={C.navy} />
             </TouchableOpacity>
           </View>
 
-          <TextInput
-            style={styles.searchInput}
+          <AppTextField
+            surface="cream"
+            icon="search"
             placeholder="Buscar por código, sucursal o repartidor..."
-            placeholderTextColor="#999"
             value={search}
             onChangeText={setSearch}
             autoFocus
@@ -90,24 +103,26 @@ export function RouteSearchModal({ visible, onSelect, onClose }: Props) {
           />
 
           {loading && routes.length === 0 ? (
-            <ActivityIndicator size="large" color="#007AFF" style={styles.loader} />
+            <ActivityIndicator size="large" color={C.blue} style={styles.loader} />
           ) : error ? (
             <View style={styles.centered}>
               <Text style={styles.errorText}>{error}</Text>
-              <TouchableOpacity onPress={() => loadRoutes(search)} style={styles.retryBtn}>
-                <Text style={styles.retryText}>Reintentar</Text>
-              </TouchableOpacity>
+              <SecondaryButton title="Reintentar" onPress={() => loadRoutes(search)} />
             </View>
           ) : (
             <FlatList
               data={routes}
+              style={styles.list}
+              contentContainerStyle={styles.listContent}
               keyExtractor={(item) => item.id}
               keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={styles.item}
                   onPress={() => handleSelect(item)}
-                  activeOpacity={0.6}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Reparto ${item.code}, ${item.branchName}`}
                 >
                   <View style={styles.itemLeft}>
                     <Text style={styles.itemCode}>{item.code}</Text>
@@ -117,125 +132,129 @@ export function RouteSearchModal({ visible, onSelect, onClose }: Props) {
                     ) : null}
                   </View>
                   {item.truckPlate ? (
-                    <Text style={styles.itemPlate}>{item.truckPlate}</Text>
+                    <View style={styles.plate}>
+                      <Text style={styles.itemPlate}>{item.truckPlate}</Text>
+                    </View>
                   ) : null}
                 </TouchableOpacity>
               )}
               ListEmptyComponent={
-                <Text style={styles.emptyText}>
-                  {search ? 'Sin resultados para la búsqueda' : 'No hay repartos disponibles'}
-                </Text>
+                <EmptyState
+                  icon="search-outline"
+                  title={search ? 'Sin resultados para la búsqueda' : 'No hay repartos disponibles'}
+                />
               }
             />
           )}
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+        </View>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    justifyContent: 'flex-end',
   },
-  inner: {
-    flex: 1,
+  scrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: C.scrim,
+  },
+  sheet: {
+    height: '88%',
+    backgroundColor: C.white,
+    borderTopLeftRadius: R.sheet,
+    borderTopRightRadius: R.sheet,
+    paddingTop: S.md,
+    paddingHorizontal: S.gutterWide,
+    gap: S.lg,
+  },
+  handle: {
+    alignSelf: 'center',
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: C.handle,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
   },
   title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111',
-  },
-  closeText: {
-    fontSize: 16,
-    color: '#007AFF',
-  },
-  searchInput: {
-    margin: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    fontSize: 16,
-    color: '#111',
-  },
-  loader: {
-    marginTop: 40,
-  },
-  centered: {
+    ...T.sheetTitle,
     flex: 1,
+    color: C.navy,
+  },
+  closeBtn: {
+    width: H.touch,
+    height: H.touch,
+    borderRadius: H.touch / 2,
+    backgroundColor: C.cream,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
+  },
+  loader: {
+    marginTop: S.xxxl,
+  },
+  centered: {
+    alignItems: 'stretch',
+    gap: S.lg,
+    paddingTop: S.xl,
   },
   errorText: {
-    color: '#d32f2f',
-    fontSize: 15,
+    ...T.body,
+    color: C.redText,
     textAlign: 'center',
-    marginBottom: 12,
   },
-  retryBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
+  list: {
+    flex: 1,
   },
-  retryText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
+  listContent: {
+    gap: S.sm,
+    paddingBottom: S.sm,
   },
   item: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    minHeight: H.row,
+    paddingHorizontal: S.lg,
+    paddingVertical: S.md,
+    backgroundColor: C.cream,
+    borderRadius: R.row,
   },
   itemLeft: {
     flex: 1,
   },
   itemCode: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111',
+    ...T.data,
+    color: C.navy,
+    fontVariant: ['tabular-nums'],
   },
   itemBranch: {
-    fontSize: 14,
-    color: '#555',
+    ...T.body,
+    color: C.navy,
     marginTop: 2,
   },
   itemDriver: {
-    fontSize: 13,
-    color: '#888',
+    ...T.secondary,
+    color: C.ink2,
     marginTop: 1,
   },
-  itemPlate: {
-    fontSize: 13,
-    color: '#007AFF',
-    fontWeight: '600',
-    marginLeft: 8,
+  plate: {
+    backgroundColor: C.white,
+    borderRadius: R.cell,
+    paddingHorizontal: S.md,
+    height: H.statusCell,
+    justifyContent: 'center',
+    marginLeft: S.sm,
   },
-  emptyText: {
-    textAlign: 'center',
-    color: '#888',
-    fontSize: 15,
-    marginTop: 40,
+  itemPlate: {
+    ...T.secondary,
+    fontFamily: T.button.fontFamily,
+    color: C.navy,
+    fontVariant: ['tabular-nums'],
   },
 });

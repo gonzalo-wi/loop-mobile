@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   FlatList,
   Switch,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,15 +23,27 @@ import { RouteSearchModal } from '@/features/stock-controls/components/RouteSear
 import { ProductControlCard } from '@/features/stock-controls/components/ProductControlCard';
 import { TodayControlsBar } from '@/features/stock-controls/components/TodayControlsBar';
 import { useTodayControls } from '@/features/stock-controls/hooks/useTodayControls';
-import { StatusOverlay, type OverlayStatus } from '@/components/ui';
-import { useKeyboardHeight } from '@/lib/useKeyboardHeight';
+import {
+  BottomBar,
+  ColorBlock,
+  EmptyState,
+  Pill,
+  PrimaryButton,
+  ScreenHeader,
+  SecondaryButton,
+  StatusOverlay,
+  type OverlayStatus,
+} from '@/components/ui';
 import type {
   Product,
   Route,
   ProductControlValues,
   StockControlType,
 } from '@/features/stock-controls/types';
-import { C, R, Shdw } from '@/lib/theme';
+import { C, H, R, S, T } from '@/lib/theme';
+
+// Primary button (60) + vertical padding of the bottom bar, so the last card isn't hidden.
+const BOTTOM_BAR_SPACE = H.primaryButton + S.md * 2 + S.lg;
 
 const EMPTY_PRODUCT_VALUES: ProductControlValues = {
   full: { bundles: 0, looseUnits: 0, totalUnits: 0 },
@@ -121,31 +133,50 @@ const FormHeader = React.memo(
     onProductSearchChange,
   }: FormHeaderProps) => {
     const isExit = controlType === 'EXIT';
+    const pillTone = isExit ? 'onBlue' : 'onGreen';
     const [showDatePicker, setShowDatePicker] = useState(false);
 
     return (
       <View style={styles.formHeader}>
-        <View style={[styles.typeBanner, isExit ? styles.exitBanner : styles.entryBanner]}>
-          <Text style={styles.typeBannerText}>
-            {isExit ? '↗ Control de Salida' : '↙ Control de Entrada'}
-          </Text>
-        </View>
+        {/* Direction color rule: blue = exit, green = entry */}
+        <ColorBlock tone={isExit ? 'blue' : 'green'}>
+          <Pill
+            label={isExit ? 'Control de Salida' : 'Control de Entrada'}
+            icon={isExit ? 'arrow-up' : 'arrow-down'}
+            tone={pillTone}
+          />
 
-        {/* Date selector */}
-        <TouchableOpacity
-          style={styles.dateSelector}
-          onPress={() => setShowDatePicker(true)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="calendar-outline" size={18} color={C.textMuted} />
-          <View style={styles.dateSelectorText}>
-            <Text style={styles.dateLabel}>
-              {isExit ? 'Fecha de salida' : 'Fecha del control'}
-            </Text>
-            <Text style={styles.dateValue}>{toDisplayDate(controlDate)}</Text>
-          </View>
-          <Text style={styles.dateChevron}>›</Text>
-        </TouchableOpacity>
+          <Pressable
+            style={({ pressed }) => [styles.routeSelector, pressed && styles.pressed]}
+            onPress={onOpenRouteModal}
+            accessibilityRole="button"
+            accessibilityLabel={
+              selectedRoute ? `Reparto seleccionado: ${selectedRoute.code}` : 'Seleccionar reparto'
+            }
+          >
+            {selectedRoute ? (
+              <View style={styles.routeText}>
+                <Text style={styles.routeLabel}>Reparto seleccionado</Text>
+                <Text style={styles.routeCode}>{selectedRoute.code}</Text>
+                <Text style={styles.routeDetail}>
+                  {selectedRoute.branchName}
+                  {selectedRoute.driverName ? ` · ${selectedRoute.driverName}` : ''}
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.routePlaceholder}>Seleccionar Reparto</Text>
+            )}
+            <Ionicons name="chevron-forward" size={H.icon} color={C.ink2} />
+          </Pressable>
+
+          <Pill
+            label={toDisplayDate(controlDate)}
+            icon="calendar-outline"
+            tone={pillTone}
+            onPress={() => setShowDatePicker(true)}
+            accessibilityLabel={`${isExit ? 'Fecha de salida' : 'Fecha del control'}: ${toDisplayDate(controlDate)}`}
+          />
+        </ColorBlock>
 
         <DatePickerModal
           visible={showDatePicker}
@@ -157,29 +188,15 @@ const FormHeader = React.memo(
           onClose={() => setShowDatePicker(false)}
         />
 
-        {/* Route selector */}
-        <TouchableOpacity style={styles.routeSelector} onPress={onOpenRouteModal} activeOpacity={0.7}>
-          {selectedRoute ? (
-            <View>
-              <Text style={styles.routeLabel}>Reparto seleccionado</Text>
-              <Text style={styles.routeCode}>{selectedRoute.code}</Text>
-              <Text style={styles.routeDetail}>
-                {selectedRoute.branchName}
-                {selectedRoute.driverName ? ` · ${selectedRoute.driverName}` : ''}
-              </Text>
-            </View>
-          ) : (
-            <Text style={styles.routePlaceholder}>Seleccionar Reparto ›</Text>
-          )}
-        </TouchableOpacity>
-
         {/* Truck ordered */}
         <View style={styles.switchRow}>
           <Text style={styles.switchLabel}>Camión ordenado</Text>
           <Switch
             value={truckOrdered}
             onValueChange={onTruckOrderedChange}
-            trackColor={{ true: C.primary }}
+            trackColor={{ false: C.handle, true: C.navy }}
+            thumbColor={C.white}
+            accessibilityLabel="Camión ordenado"
           />
         </View>
 
@@ -187,32 +204,38 @@ const FormHeader = React.memo(
         <TextInput
           style={styles.observationsInput}
           placeholder="Observaciones generales (opcional)"
-          placeholderTextColor={C.textMuted}
+          placeholderTextColor={C.textFaint}
           value={observations}
           onChangeText={onObservationsChange}
           multiline
+          accessibilityLabel="Observaciones generales"
         />
 
-        <Text style={styles.productsTitle}>Productos</Text>
+        <Text style={styles.productsTitle} accessibilityRole="header">
+          Productos
+        </Text>
 
         <View style={styles.searchBox}>
-          <Ionicons name="search" size={18} color={C.textMuted} />
+          <Ionicons name="search" size={H.icon} color={C.ink2} />
           <TextInput
             style={styles.searchInput}
             placeholder="Buscar producto..."
-            placeholderTextColor={C.textMuted}
+            placeholderTextColor={C.textFaint}
             value={productSearch}
             onChangeText={onProductSearchChange}
             autoCorrect={false}
             returnKeyType="search"
+            accessibilityLabel="Buscar producto"
           />
           {productSearch.length > 0 && (
-            <TouchableOpacity
+            <Pressable
+              style={styles.clearBtn}
               onPress={() => onProductSearchChange('')}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Borrar búsqueda"
             >
-              <Ionicons name="close-circle" size={18} color={C.textMuted} />
-            </TouchableOpacity>
+              <Ionicons name="close-circle" size={H.icon} color={C.ink2} />
+            </Pressable>
           )}
         </View>
       </View>
@@ -226,11 +249,10 @@ export default function NewControlScreen() {
   const controlType = (type ?? 'EXIT') as StockControlType;
   const router = useRouter();
   const { user } = useAuthStore();
-  const keyboardHeight = useKeyboardHeight();
   const insets = useSafeAreaInsets();
   const today = useTodayControls(user?.id);
-  // La barra de guardar es siempre visible, así que la lista siempre le deja lugar.
-  const listPaddingBottom = 96 + insets.bottom;
+  // The save bar is always visible, so the list always leaves room for it.
+  const listPaddingBottom = BOTTOM_BAR_SPACE + insets.bottom;
 
   const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
   const [routeModalVisible, setRouteModalVisible] = useState(false);
@@ -356,33 +378,36 @@ export default function NewControlScreen() {
     }
   }
 
+  const title = controlType === 'EXIT' ? 'Control de Salida' : 'Control de Entrada';
+  const header = <ScreenHeader title={title} onBack={() => router.back()} />;
+
   if (productsLoading) {
     return (
-      <>
-        <Stack.Screen options={{ title: controlType === 'EXIT' ? 'Control de Salida' : 'Control de Entrada' }} />
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        {header}
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={C.primary} />
+          <ActivityIndicator size="large" color={C.navy} />
           <Text style={styles.loadingText}>Cargando productos...</Text>
         </View>
-      </>
+      </View>
     );
   }
 
   if (productsError) {
     return (
-      <>
-        <Stack.Screen options={{ title: 'Error' }} />
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        {header}
         <View style={styles.centered}>
-          <Text style={styles.errorText}>{productsError}</Text>
-          <TouchableOpacity onPress={loadProducts} style={styles.retryBtn}>
-            <Text style={styles.retryText}>Reintentar</Text>
-          </TouchableOpacity>
+          <EmptyState icon="cloud-offline-outline" title="No se pudieron cargar los productos" hint={productsError} />
+          <View style={styles.retryWrap}>
+            <SecondaryButton title="Reintentar" icon="refresh" onPress={loadProducts} />
+          </View>
         </View>
-      </>
+      </View>
     );
   }
-
-  const title = controlType === 'EXIT' ? 'Control de Salida' : 'Control de Entrada';
 
   const searchQuery = normalizeText(productSearch.trim());
   const filteredProducts = searchQuery
@@ -395,12 +420,12 @@ export default function NewControlScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title }} />
+      <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
-        style={styles.container}
+        style={[styles.container, { paddingTop: insets.top }]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
       >
+        {header}
         <TodayControlsBar
           controls={today.controls}
           pending={today.pending}
@@ -435,34 +460,30 @@ export default function NewControlScreen() {
           }
           ListEmptyComponent={
             searchQuery ? (
-              <Text style={styles.noResults}>
-                Sin resultados para “{productSearch.trim()}”
-              </Text>
-            ) : null
+              <EmptyState
+                icon="search-outline"
+                title={`Sin resultados para “${productSearch.trim()}”`}
+                style={styles.empty}
+              />
+            ) : (
+              <EmptyState icon="cube-outline" title="No hay productos para controlar" style={styles.empty} />
+            )
           }
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={[styles.list, { paddingBottom: listPaddingBottom }]}
         />
 
-        <View
-          style={[
-            styles.stickyBar,
-            { paddingBottom: keyboardHeight > 0 ? 12 : Math.max(insets.bottom, 14) },
-          ]}
-        >
-          <TouchableOpacity
-            style={[styles.submitBtn, submitting && styles.submitDisabled]}
-            onPress={handleSubmit}
-            disabled={submitting}
-            activeOpacity={0.85}
-          >
-            {submitting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.submitText}>Guardar Control</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+        <BottomBar>
+          <View style={styles.flex}>
+            <PrimaryButton
+              title="Guardar Control"
+              icon="checkmark"
+              onPress={handleSubmit}
+              loading={submitting}
+              disabled={submitting}
+            />
+          </View>
+        </BottomBar>
 
         <RouteSearchModal
           visible={routeModalVisible}
@@ -483,222 +504,82 @@ export default function NewControlScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
-  list: {
-    paddingBottom: 24,
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: C.bg,
-  },
-  loadingText: {
-    marginTop: 12,
-    color: C.textMuted,
-    fontSize: 15,
-  },
-  errorText: {
-    color: C.danger,
-    fontSize: 15,
-    textAlign: 'center',
-    marginBottom: 14,
-  },
-  retryBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: C.primary,
-    borderRadius: R.md,
-  },
-  retryText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
-  },
+  container: { flex: 1, backgroundColor: C.cream },
+  flex: { flex: 1 },
+  flatList: { flex: 1 },
+  list: { paddingBottom: S.xxl },
+  centered: { flex: 1, justifyContent: 'center', padding: S.gutter, gap: S.lg },
+  loadingText: { ...T.body, color: C.ink2, textAlign: 'center' },
+  retryWrap: { alignSelf: 'center' },
+  empty: { marginTop: S.xs, minHeight: 200 },
+  pressed: { opacity: 0.8 },
 
   formHeader: {
-    padding: 12,
-    gap: 9,
-  },
-  typeBanner: {
-    borderRadius: R.md,
-    paddingVertical: 11,
-    paddingHorizontal: 16,
-  },
-  exitBanner: {
-    backgroundColor: C.exit,
-  },
-  entryBanner: {
-    backgroundColor: C.entry,
-  },
-  typeBannerText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-
-  dateSelector: {
-    backgroundColor: C.surface,
-    borderRadius: R.md,
-    borderWidth: 1,
-    borderColor: C.border,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  dateSelectorText: {
-    flex: 1,
-  },
-  dateLabel: {
-    fontSize: 11,
-    color: C.textMuted,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  dateValue: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: C.text,
-  },
-  dateChevron: {
-    fontSize: 20,
-    color: C.border,
+    paddingHorizontal: S.gutter,
+    paddingTop: S.md,
+    paddingBottom: S.sm,
+    gap: S.md,
   },
 
   routeSelector: {
-    backgroundColor: C.surface,
-    borderRadius: R.md,
-    borderWidth: 1,
-    borderColor: C.border,
-    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: S.md,
+    minHeight: H.field,
+    paddingHorizontal: S.xl,
+    paddingVertical: S.md,
+    borderRadius: R.field,
+    backgroundColor: C.white,
   },
-  routeLabel: {
-    fontSize: 11,
-    color: C.textMuted,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  routeCode: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: C.text,
-  },
-  routeDetail: {
-    fontSize: 13,
-    color: C.textSub,
-    marginTop: 2,
-  },
-  routePlaceholder: {
-    fontSize: 15,
-    color: C.primary,
-    fontWeight: '600',
-    textAlign: 'center',
-    paddingVertical: 2,
-  },
+  routeText: { flex: 1 },
+  routeLabel: { ...T.secondary, color: C.ink2 },
+  routeCode: { ...T.section, color: C.navy, fontVariant: ['tabular-nums'] },
+  routeDetail: { ...T.secondary, color: C.ink2 },
+  routePlaceholder: { ...T.label, color: C.navy, flex: 1 },
 
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: C.surface,
-    borderRadius: R.md,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderWidth: 1,
-    borderColor: C.border,
+    minHeight: H.field,
+    paddingHorizontal: S.xl,
+    borderRadius: R.field,
+    backgroundColor: C.white,
   },
-  switchLabel: {
-    fontSize: 15,
-    color: C.text,
-    fontWeight: '500',
-  },
+  switchLabel: { ...T.label, color: C.navy },
 
   observationsInput: {
-    backgroundColor: C.surface,
-    borderRadius: R.md,
-    borderWidth: 1,
-    borderColor: C.border,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: C.text,
-    minHeight: 46,
+    ...T.body,
+    minHeight: H.field,
+    paddingHorizontal: S.xl,
+    paddingVertical: S.md,
+    borderRadius: R.field,
+    backgroundColor: C.white,
+    color: C.navy,
+    textAlignVertical: 'top',
   },
 
-  productsTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: C.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginTop: 4,
-    marginBottom: 2,
-  },
+  productsTitle: { ...T.section, color: C.navy, marginTop: S.sm },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: C.surface,
-    borderRadius: R.md,
-    borderWidth: 1,
-    borderColor: C.border,
-    paddingHorizontal: 12,
-    height: 44,
-    marginTop: 4,
+    gap: S.sm,
+    height: H.field,
+    paddingLeft: S.xl,
+    paddingRight: S.sm,
+    borderRadius: R.field,
+    backgroundColor: C.white,
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
-    color: C.text,
+    ...T.data,
+    color: C.navy,
     paddingVertical: 0,
   },
-  noResults: {
-    textAlign: 'center',
-    color: C.textMuted,
-    fontSize: 14,
-    marginTop: 24,
-    paddingHorizontal: 16,
-  },
-
-  flatList: {
-    flex: 1,
-  },
-  stickyBar: {
-    backgroundColor: C.surface,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-    paddingHorizontal: 12,
-    paddingTop: 12,
-    shadowColor: '#172554',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 12,
-  },
-  submitBtn: {
-    backgroundColor: C.primary,
-    borderRadius: R.lg,
-    paddingVertical: 16,
+  clearBtn: {
+    width: H.touch,
+    height: H.touch,
     alignItems: 'center',
     justifyContent: 'center',
-    ...Shdw.float,
-  },
-  submitDisabled: {
-    opacity: 0.55,
-  },
-  submitText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
   },
 });

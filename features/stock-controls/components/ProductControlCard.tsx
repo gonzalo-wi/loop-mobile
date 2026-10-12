@@ -1,9 +1,9 @@
 import React, { memo, useState, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Product, BundleQuantity, ProductControlValues, StockControlType } from '../types';
-import { BundleQuantityInput } from './BundleQuantityInput';
-import { C, R, Shdw } from '@/lib/theme';
+import { BundleQuantityInput, FieldInput, FIELD_LABEL_WIDTH } from './BundleQuantityInput';
+import { C, H, R, S, T } from '@/lib/theme';
 
 type Props = {
   product: Product;
@@ -25,14 +25,14 @@ function SimpleInputRow({
   return (
     <View style={styles.simpleRow}>
       <Text style={styles.simpleLabel}>{label}</Text>
-      <TextInput
+      <FieldInput
         style={styles.simpleInput}
         keyboardType="numeric"
         value={value}
         onChangeText={onChangeText}
         placeholder="0"
-        placeholderTextColor={C.border}
         selectTextOnFocus
+        accessibilityLabel={label}
       />
     </View>
   );
@@ -104,7 +104,8 @@ export const ProductControlCard = memo(
       notifyChange({ observations: text });
     }
 
-    const isRetornable = product.type === 'RETORNABLE';
+    // Direction color rule: exit = blue, entry = green.
+    const accent = isExit ? C.blue : C.greenDot;
 
     // Resumen para la cabecera cuando está cerrado.
     const cur = latestValues.current;
@@ -112,11 +113,14 @@ export const ProductControlCard = memo(
       cur.full.totalUnits > 0 || cur.total.totalUnits > 0 || cur.exchanges > 0;
 
     return (
-      <View style={[styles.card, isRetornable ? styles.cardRetornable : styles.cardDescartable]}>
+      <View style={styles.card}>
         <TouchableOpacity
           style={styles.header}
           onPress={() => setExpanded((e) => !e)}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={`${product.name}, ${product.code}`}
+          accessibilityState={{ expanded }}
         >
           <View style={styles.headerLeft}>
             <Text style={styles.productName} numberOfLines={1}>
@@ -137,24 +141,25 @@ export const ProductControlCard = memo(
                 <Text style={styles.packBadgeText}>×{product.packQuantity}</Text>
               </View>
             )}
-            {filled && <View style={styles.filledDot} />}
+            {filled && <View style={[styles.filledDot, { backgroundColor: accent }]} />}
             {expanded && (
               <TouchableOpacity
                 style={styles.obsBtn}
                 onPress={() => setShowObs((v) => !v)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel={showObs ? 'Ocultar observaciones' : 'Agregar observaciones'}
               >
                 <Ionicons
                   name={showObs ? 'chatbubble' : 'chatbubble-outline'}
-                  size={16}
-                  color={showObs ? C.warning : C.textMuted}
+                  size={20}
+                  color={showObs ? C.orange : C.ink2}
                 />
               </TouchableOpacity>
             )}
             <Ionicons
               name={expanded ? 'chevron-up' : 'chevron-down'}
-              size={18}
-              color={C.textMuted}
+              size={20}
+              color={C.ink2}
             />
           </View>
         </TouchableOpacity>
@@ -195,13 +200,13 @@ export const ProductControlCard = memo(
           )}
 
           {showObs && (
-            <TextInput
+            <FieldInput
               style={styles.obsInput}
               value={observations}
               onChangeText={handleObservationsChange}
               placeholder="Observaciones del producto..."
-              placeholderTextColor={C.border}
               multiline
+              accessibilityLabel="Observaciones del producto"
             />
           )}
         </View>
@@ -218,77 +223,72 @@ ProductControlCard.displayName = 'ProductControlCard';
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: C.surface,
-    marginHorizontal: 12,
-    marginBottom: 8,
-    borderRadius: R.lg,
+    backgroundColor: C.white,
+    marginHorizontal: S.gutter,
+    marginBottom: S.sm,
+    borderRadius: R.card,
     overflow: 'hidden',
-    borderLeftWidth: 3,
-    ...Shdw.card,
-  },
-  cardRetornable: {
-    borderLeftColor: C.retornableBorder,
-  },
-  cardDescartable: {
-    borderLeftColor: C.descartableBorder,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    backgroundColor: C.surfaceAlt,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    minHeight: H.row,
+    paddingLeft: S.lg + 2,
+    paddingRight: S.sm,
+    paddingVertical: S.sm,
   },
   headerLeft: {
     flex: 1,
-    marginRight: 8,
+    marginRight: S.sm,
   },
   productName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: C.text,
+    ...T.label,
+    color: C.navy,
   },
   summary: {
-    fontSize: 12,
-    color: C.textSub,
-    fontWeight: '600',
+    ...T.secondary,
+    color: C.ink2,
+    fontVariant: ['tabular-nums'],
     marginTop: 2,
   },
   filledDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: C.success,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: S.sm,
   },
   productCode: {
-    fontSize: 11,
-    color: C.textMuted,
+    ...T.secondary,
+    color: C.ink2,
+    fontVariant: ['tabular-nums'],
   },
   packBadge: {
-    backgroundColor: C.primaryLight,
-    paddingHorizontal: 6,
+    backgroundColor: C.cream,
+    paddingHorizontal: S.sm,
     paddingVertical: 2,
-    borderRadius: R.xs,
+    borderRadius: R.cell,
   },
   packBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: C.primary,
+    ...T.systemTag,
+    color: C.navy,
+    fontVariant: ['tabular-nums'],
   },
   obsBtn: {
-    padding: 4,
+    width: H.touch,
+    height: H.touch,
+    borderRadius: H.touch / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   body: {
-    padding: 12,
-    paddingBottom: 10,
+    paddingHorizontal: S.lg + 2,
+    paddingTop: S.xs,
+    paddingBottom: S.md,
   },
   bodyHidden: {
     display: 'none',
@@ -296,36 +296,25 @@ const styles = StyleSheet.create({
   simpleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: S.sm,
   },
   simpleLabel: {
-    width: 62,
-    fontSize: 11,
-    fontWeight: '700',
-    color: C.textMuted,
+    width: FIELD_LABEL_WIDTH,
+    ...T.systemTag,
+    color: C.ink2,
     textTransform: 'uppercase',
-    letterSpacing: 0.6,
   },
   simpleInput: {
-    width: 72,
-    height: 40,
-    backgroundColor: C.inputBg,
-    borderWidth: 0,
-    borderRadius: R.sm,
-    textAlign: 'center',
-    fontSize: 16,
-    fontWeight: '600',
-    color: C.text,
+    width: 80,
   },
   obsInput: {
-    backgroundColor: C.inputBg,
-    borderWidth: 0,
-    borderRadius: R.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 14,
-    color: C.text,
-    marginTop: 6,
-    minHeight: 36,
+    ...T.body,
+    height: undefined,
+    minHeight: H.circleButton,
+    paddingHorizontal: S.lg - 3,
+    paddingVertical: S.sm,
+    textAlign: 'left',
+    textAlignVertical: 'top',
+    marginTop: S.xs,
   },
 });

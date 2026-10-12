@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   ScrollView,
   StyleSheet,
   ActivityIndicator,
@@ -10,15 +9,50 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getStockControl, approveStockControl } from '@/features/stock-controls/services/stockControlApi';
 import { useRouteStore } from '@/store/routeStore';
-import { StatusOverlay, type OverlayStatus, type OverlayAction } from '@/components/ui';
+import {
+  BLOCK_TONE,
+  BottomBar,
+  ColorBlock,
+  EmptyState,
+  Pill,
+  PrimaryButton,
+  ScreenHeader,
+  SecondaryButton,
+  StatusOverlay,
+  type OverlayStatus,
+  type OverlayAction,
+} from '@/components/ui';
 import type { StockControl } from '@/features/stock-controls/types';
-import { C, R, Shdw } from '@/lib/theme';
+import { C, H, R, S, T } from '@/lib/theme';
+
+function InfoRow({
+  icon, label, value, first,
+}: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string; first?: boolean }) {
+  return (
+    <View style={[styles.infoRow, !first && styles.rowDivider]}>
+      <Ionicons name={icon} size={H.icon} color={C.ink2} />
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue}>{value}</Text>
+    </View>
+  );
+}
+
+function QtyBox({ label, value, color = C.navy }: { label: string; value: number; color?: string }) {
+  return (
+    <View style={styles.qty} accessibilityLabel={`${label}: ${value}`}>
+      <Text style={[styles.qtyNum, { color }]}>{value}</Text>
+      <Text style={styles.qtyLabel} numberOfLines={1}>{label}</Text>
+    </View>
+  );
+}
 
 export default function ApprovalDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { setPendingCount, pendingCount } = useRouteStore();
 
   const [control, setControl] = useState<StockControl | null>(null);
@@ -103,123 +137,114 @@ export default function ApprovalDetailScreen() {
     );
   }
 
+  const header = (title: string, subtitle?: string) => (
+    <ScreenHeader title={title} subtitle={subtitle} onBack={() => router.back()} />
+  );
+
   if (loading) {
     return (
-      <>
-        <Stack.Screen options={{ title: 'Control Pendiente' }} />
+      <View style={[styles.screen, { paddingTop: insets.top }]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        {header('Control pendiente')}
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={C.primary} />
+          <ActivityIndicator size="large" color={C.navy} />
         </View>
-      </>
+      </View>
     );
   }
 
   if (error || !control) {
     return (
-      <>
-        <Stack.Screen options={{ title: 'Error' }} />
+      <View style={[styles.screen, { paddingTop: insets.top }]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        {header('Control pendiente')}
         <View style={styles.centered}>
-          <Text style={styles.errorText}>{error ?? 'Control no encontrado'}</Text>
-          <TouchableOpacity onPress={() => router.back()} style={styles.retryBtn}>
-            <Text style={styles.retryText}>Volver</Text>
-          </TouchableOpacity>
+          <EmptyState
+            icon="alert-circle-outline"
+            title="No se pudo abrir el control"
+            hint={error ?? 'Control no encontrado'}
+          />
+          <View style={styles.retryWrap}>
+            <SecondaryButton title="Volver" icon="chevron-back" onPress={() => router.back()} />
+          </View>
         </View>
-      </>
+      </View>
     );
   }
 
   const isExit = control.type === 'EXIT';
+  const tone = isExit ? 'blue' : 'green';
+  const colors = BLOCK_TONE[tone];
   const [cy, cm, cd] = control.controlDate.split('-');
   const dateFormatted = `${cd}/${cm}/${cy}`;
   const isApprovable = control.status === 'PENDING_DRIVER_APPROVAL';
+  const typeTitle = isExit ? 'Control de Salida' : 'Control de Entrada';
 
   return (
-    <>
-      <Stack.Screen options={{ title: isExit ? 'Control de Salida' : 'Control de Entrada' }} />
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
+      <Stack.Screen options={{ headerShown: false }} />
+      {header(typeTitle, control.branchName)}
 
-        {/* Banner tipo */}
-        <View style={[styles.typeBanner, isExit ? styles.exitBanner : styles.entryBanner]}>
-          <Text style={styles.typeBannerText}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: (isApprovable ? BOTTOM_BAR_SPACE : S.xxl) + insets.bottom },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Direction block: EXIT = blue, ENTRY = green */}
+        <ColorBlock tone={tone} style={styles.block}>
+          <Text style={[styles.blockTitle, { color: colors.fg }]} accessibilityRole="header">
             {isExit ? '↗ Control de Salida' : '↙ Control de Entrada'}
           </Text>
-          <View style={styles.pendingPill}>
-            <Text style={styles.pendingPillText}>Pendiente de aprobación</Text>
-          </View>
-        </View>
+          <Pill label="Pendiente de aprobación" tone={isExit ? 'onBlue' : 'onGreen'} />
+        </ColorBlock>
 
-        {/* Info del control */}
-        <View style={styles.infoBox}>
-          <View style={styles.infoRow}>
-            <Ionicons name="location-outline" size={16} color={C.textMuted} />
-            <Text style={styles.infoLabel}>Sucursal</Text>
-            <Text style={styles.infoValue}>{control.branchName}</Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.infoRow}>
-            <Ionicons name="car-outline" size={16} color={C.textMuted} />
-            <Text style={styles.infoLabel}>Reparto</Text>
-            <Text style={styles.infoValue}>{control.routeCode}</Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.infoRow}>
-            <Ionicons name="calendar-outline" size={16} color={C.textMuted} />
-            <Text style={styles.infoLabel}>Fecha</Text>
-            <Text style={styles.infoValue}>{dateFormatted}</Text>
-          </View>
+        {/* Control info */}
+        <View style={styles.card}>
+          <InfoRow icon="location-outline" label="Sucursal" value={control.branchName} first />
+          <InfoRow icon="car-outline" label="Reparto" value={control.routeCode} />
+          <InfoRow icon="calendar-outline" label="Fecha" value={dateFormatted} />
           {control.truckOrdered && (
-            <>
-              <View style={styles.divider} />
-              <View style={styles.infoRow}>
-                <Ionicons name="checkmark-circle-outline" size={16} color={C.entry} />
-                <Text style={[styles.infoLabel, { color: C.entry }]}>Camión ordenado</Text>
-              </View>
-            </>
+            <View style={[styles.infoRow, styles.rowDivider]}>
+              <Ionicons name="checkmark-circle-outline" size={H.icon} color={C.greenDot} />
+              <Text style={styles.truckText}>Camión ordenado</Text>
+            </View>
           )}
         </View>
 
-        {/* Observaciones */}
+        {/* Observations */}
         {control.observations ? (
-          <View style={styles.obsBox}>
+          <View style={styles.card}>
             <Text style={styles.obsLabel}>Observaciones</Text>
             <Text style={styles.obsText}>{control.observations}</Text>
           </View>
         ) : null}
 
-        {/* Productos */}
-        <Text style={styles.sectionTitle}>
-          Productos ({control.items.length})
-        </Text>
+        {/* Products */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle} accessibilityRole="header">Productos</Text>
+          <View style={styles.countPill}>
+            <Text style={styles.countPillText}>{control.items.length}</Text>
+          </View>
+        </View>
 
         {control.items.map((item) => (
-          <View key={item.id} style={styles.itemCard}>
+          <View key={item.id} style={styles.item}>
             <View style={styles.itemHeader}>
               <Text style={styles.itemName}>{item.productName}</Text>
               <Text style={styles.itemCode}>{item.productCode}</Text>
             </View>
             <View style={styles.itemQtys}>
-              <View style={styles.qtyBlock}>
-                <Text style={styles.qtyLabel}>Total</Text>
-                <Text style={styles.qtyVal}>{item.totalQuantity}</Text>
-              </View>
-              <View style={styles.qtyBlock}>
-                <Text style={styles.qtyLabel}>Llenos</Text>
-                <Text style={styles.qtyVal}>{item.fullQuantity}</Text>
-              </View>
-              <View style={styles.qtyBlock}>
-                <Text style={styles.qtyLabel}>Recambios</Text>
-                <Text style={styles.qtyVal}>{item.exchangeQuantity}</Text>
-              </View>
+              <QtyBox label="Total" value={item.totalQuantity} />
+              <QtyBox label="Llenos" value={item.fullQuantity} />
+              <QtyBox label="Recambios" value={item.exchangeQuantity} />
               {item.differenceQuantity != null && (
-                <View style={styles.qtyBlock}>
-                  <Text style={styles.qtyLabel}>Diferencia</Text>
-                  <Text style={[
-                    styles.qtyVal,
-                    { color: item.differenceQuantity !== 0 ? C.danger : C.entry },
-                  ]}>
-                    {item.differenceQuantity}
-                  </Text>
-                </View>
+                <QtyBox
+                  label="Diferencia"
+                  value={item.differenceQuantity}
+                  color={item.differenceQuantity !== 0 ? C.redText : C.greenDot}
+                />
               )}
             </View>
             {item.observations ? (
@@ -227,26 +252,20 @@ export default function ApprovalDetailScreen() {
             ) : null}
           </View>
         ))}
-
-        {/* Botón aprobar */}
-        {isApprovable && (
-          <TouchableOpacity
-            style={[styles.approveBtn, approving && styles.approveBtnDisabled]}
-            onPress={handleApprove}
-            disabled={approving}
-            activeOpacity={0.85}
-          >
-            {approving ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle-outline" size={22} color="#fff" />
-                <Text style={styles.approveBtnText}>Aprobar control</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        )}
       </ScrollView>
+
+      {isApprovable && (
+        <BottomBar>
+          <View style={styles.flex}>
+            <PrimaryButton
+              title="Aprobar control"
+              icon="checkmark-circle-outline"
+              onPress={handleApprove}
+              loading={approving}
+            />
+          </View>
+        </BottomBar>
+      )}
 
       <StatusOverlay
         visible={overlay.visible}
@@ -259,122 +278,66 @@ export default function ApprovalDetailScreen() {
           setApproving(false);
         }}
       />
-    </>
+    </View>
   );
 }
 
+// Primary button + the bottom bar's vertical padding, so the last product isn't hidden.
+const BOTTOM_BAR_SPACE = H.primaryButton + S.md * 2 + S.lg;
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
-  content: { padding: 16, paddingBottom: 32, gap: 12 },
-  centered: {
+  screen: { flex: 1, backgroundColor: C.cream },
+  flex: { flex: 1 },
+  scroll: { paddingHorizontal: S.gutter, gap: S.md },
+  centered: { flex: 1, justifyContent: 'center', padding: S.gutter, gap: S.lg },
+  retryWrap: { alignSelf: 'center' },
+
+  block: { gap: S.lg, padding: S.xl },
+  blockTitle: { ...T.blockTitle },
+
+  card: { paddingHorizontal: S.xl, paddingVertical: S.xs, borderRadius: R.card, backgroundColor: C.white },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: S.md, minHeight: 56 },
+  rowDivider: { borderTopWidth: 1, borderTopColor: C.line },
+  infoLabel: { ...T.body, color: C.ink2, width: 84 },
+  infoValue: { ...T.data, color: C.navy, flex: 1 },
+  truckText: { ...T.label, color: C.greenDot, flex: 1 },
+
+  obsLabel: { ...T.label, color: C.ink2, paddingTop: S.md },
+  obsText: { ...T.body, color: C.navy, paddingBottom: S.md },
+
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: S.sm, marginTop: S.sm },
+  sectionTitle: { ...T.section, color: C.navy },
+  countPill: {
+    minWidth: 28,
+    height: 24,
+    paddingHorizontal: S.sm,
+    borderRadius: 12,
+    backgroundColor: C.navy,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countPillText: { ...T.secondary, fontFamily: T.button.fontFamily, color: C.white, fontVariant: ['tabular-nums'] },
+
+  item: {
+    gap: S.md,
+    padding: S.lg,
+    paddingLeft: S.xl,
+    borderRadius: R.card,
+    backgroundColor: C.white,
+  },
+  itemHeader: { gap: 2 },
+  itemName: { ...T.data, color: C.navy },
+  itemCode: { ...T.secondary, fontFamily: T.body.fontFamily, color: C.ink2 },
+  itemQtys: { flexDirection: 'row', gap: S.sm },
+  qty: {
     flex: 1,
+    paddingVertical: S.sm,
+    paddingHorizontal: S.xs,
+    borderRadius: R.row,
+    backgroundColor: C.cream,
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: C.bg,
   },
-  errorText: { color: C.danger, fontSize: 15, textAlign: 'center', marginBottom: 14 },
-  retryBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: C.primary,
-    borderRadius: R.md,
-  },
-  retryText: { color: '#fff', fontSize: 15, fontWeight: '600' },
-
-  typeBanner: {
-    borderRadius: R.lg,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  exitBanner: { backgroundColor: C.exit },
-  entryBanner: { backgroundColor: C.entry },
-  typeBannerText: { color: '#fff', fontSize: 16, fontWeight: '700', flex: 1 },
-  pendingPill: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    borderRadius: R.sm,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  pendingPillText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-
-  infoBox: {
-    backgroundColor: C.surface,
-    borderRadius: R.lg,
-    paddingHorizontal: 16,
-    ...Shdw.card,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 13,
-  },
-  infoLabel: { fontSize: 14, color: C.textMuted, width: 80 },
-  infoValue: { fontSize: 15, fontWeight: '600', color: C.text, flex: 1 },
-  divider: { height: 1, backgroundColor: C.border, marginHorizontal: -16 },
-
-  obsBox: {
-    backgroundColor: C.surface,
-    borderRadius: R.lg,
-    padding: 14,
-    gap: 4,
-    ...Shdw.card,
-  },
-  obsLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: C.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  obsText: { fontSize: 14, color: C.text },
-
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: C.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginTop: 4,
-    marginBottom: 2,
-  },
-
-  itemCard: {
-    backgroundColor: C.surface,
-    borderRadius: R.lg,
-    padding: 14,
-    gap: 8,
-    ...Shdw.card,
-  },
-  itemHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  itemName: { fontSize: 15, fontWeight: '600', color: C.text, flex: 1 },
-  itemCode: { fontSize: 12, color: C.textMuted },
-  itemQtys: { flexDirection: 'row', gap: 16 },
-  qtyBlock: { alignItems: 'center', minWidth: 52 },
-  qtyLabel: { fontSize: 11, color: C.textMuted, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3 },
-  qtyVal: { fontSize: 18, fontWeight: '700', color: C.text, marginTop: 2 },
-  itemObs: { fontSize: 13, color: C.textMuted, fontStyle: 'italic' },
-
-  approveBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: C.entry,
-    borderRadius: R.lg,
-    paddingVertical: 17,
-    marginTop: 8,
-    ...Shdw.float,
-  },
-  approveBtnDisabled: { opacity: 0.55 },
-  approveBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  qtyNum: { ...T.screenTitle, fontVariant: ['tabular-nums'] },
+  qtyLabel: { ...T.secondary, color: C.ink2 },
+  itemObs: { ...T.secondary, fontFamily: T.body.fontFamily, color: C.ink2 },
 });

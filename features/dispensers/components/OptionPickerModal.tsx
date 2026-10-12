@@ -9,7 +9,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { AguasCatalogItem } from '../types';
-import { C, R, S, F, W } from '@/lib/theme';
+import { C, H, R, S, T } from '@/lib/theme';
 
 type Props = {
   visible: boolean;
@@ -33,12 +33,25 @@ export function OptionPickerModal({
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
-        <View style={[styles.sheet, { paddingBottom: insets.bottom + 12 }]}>
+        <TouchableOpacity
+          style={styles.backdrop}
+          activeOpacity={1}
+          onPress={onClose}
+          accessibilityLabel="Cerrar"
+        />
+        <View style={[styles.sheet, { paddingBottom: insets.bottom + S.lg }]}>
+          <View style={styles.handle} />
           <View style={styles.header}>
-            <Text style={styles.title}>{title}</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Ionicons name="close" size={24} color={C.textSub} />
+            <Text style={styles.title} accessibilityRole="header">
+              {title}
+            </Text>
+            <TouchableOpacity
+              style={styles.closeBtn}
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar"
+            >
+              <Ionicons name="close" size={24} color={C.navy} />
             </TouchableOpacity>
           </View>
 
@@ -53,11 +66,13 @@ export function OptionPickerModal({
                   style={[styles.option, selected && styles.optionSelected]}
                   onPress={() => onSelect(item)}
                   activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
                 >
                   <Text style={[styles.optionText, selected && styles.optionTextSelected]}>
                     {item.descripcion}
                   </Text>
-                  {selected && <Ionicons name="checkmark-circle" size={20} color={C.primary} />}
+                  {selected && <Ionicons name="checkmark-circle" size={24} color={C.blue} />}
                 </TouchableOpacity>
               );
             }}
@@ -73,45 +88,62 @@ export function OptionPickerModal({
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(14,23,38,0.45)' },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: C.scrim },
   sheet: {
-    backgroundColor: C.surface,
-    borderTopLeftRadius: R.xl,
-    borderTopRightRadius: R.xl,
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    backgroundColor: C.white,
+    borderTopLeftRadius: R.sheet,
+    borderTopRightRadius: R.sheet,
+    paddingHorizontal: S.gutterWide,
+    paddingTop: S.md,
     maxHeight: '70%',
+  },
+  handle: {
+    alignSelf: 'center',
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: C.handle,
+    marginBottom: S.lg,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: S.lg,
   },
-  title: { fontSize: F.lg, fontWeight: W.extra, color: C.text },
+  title: { ...T.sheetTitle, flex: 1, color: C.navy },
+  closeBtn: {
+    width: H.touch,
+    height: H.touch,
+    borderRadius: H.touch / 2,
+    backgroundColor: C.cream,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   list: { flexGrow: 0 },
   option: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    borderRadius: R.md,
-    backgroundColor: C.surfaceAlt,
-    marginBottom: 8,
-    borderWidth: 1.5,
+    minHeight: H.row,
+    paddingHorizontal: S.lg - 3,
+    borderRadius: R.row,
+    backgroundColor: C.cream,
+    marginBottom: S.sm,
+    // Constant 3pt border so the selected ring doesn't shift the layout.
+    borderWidth: 3,
     borderColor: 'transparent',
   },
   optionSelected: {
-    borderColor: C.primary,
-    backgroundColor: C.primaryLight,
+    borderColor: C.blue,
+    backgroundColor: C.white,
   },
-  optionText: { fontSize: F.md, color: C.text, fontWeight: W.semibold, flex: 1 },
-  optionTextSelected: { color: C.primary, fontWeight: W.extra },
+  optionText: { ...T.label, color: C.navy, flex: 1 },
+  optionTextSelected: { color: C.blueText },
   empty: {
+    ...T.body,
     textAlign: 'center',
-    color: C.textMuted,
-    fontSize: F.sm + 1,
-    paddingVertical: 24,
+    color: C.ink2,
+    paddingVertical: S.xxl,
   },
 });

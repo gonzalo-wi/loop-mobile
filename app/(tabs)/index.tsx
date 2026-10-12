@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
   tile: { flex: 1, gap: S.xs, padding: S.lg, borderRadius: R.card, backgroundColor: C.white },
   tileIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: S.sm },
   tileNum: { ...T.blockTitle, color: C.navy, fontVariant: ['tabular-nums'] },
-  tileLabel: { ...T.label, fontFamily: T.secondary.fontFamily, color: C.ink2 },
+  tileLabel: { ...T.secondary, color: C.ink2 },
 
   pend: { gap: S.md, padding: S.lg, borderRadius: R.card, backgroundColor: C.white },
   pendTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

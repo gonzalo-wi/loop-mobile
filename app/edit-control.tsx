@@ -3,7 +3,7 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   FlatList,
   Switch,
   StyleSheet,
@@ -22,9 +22,18 @@ import {
 } from '@/features/stock-controls/services/stockControlApi';
 import { getProducts } from '@/features/stock-controls/services/productsApi';
 import { ProductControlCard } from '@/features/stock-controls/components/ProductControlCard';
-import { useKeyboardHeight } from '@/lib/useKeyboardHeight';
+import { ControlStatusChip } from '@/features/stock-controls/components/ControlStatusChip';
 import { useAuthStore } from '@/store/authStore';
-import { C, R, Shdw } from '@/lib/theme';
+import {
+  BLOCK_TONE,
+  BottomBar,
+  ColorBlock,
+  EmptyState,
+  PrimaryButton,
+  ScreenHeader,
+  SecondaryButton,
+} from '@/components/ui';
+import { C, H, R, S, T } from '@/lib/theme';
 import type {
   StockControl,
   StockControlItem,
@@ -42,26 +51,18 @@ import {
 
 const AGUAS_REFRESH_DELAY_MS = 2500;
 
+// Primary button + vertical padding of the bottom bar, so the last row isn't hidden.
+const BOTTOM_BAR_SPACE = H.primaryButton + S.md * 2 + S.lg;
+
 function normalizeText(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
-
-const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  CONTROLLED: { label: 'Controlado', color: C.primary },
-  PENDING_DRIVER_APPROVAL: { label: 'Pendiente aprobación', color: C.warning },
-  ACCEPTED_BY_DRIVER: { label: 'Aprobado', color: C.success },
-  REJECTED_BY_DRIVER: { label: 'Rechazado', color: C.danger },
-  WITH_DIFFERENCES: { label: 'Con diferencias', color: '#D97706' },
-  SENT_TO_AGUAS: { label: 'Enviado a Aguas', color: '#6D28D9' },
-  AGUAS_ERROR: { label: 'Error Aguas', color: '#B91C1C' },
-  CANCELLED: { label: 'Cancelado', color: '#6B7280' },
-};
 
 // ─── Read-only item list for non-editable controls ───────────────────────────
 
 function ReadOnlyItemList({ items }: { items: StockControlItem[] }) {
   if (items.length === 0) {
-    return <Text style={styles.emptyItems}>Sin productos cargados</Text>;
+    return <EmptyState icon="cube-outline" title="Sin productos cargados" style={styles.roEmpty} />;
   }
 
   return (
@@ -77,7 +78,12 @@ function ReadOnlyItemList({ items }: { items: StockControlItem[] }) {
             <Text style={styles.roQty}>Llenos <Text style={styles.roQtyVal}>{item.fullQuantity}</Text></Text>
             <Text style={styles.roQty}>Recamb. <Text style={styles.roQtyVal}>{item.exchangeQuantity}</Text></Text>
             {item.differenceQuantity != null && (
-              <Text style={[styles.roQty, { color: item.differenceQuantity !== 0 ? C.danger : C.success }]}>
+              <Text
+                style={[
+                  styles.roQty,
+                  { color: item.differenceQuantity !== 0 ? C.redText : C.greenDot },
+                ]}
+              >
                 Dif. <Text style={styles.roQtyVal}>{item.differenceQuantity}</Text>
               </Text>
             )}
@@ -96,11 +102,10 @@ function ReadOnlyItemList({ items }: { items: StockControlItem[] }) {
 export default function EditControlScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const keyboardHeight = useKeyboardHeight();
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   // La barra de guardar es siempre visible, así que la lista siempre le deja lugar.
-  const listPaddingBottom = 96 + insets.bottom;
+  const listPaddingBottom = BOTTOM_BAR_SPACE + insets.bottom;
 
   const [control, setControl] = useState<StockControl | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -272,152 +277,154 @@ export default function EditControlScreen() {
     }
   }
 
+  const hideNativeHeader = <Stack.Screen options={{ headerShown: false }} />;
+
   if (loading) {
     return (
-      <>
-        <Stack.Screen options={{ title: 'Control' }} />
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        {hideNativeHeader}
+        <ScreenHeader title="Control" onBack={() => router.back()} />
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={C.primary} />
+          <ActivityIndicator size="large" color={C.navy} />
         </View>
-      </>
+      </View>
     );
   }
 
   if (error || !control) {
     return (
-      <>
-        <Stack.Screen options={{ title: 'Error' }} />
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        {hideNativeHeader}
+        <ScreenHeader title="Error" onBack={() => router.back()} />
         <View style={styles.centered}>
-          <Text style={styles.errorText}>{error ?? 'Control no encontrado'}</Text>
-          <TouchableOpacity onPress={() => router.back()} style={styles.retryBtn}>
-            <Text style={styles.retryText}>Volver</Text>
-          </TouchableOpacity>
+          <EmptyState
+            icon="alert-circle-outline"
+            title="No se pudo abrir el control"
+            hint={error ?? 'Control no encontrado'}
+          />
+          <View style={styles.retryWrap}>
+            <SecondaryButton title="Volver" icon="chevron-back" onPress={() => router.back()} />
+          </View>
         </View>
-      </>
+      </View>
     );
   }
 
   const isEditable = control.status === 'CONTROLLED';
   const isExit = control.type === 'EXIT';
-  const status = STATUS_LABELS[control.status] ?? { label: control.status, color: '#555' };
   const [cy, cm, cd] = control.controlDate.split('-');
   const dateFormatted = `${cd}/${cm}/${cy}`;
   const title = isExit ? 'Control de Salida' : 'Control de Entrada';
   const isCorrectable = isControlCorrectable(control, user?.role);
   const hasAguasInfo = !!control.aguasFormulario || control.aguasNroRemito != null;
+  // Direction color rule: EXIT = blue, ENTRY = green.
+  const directionTone = isExit ? 'blue' : 'green';
+  const directionColors = BLOCK_TONE[directionTone];
+
+  const header = <ScreenHeader title={title} onBack={() => router.back()} />;
+
+  const summaryBlock = (
+    <ColorBlock tone={directionTone}>
+      <View style={styles.summaryTop}>
+        <Ionicons
+          name={isExit ? 'arrow-up' : 'arrow-down'}
+          size={H.icon}
+          color={directionColors.fg}
+        />
+        <Text style={[styles.summaryTitle, { color: directionColors.fg }]}>{title}</Text>
+      </View>
+      <View>
+        <Text style={[styles.routeCode, { color: directionColors.fg }]}>Reparto {control.routeCode}</Text>
+        <Text style={[styles.branchName, { color: directionColors.fgSub }]}>{control.branchName}</Text>
+        <Text style={[styles.controlDate, { color: directionColors.fgSub }]}>{dateFormatted}</Text>
+      </View>
+      <ControlStatusChip status={control.status} />
+    </ColorBlock>
+  );
 
   // ── Read-only view ──
   if (!isEditable && !correcting) {
     return (
-      <>
-        <Stack.Screen options={{ title }} />
-        <View style={styles.container}>
-          <FlatList
-            data={[]}
-            keyExtractor={() => ''}
-            renderItem={null}
-            ListHeaderComponent={
-              <View>
-                <View style={styles.headerBanner}>
-                  <View style={[styles.typeBanner, isExit ? styles.exitBanner : styles.entryBanner]}>
-                    <Text style={styles.typeBannerText}>{title}</Text>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        {hideNativeHeader}
+        {header}
+        <FlatList
+          data={[]}
+          keyExtractor={() => ''}
+          renderItem={null}
+          ListHeaderComponent={
+            <View style={styles.headerContent}>
+              {summaryBlock}
+
+              {hasAguasInfo ? (
+                <View style={styles.infoCard}>
+                  <View style={styles.infoCardHeader}>
+                    <Ionicons name="water-outline" size={H.iconInPill - 4} color={C.supervisor} />
+                    <Text style={[styles.infoCardLabel, { color: C.supervisor }]}>Datos de Aguas</Text>
                   </View>
-                  <View style={[styles.statusPill, { backgroundColor: status.color }]}>
-                    <Text style={styles.statusPillText}>{status.label}</Text>
-                  </View>
+                  {control.aguasFormulario ? (
+                    <Text style={styles.infoCardText}>
+                      Formulario <Text style={styles.infoCardValue}>{control.aguasFormulario}</Text>
+                    </Text>
+                  ) : null}
+                  {control.aguasNroRemito != null ? (
+                    <Text style={styles.infoCardText}>
+                      Remito <Text style={styles.infoCardValue}>{control.aguasNroRemito}</Text>
+                    </Text>
+                  ) : null}
                 </View>
+              ) : null}
 
-                <View style={styles.routeBox}>
-                  <Text style={styles.routeCode}>Reparto {control.routeCode}</Text>
-                  <Text style={styles.branchName}>{control.branchName}</Text>
-                  <Text style={styles.controlDate}>{dateFormatted}</Text>
+              {control.observations ? (
+                <View style={styles.infoCard}>
+                  <Text style={styles.infoCardLabel}>Observaciones</Text>
+                  <Text style={styles.infoCardValueBlock}>{control.observations}</Text>
                 </View>
+              ) : null}
 
-                {hasAguasInfo ? (
-                  <View style={styles.aguasBox}>
-                    <View style={styles.aguasBoxHeader}>
-                      <Ionicons name="water-outline" size={15} color={C.supervisor} />
-                      <Text style={styles.aguasBoxLabel}>Datos de Aguas</Text>
-                    </View>
-                    {control.aguasFormulario ? (
-                      <Text style={styles.aguasBoxText}>
-                        Formulario <Text style={styles.aguasBoxValue}>{control.aguasFormulario}</Text>
-                      </Text>
-                    ) : null}
-                    {control.aguasNroRemito != null ? (
-                      <Text style={styles.aguasBoxText}>
-                        Remito <Text style={styles.aguasBoxValue}>{control.aguasNroRemito}</Text>
-                      </Text>
-                    ) : null}
-                  </View>
-                ) : null}
+              <Text style={styles.sectionTitle} accessibilityRole="header">
+                Productos ({control.items.length})
+              </Text>
+              <ReadOnlyItemList items={control.items} />
+            </View>
+          }
+          contentContainerStyle={{
+            paddingBottom: (isCorrectable ? BOTTOM_BAR_SPACE : S.xxl) + insets.bottom,
+          }}
+          showsVerticalScrollIndicator={false}
+        />
 
-                {control.observations ? (
-                  <View style={styles.obsBox}>
-                    <Text style={styles.obsBoxLabel}>Observaciones</Text>
-                    <Text style={styles.obsBoxText}>{control.observations}</Text>
-                  </View>
-                ) : null}
-
-                {isCorrectable && (
-                  <TouchableOpacity
-                    style={[styles.correctBtn, startingCorrection && styles.correctBtnDisabled]}
-                    onPress={handleStartCorrection}
-                    disabled={startingCorrection}
-                    activeOpacity={0.85}
-                    accessibilityRole="button"
-                    accessibilityLabel="Corregir control"
-                  >
-                    {startingCorrection ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <>
-                        <Ionicons name="shield-checkmark-outline" size={18} color="#fff" />
-                        <Text style={styles.correctBtnText}>Corregir control</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                )}
-
-                <Text style={styles.sectionTitle}>Productos ({control.items.length})</Text>
-                <ReadOnlyItemList items={control.items} />
-              </View>
-            }
-            contentContainerStyle={styles.list}
-          />
-        </View>
-      </>
+        {isCorrectable && (
+          <BottomBar>
+            <View style={styles.flex}>
+              <PrimaryButton
+                title="Corregir control"
+                icon="shield-checkmark-outline"
+                onPress={handleStartCorrection}
+                loading={startingCorrection}
+              />
+            </View>
+          </BottomBar>
+        )}
+      </View>
     );
   }
 
   // ── Editable view (edición normal o corrección) ──
   const EditHeader = (
-    <View>
-      <View style={styles.headerBanner}>
-        <View style={[styles.typeBanner, isExit ? styles.exitBanner : styles.entryBanner]}>
-          <Text style={styles.typeBannerText}>{title}</Text>
-        </View>
-        <View style={[styles.statusPill, { backgroundColor: status.color }]}>
-          <Text style={styles.statusPillText}>{status.label}</Text>
-        </View>
-      </View>
-
-      <View style={styles.routeBox}>
-        <Text style={styles.routeCode}>Reparto {control.routeCode}</Text>
-        <Text style={styles.branchName}>{control.branchName}</Text>
-        <Text style={styles.controlDate}>{dateFormatted}</Text>
-      </View>
+    <View style={styles.headerContent}>
+      {summaryBlock}
 
       {correcting && (
         <View style={styles.correctionModeBar}>
-          <Ionicons name="shield-checkmark-outline" size={15} color="#fff" />
+          <Ionicons name="shield-checkmark-outline" size={H.iconInPill - 4} color={C.white} />
           <Text style={styles.correctionModeBarText}>MODO CORRECCIÓN</Text>
         </View>
       )}
 
       {correcting && (
         <View style={styles.correctionBanner}>
-          <Ionicons name="alert-circle-outline" size={16} color={C.supervisorDark} />
+          <Ionicons name="alert-circle-outline" size={H.iconInPill} color={C.supervisorDark} />
           <Text style={styles.correctionBannerText}>
             Estás corrigiendo un control ya enviado a Aguas. Esta acción queda
             auditada y los productos cargados reemplazan por completo a los actuales.
@@ -430,11 +437,12 @@ export default function EditControlScreen() {
           <TextInput
             style={[styles.observationsInput, styles.reasonInput]}
             placeholder="Motivo de la corrección (obligatorio)"
-            placeholderTextColor={C.textMuted}
+            placeholderTextColor={C.textFaint}
             value={reason}
             onChangeText={setReason}
             maxLength={REASON_MAX_LENGTH}
             multiline
+            accessibilityLabel="Motivo de la corrección"
           />
 
           <View style={styles.switchRow}>
@@ -442,7 +450,8 @@ export default function EditControlScreen() {
             <Switch
               value={truckOrdered}
               onValueChange={setTruckOrdered}
-              trackColor={{ true: C.primary }}
+              trackColor={{ true: C.blue }}
+              accessibilityLabel="Camión ordenado"
             />
           </View>
         </>
@@ -451,32 +460,36 @@ export default function EditControlScreen() {
       <TextInput
         style={styles.observationsInput}
         placeholder="Observaciones generales (opcional)"
-        placeholderTextColor={C.textMuted}
+        placeholderTextColor={C.textFaint}
         value={observations}
         onChangeText={setObservations}
         multiline
+        accessibilityLabel="Observaciones generales"
       />
 
-      <Text style={styles.sectionTitle}>Productos</Text>
+      <Text style={styles.sectionTitle} accessibilityRole="header">Productos</Text>
 
       <View style={styles.searchBox}>
-        <Ionicons name="search" size={18} color={C.textMuted} />
+        <Ionicons name="search" size={H.icon} color={C.ink2} />
         <TextInput
           style={styles.searchInput}
           placeholder="Buscar producto..."
-          placeholderTextColor={C.textMuted}
+          placeholderTextColor={C.textFaint}
           value={productSearch}
           onChangeText={setProductSearch}
           autoCorrect={false}
           returnKeyType="search"
+          accessibilityLabel="Buscar producto"
         />
         {productSearch.length > 0 && (
-          <TouchableOpacity
+          <Pressable
             onPress={() => setProductSearch('')}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={styles.clearBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Borrar búsqueda"
           >
-            <Ionicons name="close-circle" size={18} color={C.textMuted} />
-          </TouchableOpacity>
+            <Ionicons name="close-circle" size={H.icon} color={C.ink2} />
+          </Pressable>
         )}
       </View>
     </View>
@@ -492,15 +505,15 @@ export default function EditControlScreen() {
     : products;
 
   return (
-    <>
-      <Stack.Screen options={{ title }} />
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {hideNativeHeader}
+      {header}
       <KeyboardAvoidingView
-        style={styles.container}
+        style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
       >
         <FlatList
-          style={styles.flatList}
+          style={styles.flex}
           data={filteredProducts}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
@@ -519,448 +532,134 @@ export default function EditControlScreen() {
               </Text>
             ) : null
           }
-          contentContainerStyle={[styles.list, { paddingBottom: listPaddingBottom }]}
+          contentContainerStyle={{ paddingBottom: listPaddingBottom }}
           keyboardShouldPersistTaps="handled"
         />
 
-        <View
-          style={[
-            styles.stickyBar,
-            { paddingBottom: keyboardHeight > 0 ? 12 : Math.max(insets.bottom, 14) },
-          ]}
-        >
+        <BottomBar>
           {correcting ? (
-            <View style={styles.correctionActions}>
-              <TouchableOpacity
-                style={[styles.cancelBtn]}
-                onPress={handleCancelCorrection}
-                disabled={saving}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.cancelBtnText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.saveBtn, styles.correctionConfirmBtn, saving && styles.saveBtnDisabled]}
-                onPress={handleConfirmCorrection}
-                disabled={saving}
-                activeOpacity={0.85}
-              >
-                {saving ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.saveBtnText}>Confirmar corrección</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+            <>
+              <View style={styles.secondaryAction}>
+                <SecondaryButton title="Cancelar" onPress={handleCancelCorrection} disabled={saving} />
+              </View>
+              <View style={styles.flex}>
+                <PrimaryButton
+                  title="Confirmar corrección"
+                  onPress={handleConfirmCorrection}
+                  loading={saving}
+                />
+              </View>
+            </>
           ) : (
-            <TouchableOpacity
-              style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-              onPress={handleSave}
-              disabled={saving}
-              activeOpacity={0.85}
-            >
-              {saving ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.saveBtnText}>Guardar Cambios</Text>
-              )}
-            </TouchableOpacity>
+            <View style={styles.flex}>
+              <PrimaryButton title="Guardar Cambios" onPress={handleSave} loading={saving} />
+            </View>
           )}
-        </View>
+        </BottomBar>
       </KeyboardAvoidingView>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
-  list: {
-    paddingBottom: 24,
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: C.bg,
-  },
-  errorText: {
-    color: C.danger,
-    fontSize: 15,
-    textAlign: 'center',
-    marginBottom: 14,
-  },
-  retryBtn: {
-    paddingHorizontal: 22,
-    paddingVertical: 10,
-    backgroundColor: C.primary,
-    borderRadius: R.md,
-  },
-  retryText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
+  container: { flex: 1, backgroundColor: C.cream },
+  flex: { flex: 1 },
+  centered: { flex: 1, justifyContent: 'center', padding: S.gutter, gap: S.lg },
+  retryWrap: { alignSelf: 'center' },
+  headerContent: { paddingHorizontal: S.gutter, gap: S.md },
 
-  // Header
-  headerBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 16,
-    paddingBottom: 0,
-  },
-  typeBanner: {
-    flex: 1,
-    borderRadius: R.md,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  exitBanner: {
-    backgroundColor: C.exit,
-  },
-  entryBanner: {
-    backgroundColor: C.entry,
-  },
-  typeBannerText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  statusPill: {
-    borderRadius: R.full,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  statusPillText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '800',
-  },
+  // Summary block (direction color)
+  summaryTop: { flexDirection: 'row', alignItems: 'center', gap: S.sm },
+  summaryTitle: { ...T.label },
+  routeCode: { ...T.blockTitle },
+  branchName: { ...T.body },
+  controlDate: { ...T.secondary },
 
-  // Route info
-  routeBox: {
-    backgroundColor: C.surface,
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: R.lg,
-    padding: 16,
-    gap: 2,
-    ...Shdw.card,
-  },
-  routeCode: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: C.text,
-  },
-  branchName: {
-    fontSize: 14,
-    color: C.textSub,
-  },
-  controlDate: {
-    fontSize: 13,
-    color: C.textMuted,
-    marginTop: 2,
-  },
+  // White info cards (Aguas data, observations)
+  infoCard: { backgroundColor: C.white, borderRadius: R.card, padding: S.lg, gap: S.xs },
+  infoCardHeader: { flexDirection: 'row', alignItems: 'center', gap: S.sm - 2 },
+  infoCardLabel: { ...T.systemTag, color: C.ink2, textTransform: 'uppercase' },
+  infoCardText: { ...T.body, color: C.ink2 },
+  infoCardValue: { fontFamily: T.data.fontFamily, color: C.navy },
+  infoCardValueBlock: { ...T.body, color: C.navy },
 
-  // Aguas info — acento morado alineado al color del estado "Enviado a Aguas"
-  // en STATUS_LABELS, para que se reconozca de un vistazo como info del
-  // sistema externo (distinta de las observaciones internas del control).
-  aguasBox: {
-    backgroundColor: C.surface,
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: R.lg,
-    borderLeftWidth: 3,
-    borderLeftColor: C.supervisor,
-    padding: 16,
-    gap: 4,
-    ...Shdw.card,
-  },
-  aguasBoxHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 2,
-  },
-  aguasBoxLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: C.supervisor,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  aguasBoxText: {
-    fontSize: 14,
-    color: C.textSub,
-  },
-  aguasBoxValue: {
-    fontWeight: '700',
-    color: C.text,
-  },
-
-  // Observations
-  obsBox: {
-    backgroundColor: C.surface,
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: R.lg,
-    padding: 16,
-    gap: 4,
-    ...Shdw.card,
-  },
-  obsBoxLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: C.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  obsBoxText: {
-    fontSize: 14,
-    color: C.text,
-  },
+  // Inputs
   observationsInput: {
-    backgroundColor: C.surface,
-    borderRadius: R.lg,
-    borderWidth: 1,
-    borderColor: C.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: C.text,
-    minHeight: 52,
-    marginHorizontal: 16,
-    marginTop: 12,
+    ...T.body,
+    backgroundColor: C.white,
+    borderRadius: R.field,
+    paddingHorizontal: S.xl - 3,
+    paddingVertical: S.md,
+    color: C.navy,
+    minHeight: H.field,
   },
-  reasonInput: {
-    borderColor: C.warning,
-  },
+  reasonInput: { borderWidth: 3, borderColor: C.orange },
 
-  // Correct control (SUPERVISOR) — color "supervisor" (morado), no warning:
-  // es una acción deliberada de rol elevado, no una alerta.
-  correctBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: C.supervisor,
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: R.lg,
-    paddingVertical: 14,
-    minHeight: 44,
-    ...Shdw.card,
-  },
-  correctBtnText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  correctBtnDisabled: {
-    opacity: 0.55,
-  },
-  // Barra sólida que marca el modo corrección de forma inequívoca en el header
-  // del formulario — más fuerte que el banner informativo de abajo, porque
-  // corregir un control ya enviado a un sistema externo (con auditoría) es
-  // un flujo distinto a la edición normal de un control recién creado.
+  // Correct control (SUPERVISOR) — "supervisor" purple: deliberate elevated-role
+  // action, not an alert. No LOOP equivalent yet.
   correctionModeBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: S.sm - 2,
     backgroundColor: C.supervisor,
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: R.md,
-    paddingVertical: 8,
+    borderRadius: R.full,
+    minHeight: H.touch,
   },
-  correctionModeBarText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-  },
+  correctionModeBarText: { ...T.systemTag, color: C.white },
   correctionBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
+    gap: S.sm,
     backgroundColor: C.supervisorLight,
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: R.lg,
-    padding: 12,
+    borderRadius: R.card,
+    padding: S.lg,
   },
-  correctionBannerText: {
-    flex: 1,
-    fontSize: 13,
-    color: C.textSub,
-  },
+  correctionBannerText: { ...T.secondary, flex: 1, color: C.navy },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: C.surface,
-    borderRadius: R.lg,
-    borderWidth: 1,
-    borderColor: C.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginHorizontal: 16,
-    marginTop: 12,
+    backgroundColor: C.white,
+    borderRadius: R.field,
+    paddingHorizontal: S.xl - 3,
+    minHeight: H.field,
   },
-  switchLabel: {
-    fontSize: 15,
-    color: C.text,
-    fontWeight: '500',
-  },
-  correctionActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  cancelBtn: {
-    flex: 1,
-    borderRadius: R.lg,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: C.surfaceSunken,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  cancelBtnText: {
-    color: C.textSub,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  correctionConfirmBtn: {
-    flex: 2,
-    backgroundColor: C.supervisor,
-  },
+  switchLabel: { ...T.label, color: C.navy },
+  // The secondary action is always narrower than the primary one.
+  secondaryAction: { flex: 0.75 },
 
-  // Section title
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: C.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginHorizontal: 16,
-    marginTop: 18,
-    marginBottom: 8,
-  },
+  // Products
+  sectionTitle: { ...T.section, color: C.navy, marginTop: S.sm },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: C.surface,
-    borderRadius: R.md,
-    borderWidth: 1,
-    borderColor: C.border,
-    paddingHorizontal: 12,
-    height: 44,
-    marginHorizontal: 16,
-    marginBottom: 4,
+    gap: S.sm,
+    backgroundColor: C.white,
+    borderRadius: R.field,
+    paddingLeft: S.lg,
+    paddingRight: S.sm,
+    minHeight: H.field,
   },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: C.text,
-    paddingVertical: 0,
-  },
+  searchInput: { ...T.body, flex: 1, color: C.navy, paddingVertical: 0 },
+  clearBtn: { width: H.touch, height: H.touch, alignItems: 'center', justifyContent: 'center' },
   noResults: {
+    ...T.body,
     textAlign: 'center',
-    color: C.textMuted,
-    fontSize: 14,
-    marginTop: 24,
-    paddingHorizontal: 16,
+    color: C.ink2,
+    marginTop: S.xxl,
+    paddingHorizontal: S.gutter,
   },
 
   // Read-only items
-  roList: {
-    marginHorizontal: 16,
-    gap: 10,
-  },
-  roItem: {
-    backgroundColor: C.surface,
-    borderRadius: R.lg,
-    padding: 14,
-    gap: 8,
-    ...Shdw.card,
-  },
-  roItemHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  roItemName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: C.text,
-    flex: 1,
-  },
-  roItemCode: {
-    fontSize: 12,
-    color: C.textMuted,
-  },
-  roItemQtys: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  roQty: {
-    fontSize: 13,
-    color: C.textSub,
-  },
-  roQtyVal: {
-    fontWeight: '800',
-    color: C.text,
-  },
-  roItemObs: {
-    fontSize: 13,
-    color: C.textMuted,
-    fontStyle: 'italic',
-  },
-  emptyItems: {
-    color: C.textMuted,
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 16,
-    marginHorizontal: 16,
-  },
-
-  // Sticky bar
-  flatList: {
-    flex: 1,
-  },
-  stickyBar: {
-    backgroundColor: C.surface,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    shadowColor: '#172554',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 12,
-  },
-  saveBtn: {
-    backgroundColor: C.primary,
-    borderRadius: R.lg,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...Shdw.float,
-  },
-  saveBtnDisabled: {
-    opacity: 0.55,
-  },
-  saveBtnText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '800',
-  },
+  roList: { gap: S.sm },
+  roEmpty: { paddingVertical: S.xl },
+  roItem: { backgroundColor: C.white, borderRadius: R.row, padding: S.lg, gap: S.sm },
+  roItemHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: S.sm },
+  roItemName: { ...T.label, color: C.navy, flex: 1 },
+  roItemCode: { ...T.secondary, color: C.ink2 },
+  roItemQtys: { flexDirection: 'row', flexWrap: 'wrap', gap: S.lg },
+  roQty: { ...T.secondary, color: C.ink2 },
+  roQtyVal: { fontFamily: T.data.fontFamily, color: C.navy },
+  roItemObs: { ...T.secondary, color: C.ink2, fontStyle: 'italic' },
 });
