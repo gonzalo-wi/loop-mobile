@@ -102,4 +102,6 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   "Actualizando", sin parpadeos.
 
 ### Removed
--
+- Panel "Equipos disponibles para cargar" de Odoo en la carga de dispensers:
+  al que carga no le servía y se consultaba entero en cada entrada a la
+  pantalla. Se mantiene el aviso por serial cuando Odoo no lo tiene disponible.

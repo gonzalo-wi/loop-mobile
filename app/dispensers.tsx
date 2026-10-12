@@ -27,7 +27,6 @@ import {
 import { DatePickerModal } from '@/features/stock-controls/components/DatePickerModal';
 import { BarcodeScannerModal } from '@/features/dispensers/components/BarcodeScannerModal';
 import { MovementDataBlock } from '@/features/dispensers/components/MovementDataBlock';
-import { OdooAvailabilityCard } from '@/features/dispensers/components/OdooAvailabilityCard';
 import { SerialRow } from '@/features/dispensers/components/SerialRow';
 import { getSerialRowStatus } from '@/features/dispensers/lib/serialRowStatus';
 import { toShortDisplayDate } from '@/features/dispensers/lib/displayDate';
@@ -42,7 +41,6 @@ import {
   sanitizeSerial,
 } from '@/features/dispensers/services/dispenserValidationApi';
 import {
-  getOdooAvailableEquipment,
   validateOdooEquipment,
 } from '@/features/dispensers/services/odooApi';
 import { pollOdooStatus } from '@/features/dispensers/hooks/useOdooPolling';
@@ -56,7 +54,6 @@ import type {
   AguasCatalog,
   AguasCatalogItem,
   DispenserMovementType,
-  OdooEquipment,
   OdooValidationResult,
 } from '@/features/dispensers/types';
 import { C, H, R, S, T } from '@/lib/theme';
@@ -136,17 +133,7 @@ export default function DispensersScreen() {
   // Seriales no normalizados del día según jMobile (ver `shouldSendSerial` para qué se envía).
   const [invalidSerials, setInvalidSerials] = useState<Set<string>>(new Set());
 
-  // Panel "Equipos disponibles en Odoo" — solo informativo, solo para LOAD.
-  const [odooEquipment, setOdooEquipment] = useState<OdooEquipment[]>([]);
-  const [odooEquipmentLoading, setOdooEquipmentLoading] = useState(false);
-  const [odooEquipmentError, setOdooEquipmentError] = useState<string | null>(null);
-  // Distingue la primera consulta (panel vacío, tapa todo con el loading) de
-  // una re-consulta posterior —foco o pull-to-refresh— donde preferimos
-  // mantener a la vista el último resultado y marcar "Actualizando" en vez
-  // de taparlo, para que no parpadee la info que el operario ya vio.
-  const [odooEquipmentLoaded, setOdooEquipmentLoaded] = useState(false);
-
-  // Pull-to-refresh del panel Odoo + seriales inválidos de Aguas.
+  // Pull-to-refresh de los seriales no normalizados.
   const [refreshing, setRefreshing] = useState(false);
 
   // Validación Odoo de series agregadas (independiente de la de Aguas).
@@ -196,55 +183,23 @@ export default function DispensersScreen() {
   }, []);
 
   /**
-   * Equipos disponibles en Odoo para cargar (solo LOAD). Es un panel
-   * informativo: si falla, no bloqueamos el trabajo del operario.
-   */
-  const loadOdooEquipment = useCallback(async () => {
-    setOdooEquipmentLoading(true);
-    // El error/dataset previo se mantiene a la vista mientras se re-consulta
-    // (foco o pull-to-refresh) y solo se reemplaza al tener la respuesta
-    // nueva, para que el panel no "parpadee" a un estado vacío intermedio.
-    try {
-      const equipos = await getOdooAvailableEquipment();
-      setOdooEquipment(equipos);
-      setOdooEquipmentError(null);
-    } catch (e) {
-      setOdooEquipmentError(e instanceof Error ? e.message : 'No se pudo consultar Odoo');
-    } finally {
-      setOdooEquipmentLoading(false);
-      setOdooEquipmentLoaded(true);
-    }
-  }, []);
-
-  /**
-   * Al enfocar la pantalla (montaje inicial o volver a ella), traemos datos
-   * frescos: equipos de Odoo (solo LOAD) y seriales no normalizados en jMobile.
-   * Así evitamos depender del re-montaje (cerrar sesión) para ver altas
-   * hechas en Odoo mientras el operario ya estaba en esta pantalla.
-   *
-   * `type` está en las deps del callback memoizado: como `useFocusEffect`
-   * re-ejecuta el efecto cuando cambia la identidad del callback (además de
-   * en cada foco), cambiar de UNLOAD→LOAD estando ya parado en la pantalla
-   * también dispara esta carga — sin necesidad de un `useEffect` aparte que
-   * duplicaría el pedido.
+   * Al enfocar la pantalla (montaje inicial o volver a ella) traemos la lista
+   * fresca de seriales no normalizados en jMobile, sin depender de un re-montaje.
    */
   useFocusEffect(
     useCallback(() => {
-      if (type === 'LOAD') loadOdooEquipment();
       refreshInvalidSerials();
-    }, [type, loadOdooEquipment, refreshInvalidSerials]),
+    }, [refreshInvalidSerials]),
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const tasks: Promise<void>[] = [refreshInvalidSerials()];
-      if (type === 'LOAD') tasks.push(loadOdooEquipment());
-      await Promise.all(tasks);
+      await refreshInvalidSerials();
     } finally {
       setRefreshing(false);
     }
-  }, [type, loadOdooEquipment, refreshInvalidSerials]);
+  }, [refreshInvalidSerials]);
 
   // Al cargar catálogos o cambiar de tipo, pre-selecciona el default de ese tipo.
   useEffect(() => {
@@ -454,17 +409,6 @@ export default function DispensersScreen() {
         technician={technician}
         onTechnicianPress={() => setShowTechnicianSheet(true)}
       />
-
-      {/* Equipos disponibles en Odoo — solo informativo, solo LOAD */}
-      {isLoad && (
-        <OdooAvailabilityCard
-          equipment={odooEquipment}
-          loading={odooEquipmentLoading}
-          loaded={odooEquipmentLoaded}
-          error={odooEquipmentError}
-          onRetry={loadOdooEquipment}
-        />
-      )}
 
       <View style={styles.serialsHeader}>
         <Text style={styles.sectionTitle} accessibilityRole="header">Dispensers</Text>

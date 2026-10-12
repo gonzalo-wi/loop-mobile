@@ -77,22 +77,6 @@ export type CreateMovementPayload = {
   baggedSerials?: string[];
 };
 
-/** Equipo disponible en Odoo para cargar (GET /dispenser-movements/odoo/available-equipment). */
-export type OdooEquipment = {
-  serie: string;
-  producto: string;
-  ubicacion: string;
-  fecha_disponible: string;
-};
-
-/** Respuesta paginada del listado de equipos disponibles en Odoo. */
-export type OdooAvailableEquipment = {
-  success: boolean;
-  total: number;
-  devueltos: number;
-  equipos: OdooEquipment[];
-};
-
 /**
  * Resultado normalizado de validar una serie contra Odoo
  * (POST /dispenser-movements/odoo/validate-equipment). Contrato confirmado
