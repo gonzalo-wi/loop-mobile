@@ -8,6 +8,8 @@ export type SegmentOption<V extends string> = {
   icon?: keyof typeof Ionicons.glyphMap;
   /** Fill of the active option when the rail sits on cream (follows direction → color). */
   activeColor?: string;
+  /** Count shown in a small white circle next to the label. */
+  badge?: number;
 };
 
 type SegmentedControlProps<V extends string> = {
@@ -50,6 +52,7 @@ export function SegmentedControl<V extends string>({
             onPress={() => onChange(opt.value)}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
+            accessibilityLabel={opt.badge !== undefined ? `${opt.label}, ${opt.badge}` : opt.label}
             style={[
               styles.segment,
               { height: segmentHeight, borderRadius: segmentHeight / 2 },
@@ -58,6 +61,13 @@ export function SegmentedControl<V extends string>({
           >
             {opt.icon ? <Ionicons name={opt.icon} size={H.iconInPill - 2} color={color} /> : null}
             <Text style={[styles.text, active && styles.textActive, { color }]}>{opt.label}</Text>
+            {opt.badge !== undefined ? (
+              <View style={styles.badge}>
+                <Text style={[styles.badgeText, { color: active && isOnCream ? activeBg : C.navy }]}>
+                  {opt.badge}
+                </Text>
+              </View>
+            ) : null}
           </Pressable>
         );
       })}
@@ -84,5 +94,19 @@ const styles = StyleSheet.create({
   },
   textActive: {
     fontFamily: T.button.fontFamily,
+  },
+  badge: {
+    minWidth: 26,
+    height: 26,
+    paddingHorizontal: S.xs + 2,
+    borderRadius: 13,
+    backgroundColor: C.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    ...T.secondary,
+    fontFamily: T.button.fontFamily,
+    fontVariant: ['tabular-nums'],
   },
 });

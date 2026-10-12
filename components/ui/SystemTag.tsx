@@ -4,6 +4,8 @@ import { C, S, T } from '@/lib/theme';
 
 type SystemTagProps = {
   system: 'aguas' | 'odoo';
+  /** Overrides the default label, e.g. "ODOO · NO NORMALIZADOS". */
+  label?: string;
 };
 
 const SYSTEM = {
@@ -12,12 +14,12 @@ const SYSTEM = {
 };
 
 /** Small uppercase tag naming the external system a status belongs to. */
-export function SystemTag({ system }: SystemTagProps) {
+export function SystemTag({ system, label }: SystemTagProps) {
   const s = SYSTEM[system];
   return (
     <View style={[styles.tag, { backgroundColor: s.bg }]}>
       {s.icon ? <Ionicons name={s.icon} size={12} color={C.white} /> : null}
-      <Text style={styles.text}>{s.label}</Text>
+      <Text style={styles.text}>{label ?? s.label}</Text>
     </View>
   );
 }

@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { StyleSheet, View, ViewStyle, StyleProp } from 'react-native';
 import { C, R, S } from '@/lib/theme';
 
-export type BlockTone = 'blue' | 'green' | 'navy' | 'orange' | 'red';
+export type BlockTone = 'blue' | 'green' | 'navy' | 'orange' | 'red' | 'neutral';
 
 /** Background plus the text colors that pass contrast on it. */
 export const BLOCK_TONE: Record<BlockTone, { bg: string; fg: string; fgSub: string }> = {
@@ -11,6 +11,8 @@ export const BLOCK_TONE: Record<BlockTone, { bg: string; fg: string; fgSub: stri
   navy: { bg: C.navy, fg: C.white, fgSub: C.blueLight },
   orange: { bg: C.orange, fg: C.navy, fgSub: C.navy },
   red: { bg: C.red, fg: C.white, fgSub: C.white },
+  // Final states with nothing to act on (e.g. cancelled).
+  neutral: { bg: C.white, fg: C.navy, fgSub: C.ink2 },
 };
 
 type ColorBlockProps = {

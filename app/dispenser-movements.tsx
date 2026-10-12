@@ -1,25 +1,18 @@
 import { useState, useCallback } from 'react';
 import {
   View,
-  Text,
-  TouchableOpacity,
   FlatList,
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getDispenserMovements } from '@/features/dispensers/services/dispenserApi';
-import { HeroHeader } from '@/components/HeroHeader';
-import { expectsOdooDispatch, getExcludedSerials } from '@/features/dispensers/lib/movementOutcome';
-import type {
-  DispenserMovement,
-  DispenserMovementType,
-  DispenserMovementStatus,
-  OdooStatus,
-} from '@/features/dispensers/types';
-import { C, R, S, F, W, Shdw } from '@/lib/theme';
+import { EmptyState, ScreenHeader, SecondaryButton, SegmentedControl } from '@/components/ui';
+import { MovementCard } from '@/features/dispensers/components/MovementCard';
+import type { DispenserMovement, DispenserMovementType } from '@/features/dispensers/types';
+import { C, S } from '@/lib/theme';
 
 function getTodayDate(): string {
   const now = new Date();
@@ -29,95 +22,9 @@ function getTodayDate(): string {
   return `${y}-${m}-${d}`;
 }
 
-function formatTime(dateStr: string): string {
-  const d = new Date(dateStr);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
-
-const STATUS_INFO: Record<
-  DispenserMovementStatus,
-  { label: string; color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }
-> = {
-  REGISTERED: { label: 'Enviando…', color: C.warning, bg: C.warningLight, icon: 'sync-outline' },
-  SENT_TO_AGUAS: { label: 'Enviado', color: C.entry, bg: C.entryLight, icon: 'checkmark-circle' },
-  AGUAS_ERROR: { label: 'Error', color: C.danger, bg: C.dangerLight, icon: 'alert-circle' },
-  // Final (nada que enviar a Aguas): sin spinner.
-  SKIPPED_UNREGISTERED: { label: 'No enviado', color: C.textSub, bg: C.inputBg, icon: 'ban-outline' },
-  CANCELLED: { label: 'Cancelado', color: C.textMuted, bg: C.inputBg, icon: 'close-circle' },
-};
-
-// Chip Odoo compacto — solo se muestra en cards de LOAD, independiente del de Aguas.
-const ODOO_CHIP_INFO: Record<
-  'PENDING' | 'SENT' | 'ERROR',
-  { label: string; color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }
-> = {
-  PENDING: { label: 'Enviando…', color: C.warning, bg: C.warningLight, icon: 'sync-outline' },
-  SENT: { label: 'OK', color: C.odoo, bg: C.odooLight, icon: 'checkmark-circle' },
-  ERROR: { label: 'Rechazado', color: C.danger, bg: C.dangerLight, icon: 'alert-circle' },
-};
-
-function odooChipKey(status: OdooStatus): 'PENDING' | 'SENT' | 'ERROR' {
-  if (status === 'SENT') return 'SENT';
-  if (status === 'ERROR') return 'ERROR';
-  return 'PENDING';
-}
-
-function MovementCard({ mov, onPress }: { mov: DispenserMovement; onPress: () => void }) {
-  const status = STATUS_INFO[mov.status] ?? STATUS_INFO.REGISTERED;
-  const isCancelled = mov.status === 'CANCELLED';
-  const isLoad = mov.type === 'LOAD';
-  const odooChip = expectsOdooDispatch(mov) ? ODOO_CHIP_INFO[odooChipKey(mov.odooStatus)] : null;
-  const excludedCount = getExcludedSerials(mov).length;
-  const excludedLabel = isLoad
-    ? `${excludedCount} no disponible${excludedCount !== 1 ? 's' : ''} en Odoo`
-    : `${excludedCount} no normalizado${excludedCount !== 1 ? 's' : ''} → Odoo`;
-
-  return (
-    <TouchableOpacity
-      style={[styles.card, isCancelled && styles.cardCancelled]}
-      onPress={onPress}
-      activeOpacity={0.85}
-    >
-      <View style={styles.cardTop}>
-        <View style={styles.routeBadge}>
-          <Text style={styles.routeBadgeText}>R{mov.routeCode}</Text>
-        </View>
-        <View style={styles.cardInfo}>
-          <Text style={styles.cardCount}>
-            {mov.serials.length} dispenser{mov.serials.length !== 1 ? 's' : ''}
-          </Text>
-          <Text style={styles.cardMeta} numberOfLines={1}>
-            {mov.technician} · {formatTime(mov.createdAt)}
-          </Text>
-          {excludedCount > 0 && (
-            <View style={styles.excludedRow}>
-              <Ionicons name="alert-circle" size={12} color={C.warning} />
-              <Text style={styles.excludedText} numberOfLines={1}>{excludedLabel}</Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.chipsCol}>
-          <View style={[styles.statusChip, { backgroundColor: status.bg }]}>
-            <Ionicons name={status.icon} size={13} color={status.color} />
-            <Text style={[styles.statusChipText, { color: status.color }]}>{status.label}</Text>
-          </View>
-          {odooChip && (
-            <View style={[styles.statusChip, styles.odooChip, { backgroundColor: odooChip.bg }]}>
-              <View style={styles.odooChipMark}>
-                <Ionicons name="cube" size={8} color="#fff" />
-              </View>
-              <Ionicons name={odooChip.icon} size={13} color={odooChip.color} />
-              <Text style={[styles.statusChipText, { color: odooChip.color }]}>{odooChip.label}</Text>
-            </View>
-          )}
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
 export default function DispenserMovementsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [movements, setMovements] = useState<DispenserMovement[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -166,49 +73,31 @@ export default function DispenserMovementsScreen() {
   const today = getTodayDate().split('-').reverse().join('/');
 
   return (
-    <View style={styles.screen}>
-      <HeroHeader
-        title="Movimientos"
-        subtitle={`Hoy · ${today}`}
-        onBack={() => router.back()}
-      />
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
+      <ScreenHeader title="Movimientos" subtitle={`Hoy · ${today}`} onBack={() => router.back()} />
 
-      {/* Filtro Cargas / Descargas */}
       <View style={styles.segment}>
-        {([
-          { key: 'LOAD' as const, label: 'Cargas', icon: 'arrow-up' as const, count: loadMovements.length, color: C.exit },
-          { key: 'UNLOAD' as const, label: 'Descargas', icon: 'arrow-down' as const, count: unloadMovements.length, color: C.entry },
-        ]).map((opt) => {
-          const active = filter === opt.key;
-          return (
-            <TouchableOpacity
-              key={opt.key}
-              style={[styles.segmentPill, active && { backgroundColor: opt.color }]}
-              onPress={() => setFilter(opt.key)}
-              activeOpacity={0.8}
-            >
-              <Ionicons name={opt.icon} size={15} color={active ? '#fff' : C.textSub} />
-              <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{opt.label}</Text>
-              <View style={[styles.segmentBadge, active && styles.segmentBadgeActive]}>
-                <Text style={[styles.segmentBadgeText, active && styles.segmentBadgeTextActive]}>
-                  {opt.count}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+        <SegmentedControl
+          tone="onCream"
+          value={filter}
+          onChange={setFilter}
+          options={[
+            { value: 'LOAD', label: 'Cargas', icon: 'arrow-up', activeColor: C.blue, badge: loadMovements.length },
+            { value: 'UNLOAD', label: 'Descargas', icon: 'arrow-down', activeColor: C.greenDot, badge: unloadMovements.length },
+          ]}
+        />
       </View>
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={C.primary} />
+          <ActivityIndicator size="large" color={C.navy} />
         </View>
       ) : error ? (
         <View style={styles.centered}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity onPress={() => load()} style={styles.retryBtn}>
-            <Text style={styles.retryText}>Reintentar</Text>
-          </TouchableOpacity>
+          <EmptyState icon="cloud-offline-outline" title="No se pudieron cargar los movimientos" hint={error} />
+          <View style={styles.retryWrap}>
+            <SecondaryButton title="Reintentar" icon="refresh" onPress={() => load()} />
+          </View>
         </View>
       ) : (
         <FlatList
@@ -220,24 +109,16 @@ export default function DispenserMovementsScreen() {
               onPress={() => router.push(`/dispenser-movement-detail?id=${item.id}`)}
             />
           )}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + S.xxl }]}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.navy} />
           }
           ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <View style={styles.emptyIcon}>
-                <Ionicons
-                  name={filter === 'LOAD' ? 'arrow-up' : 'arrow-down'}
-                  size={34}
-                  color={C.textMuted}
-                />
-              </View>
-              <Text style={styles.emptyTitle}>
-                Sin {filter === 'LOAD' ? 'cargas' : 'descargas'} hoy
-              </Text>
-              <Text style={styles.emptySub}>Los movimientos que registres aparecerán acá</Text>
-            </View>
+            <EmptyState
+              icon={filter === 'LOAD' ? 'arrow-up' : 'arrow-down'}
+              title={`Sin ${filter === 'LOAD' ? 'cargas' : 'descargas'} hoy`}
+              hint="Los movimientos que registres aparecerán acá"
+            />
           }
         />
       )}
@@ -246,98 +127,9 @@ export default function DispenserMovementsScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: C.bg },
-  list: { padding: 16, gap: 10, flexGrow: 1 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  errorText: { color: C.danger, fontSize: F.base, textAlign: 'center', marginBottom: 14 },
-  retryBtn: { paddingHorizontal: 22, paddingVertical: 10, backgroundColor: C.primary, borderRadius: R.md },
-  retryText: { color: '#fff', fontSize: F.base, fontWeight: W.bold },
-
-  segment: {
-    flexDirection: 'row',
-    marginHorizontal: 16,
-    marginTop: 14,
-    marginBottom: 2,
-    backgroundColor: C.inputBg,
-    borderRadius: R.lg,
-    padding: 4,
-    gap: 4,
-  },
-  segmentPill: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-    paddingVertical: 10,
-    borderRadius: R.md,
-  },
-  segmentText: { fontSize: F.base, fontWeight: W.semibold, color: C.textSub },
-  segmentTextActive: { color: '#fff', fontWeight: W.extra },
-  segmentBadge: {
-    backgroundColor: C.border,
-    borderRadius: R.full,
-    paddingHorizontal: 7,
-    paddingVertical: 1,
-    minWidth: 22,
-    alignItems: 'center',
-  },
-  segmentBadgeActive: { backgroundColor: 'rgba(255,255,255,0.28)' },
-  segmentBadgeText: { fontSize: F.xs, fontWeight: W.extra, color: C.textSub },
-  segmentBadgeTextActive: { color: '#fff' },
-
-  card: {
-    backgroundColor: C.surface,
-    borderRadius: R.lg,
-    padding: 14,
-    ...Shdw.card,
-  },
-  cardCancelled: { opacity: 0.6 },
-  cardTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  routeBadge: {
-    backgroundColor: C.primaryLight,
-    borderRadius: R.md,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    minWidth: 46,
-    alignItems: 'center',
-  },
-  routeBadgeText: { fontSize: F.md, fontWeight: W.extra, color: C.primary },
-  cardInfo: { flex: 1 },
-  cardCount: { fontSize: F.md, fontWeight: W.extra, color: C.text },
-  cardMeta: { fontSize: F.sm, color: C.textMuted, fontWeight: W.medium, marginTop: 2 },
-  excludedRow: { flexDirection: 'row', alignItems: 'center', gap: S.xs, marginTop: S.xs },
-  excludedText: { fontSize: F.xs + 1, fontWeight: W.bold, color: C.warning },
-  chipsCol: { alignItems: 'flex-end', gap: 5, maxWidth: 140 },
-  statusChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderRadius: R.full,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  odooChip: { paddingLeft: 5 },
-  odooChipMark: {
-    width: 14,
-    height: 14,
-    borderRadius: R.xs,
-    backgroundColor: C.odoo,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statusChipText: { fontSize: F.xs + 1, fontWeight: W.bold },
-
-  emptyState: { alignItems: 'center', paddingTop: 56 },
-  emptyIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: R.full,
-    backgroundColor: C.inputBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  emptyTitle: { fontSize: 17, fontWeight: W.extra, color: C.textSub },
-  emptySub: { fontSize: F.sm, color: C.textMuted, marginTop: 6, textAlign: 'center' },
+  screen: { flex: 1, backgroundColor: C.cream },
+  segment: { paddingHorizontal: S.gutter, paddingTop: S.xs, paddingBottom: S.md },
+  list: { paddingHorizontal: S.gutter, gap: S.sm + 2, flexGrow: 1 },
+  centered: { flex: 1, justifyContent: 'center', padding: S.gutter, gap: S.lg },
+  retryWrap: { alignSelf: 'center' },
 });
