@@ -30,7 +30,7 @@ describe('getSystemStatusBlocks', () => {
   it('shows Aguas and Odoo for a load, with the Odoo voucher as detail', () => {
     expect(getSystemStatusBlocks(buildMovement())).toEqual([
       { system: 'aguas', tag: 'AGUAS', title: 'Enviado', detail: null, tone: 'ok' },
-      { system: 'odoo', tag: 'ODOO', title: 'OK', detail: 'Comprobante: AC/INT/00161', tone: 'ok' },
+      { system: 'odoo', tag: 'ODOO', title: 'Registrado', detail: 'Comprobante: AC/INT/00161', tone: 'ok' },
     ]);
   });
 
@@ -73,7 +73,7 @@ describe('getSystemStatusBlocks', () => {
     expect(blocks[1]).toEqual({
       system: 'odoo',
       tag: 'ODOO · NO NORMALIZADOS',
-      title: 'OK',
+      title: 'Registrado',
       detail: 'Comprobante: NN/0001',
       tone: 'ok',
     });
@@ -82,10 +82,10 @@ describe('getSystemStatusBlocks', () => {
   it('shows only Aguas for an unload without excluded serials', () => {
     expect(getSystemStatusBlocks(buildMovement({ type: 'UNLOAD' }))).toHaveLength(1);
   });
-  it('falls back to the sent label when Odoo accepted the load but returned no voucher', () => {
+  it('shows no detail when Odoo accepted the load but returned no voucher', () => {
     expect(getSystemStatusBlocks(buildMovement({ odooPickingName: null }))[1]).toMatchObject({
-      title: 'OK',
-      detail: 'Registrado en Odoo',
+      title: 'Registrado',
+      detail: null,
       tone: 'ok',
     });
   });
@@ -124,7 +124,7 @@ describe('getSystemStatusBlocks', () => {
 
     it('uses the sent label when accepted without voucher', () => {
       expect(unload({ odooNoNormalizadoStatus: 'SENT', odooNoNormalizadoPickingName: null })).toMatchObject({
-        title: 'OK',
+        title: 'Registrado',
         detail: 'No normalizados en Odoo',
         tone: 'ok',
       });

@@ -21,11 +21,16 @@ const AGUAS_DETAIL: Record<DispenserMovementStatus, string | null> = {
   CANCELLED: null,
 };
 
-type OdooLabels = { pending: string; sent: string; error: string };
+type OdooLabels = {
+  pending: string;
+  /** Detail when Odoo returned no voucher; null when "Registrado" already says it. */
+  sent: string | null;
+  error: string;
+};
 
 const LOAD_LABELS: OdooLabels = {
   pending: 'Enviando a Odoo…',
-  sent: 'Registrado en Odoo',
+  sent: null,
   error: 'Odoo rechazó la carga',
 };
 
@@ -42,7 +47,7 @@ function odooBlock(
   labels: OdooLabels,
 ): SystemStatusBlock {
   if (status === 'SENT') {
-    return { system: 'odoo', tag, title: 'OK', detail: pickingName ? `Comprobante: ${pickingName}` : labels.sent, tone: 'ok' };
+    return { system: 'odoo', tag, title: 'Registrado', detail: pickingName ? `Comprobante: ${pickingName}` : labels.sent, tone: 'ok' };
   }
   if (status === 'ERROR') {
     return { system: 'odoo', tag, title: 'Rechazado', detail: labels.error, tone: 'error' };

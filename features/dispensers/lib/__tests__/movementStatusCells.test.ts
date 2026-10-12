@@ -11,7 +11,7 @@ describe('getMovementStatusCells', () => {
   it('shows Aguas and Odoo for a load sent to both', () => {
     expect(getMovementStatusCells(mov())).toEqual([
       { system: 'Aguas', status: 'Enviado', tone: 'ok' },
-      { system: 'Odoo', status: 'OK', tone: 'ok' },
+      { system: 'Odoo', status: 'Registrado', tone: 'ok' },
     ]);
   });
 

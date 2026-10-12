@@ -30,7 +30,7 @@ export function getMovementStatusCells(
   if (expectsOdooDispatch(mov)) {
     cells.push(
       mov.odooStatus === 'SENT'
-        ? { system: 'Odoo', status: 'OK', tone: 'ok' }
+        ? { system: 'Odoo', status: 'Registrado', tone: 'ok' }
         : mov.odooStatus === 'ERROR'
           ? { system: 'Odoo', status: 'Rechazado', tone: 'error' }
           : { system: 'Odoo', status: 'Enviando…', tone: 'pending' },
