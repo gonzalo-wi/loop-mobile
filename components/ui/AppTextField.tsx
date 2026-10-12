@@ -8,7 +8,7 @@ import {
   TextInputProps,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { C, R, S, F, W } from '@/lib/theme';
+import { C, H, R, S, T } from '@/lib/theme';
 
 type AppTextFieldProps = TextInputProps & {
   label?: string;
@@ -17,6 +17,8 @@ type AppTextFieldProps = TextInputProps & {
   error?: string | null;
   /** Campo de contraseña: agrega botón mostrar/ocultar. */
   secure?: boolean;
+  /** Field fill: white on the cream page, cream inside a white panel. */
+  surface?: 'white' | 'cream';
 };
 
 /**
@@ -25,7 +27,7 @@ type AppTextFieldProps = TextInputProps & {
  * para encadenar foco entre campos (returnKeyType "next").
  */
 export const AppTextField = forwardRef<TextInput, AppTextFieldProps>(function AppTextField(
-  { label, icon, error, secure = false, editable = true, onFocus, onBlur, style, ...rest },
+  { label, icon, error, secure = false, surface = 'white', editable = true, onFocus, onBlur, style, ...rest },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
@@ -33,7 +35,7 @@ export const AppTextField = forwardRef<TextInput, AppTextFieldProps>(function Ap
 
   const hasError = !!error;
   const disabled = editable === false;
-  const activeColor = hasError ? C.danger : focused ? C.primary : C.textMuted;
+  const activeColor = hasError ? C.red : focused ? C.blue : C.ink2;
 
   return (
     <View style={styles.container}>
@@ -42,6 +44,7 @@ export const AppTextField = forwardRef<TextInput, AppTextFieldProps>(function Ap
       <View
         style={[
           styles.field,
+          { backgroundColor: surface === 'white' ? C.white : C.cream },
           focused && styles.fieldFocused,
           hasError && styles.fieldError,
           disabled && styles.fieldDisabled,
@@ -93,30 +96,28 @@ const styles = StyleSheet.create({
     gap: S.xs + 2,
   },
   label: {
-    fontSize: F.sm + 1,
-    fontWeight: W.semibold,
-    color: C.textSub,
+    ...T.secondary,
+    fontFamily: T.label.fontFamily,
+    color: C.navy,
     marginLeft: 2,
   },
   field: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.inputBg,
-    borderRadius: R.lg,
-    height: 58,
-    paddingHorizontal: 16,
-    borderWidth: 1.5,
+    borderRadius: R.field,
+    height: H.field,
+    paddingHorizontal: S.xl - 3,
+    // Constant 3pt border so the focus ring doesn't shift the layout.
+    borderWidth: 3,
     borderColor: 'transparent',
   },
   fieldFocused: {
-    // Solo borde + fondo. No agregar elevation/shadow dinámicos: en Android
-    // recrean la vista nativa y el TextInput pierde el foco (cierra el teclado).
-    borderColor: C.primary,
-    backgroundColor: C.surface,
+    // Border only. No dynamic elevation/shadow: on Android it recreates the
+    // native view and the TextInput loses focus (closes the keyboard).
+    borderColor: C.blue,
   },
   fieldError: {
-    borderColor: C.danger,
-    backgroundColor: C.surface,
+    borderColor: C.red,
   },
   fieldDisabled: {
     opacity: 0.55,
@@ -126,18 +127,16 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: F.md,
-    color: C.text,
-    fontWeight: W.medium,
+    ...T.data,
+    color: C.navy,
     paddingVertical: 0,
   },
   eyeBtn: {
     paddingLeft: 8,
   },
   errorText: {
-    fontSize: F.xs + 1,
-    color: C.danger,
-    fontWeight: W.semibold,
+    ...T.secondary,
+    color: C.redText,
     marginLeft: 2,
   },
 });

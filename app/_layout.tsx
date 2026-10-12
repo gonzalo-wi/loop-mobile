@@ -1,12 +1,15 @@
 import { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import { useFonts } from 'expo-font';
 import { useAuthStore } from '@/store/authStore';
 import { useRouteStore } from '@/store/routeStore';
 import { getToken, getStoredUser, getStoredRoute } from '@/lib/storage';
 import { AppUpdateGate } from '@/components/AppUpdateGate';
-import { C } from '@/lib/theme';
+import { C, T } from '@/lib/theme';
+import { FONT_ASSETS } from '@/lib/fontAssets';
 
-function useAuthGuard() {
+/** `navigatorReady` is false while the Stack is not mounted yet (fonts loading). */
+function useAuthGuard(navigatorReady: boolean) {
   const { user, setUser, isLoading, setLoading } = useAuthStore();
   const { setRoute } = useRouteStore();
   const segments = useSegments();
@@ -36,7 +39,7 @@ function useAuthGuard() {
   }, []);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || !navigatorReady) return;
 
     const inProtected =
       segments[0] === '(tabs)' ||
@@ -54,11 +57,22 @@ function useAuthGuard() {
     } else if (user && segments[0] === 'login') {
       router.replace('/(tabs)');
     }
-  }, [user, segments, isLoading]);
+  }, [user, segments, isLoading, navigatorReady]);
 }
 
 export default function RootLayout() {
-  useAuthGuard();
+  const [fontsLoaded, fontError] = useFonts(FONT_ASSETS);
+  const fontsSettled = fontsLoaded || !!fontError;
+  useAuthGuard(fontsSettled);
+
+  useEffect(() => {
+    if (fontError) {
+      // Not fatal: text falls back to the system font.
+      console.warn('Failed to load Plus Jakarta Sans, using system font', fontError);
+    }
+  }, [fontError]);
+
+  if (!fontsSettled) return null;
 
   return (
     <>
@@ -66,7 +80,7 @@ export default function RootLayout() {
       screenOptions={{
         headerStyle: { backgroundColor: C.primary },
         headerTintColor: C.onHeader,
-        headerTitleStyle: { fontWeight: '800', fontSize: 18 },
+        headerTitleStyle: { fontFamily: T.section.fontFamily, fontSize: T.section.fontSize },
         headerShadowVisible: false,
         contentStyle: { backgroundColor: C.bg },
       }}

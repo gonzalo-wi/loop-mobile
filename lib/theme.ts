@@ -1,3 +1,5 @@
+import { FONT_FAMILY } from './fonts';
+
 /**
  * Design system — LOOP (loop-rediseno/DESIGN.md).
  * Light UI meant to be read under direct sunlight: cream background, navy
@@ -32,6 +34,7 @@ const palette = {
   pillOnBlue: 'rgba(8,18,84,0.34)',
   pillOnGreen: 'rgba(18,28,78,0.16)',
   cameraScrim: 'rgba(4,6,16,0.6)',
+  railOnCream: 'rgba(18,28,78,0.08)',
 };
 
 export const C = {
@@ -171,20 +174,23 @@ export const W = {
   extra: '800',
 } as const;
 
-/** Type scale from DESIGN.md §2; letterSpacing converted from em to pt. */
+/**
+ * Type scale from DESIGN.md §2; letterSpacing converted from em to pt.
+ * The weight lives in the family name (see lib/fonts.ts), not in fontWeight.
+ */
 export const T = {
-  display: { fontSize: 40, lineHeight: 44, fontWeight: W.extra, letterSpacing: -1.4 },
-  blockTitle: { fontSize: 30, lineHeight: 36, fontWeight: W.extra, letterSpacing: -0.9 },
-  sheetTitle: { fontSize: 26, lineHeight: 32, fontWeight: W.extra, letterSpacing: -0.78 },
-  tabTitle: { fontSize: 32, lineHeight: 38, fontWeight: W.extra, letterSpacing: -0.96 },
-  screenTitle: { fontSize: 22, lineHeight: 28, fontWeight: W.extra, letterSpacing: -0.44 },
-  section: { fontSize: 18, lineHeight: 24, fontWeight: W.extra, letterSpacing: -0.18 },
-  button: { fontSize: 17, lineHeight: 22, fontWeight: W.extra },
-  data: { fontSize: 16, lineHeight: 22, fontWeight: W.extra, letterSpacing: 0.16 },
-  body: { fontSize: 15, lineHeight: 22, fontWeight: W.medium },
-  label: { fontSize: 14, lineHeight: 20, fontWeight: W.bold },
-  secondary: { fontSize: 13, lineHeight: 18, fontWeight: W.semibold },
-  systemTag: { fontSize: 11, lineHeight: 14, fontWeight: W.extra, letterSpacing: 0.66 },
+  display: { fontSize: 40, lineHeight: 44, fontFamily: FONT_FAMILY.extra, letterSpacing: -1.4 },
+  blockTitle: { fontSize: 30, lineHeight: 36, fontFamily: FONT_FAMILY.extra, letterSpacing: -0.9 },
+  sheetTitle: { fontSize: 26, lineHeight: 32, fontFamily: FONT_FAMILY.extra, letterSpacing: -0.78 },
+  tabTitle: { fontSize: 32, lineHeight: 38, fontFamily: FONT_FAMILY.extra, letterSpacing: -0.96 },
+  screenTitle: { fontSize: 22, lineHeight: 28, fontFamily: FONT_FAMILY.extra, letterSpacing: -0.44 },
+  section: { fontSize: 18, lineHeight: 24, fontFamily: FONT_FAMILY.extra, letterSpacing: -0.18 },
+  button: { fontSize: 17, lineHeight: 22, fontFamily: FONT_FAMILY.extra },
+  data: { fontSize: 16, lineHeight: 22, fontFamily: FONT_FAMILY.extra, letterSpacing: 0.16 },
+  body: { fontSize: 15, lineHeight: 22, fontFamily: FONT_FAMILY.medium },
+  label: { fontSize: 14, lineHeight: 20, fontFamily: FONT_FAMILY.bold },
+  secondary: { fontSize: 13, lineHeight: 18, fontFamily: FONT_FAMILY.semibold },
+  systemTag: { fontSize: 11, lineHeight: 14, fontFamily: FONT_FAMILY.extra, letterSpacing: 0.66 },
 } as const;
 
 /** Shadows. LOOP only shadows floating elements; cards and rows stay flat. */

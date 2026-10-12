@@ -6,7 +6,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { C, R, S, F, W, Shdw } from '@/lib/theme';
+import { C, H, S, T, Shdw } from '@/lib/theme';
 
 type PrimaryButtonProps = {
   title: string;
@@ -14,14 +14,13 @@ type PrimaryButtonProps = {
   loading?: boolean;
   disabled?: boolean;
   icon?: keyof typeof Ionicons.glyphMap;
-  /** 'solid' (relleno de marca) | 'soft' (suave) | 'ghost' (sin fondo). */
+  /** 'solid' (navy, the one main action) | 'soft' (cream) | 'ghost' (no background). */
   variant?: 'solid' | 'soft' | 'ghost';
 };
 
 /**
- * Botón principal del sistema. Estados loading/disabled y microinteracción
- * táctil (leve hundido al presionar) usando Pressable — sin librerías de
- * animación, performante en gama baja.
+ * Main action button: navy pill, 60 tall, at most one per screen.
+ * Loading/disabled states and a light press-in feedback with Pressable only.
  */
 export function PrimaryButton({
   title,
@@ -33,29 +32,30 @@ export function PrimaryButton({
 }: PrimaryButtonProps) {
   const isDisabled = disabled || loading;
   const isSolid = variant === 'solid';
+  const contentColor = isSolid ? C.white : C.navy;
 
   return (
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
       style={({ pressed }) => [
         styles.base,
         variant === 'solid' && styles.solid,
         variant === 'soft' && styles.soft,
         variant === 'ghost' && styles.ghost,
-        isSolid && !isDisabled && Shdw.float,
+        isSolid && !isDisabled && Shdw.primaryButton,
         pressed && !isDisabled && styles.pressed,
         isDisabled && styles.disabled,
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={isSolid ? '#fff' : C.primary} />
+        <ActivityIndicator color={contentColor} />
       ) : (
         <View style={styles.content}>
-          <Text style={[styles.text, !isSolid && styles.textAlt]}>{title}</Text>
-          {icon ? (
-            <Ionicons name={icon} size={19} color={isSolid ? '#fff' : C.primary} />
-          ) : null}
+          {icon ? <Ionicons name={icon} size={H.iconInPill} color={contentColor} /> : null}
+          <Text style={[styles.text, { color: contentColor }]}>{title}</Text>
         </View>
       )}
     </Pressable>
@@ -64,17 +64,17 @@ export function PrimaryButton({
 
 const styles = StyleSheet.create({
   base: {
-    height: 58,
-    borderRadius: R.lg,
+    height: H.primaryButton,
+    borderRadius: H.primaryButton / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: S.lg,
+    paddingHorizontal: S.xl,
   },
   solid: {
-    backgroundColor: C.primary,
+    backgroundColor: C.navy,
   },
   soft: {
-    backgroundColor: C.primaryLight,
+    backgroundColor: C.cream,
   },
   ghost: {
     backgroundColor: 'transparent',
@@ -84,21 +84,14 @@ const styles = StyleSheet.create({
     opacity: 0.92,
   },
   disabled: {
-    backgroundColor: C.borderStrong,
-    opacity: 0.7,
+    opacity: 0.45,
   },
   content: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: S.sm,
+    gap: S.sm + 2,
   },
   text: {
-    color: '#fff',
-    fontSize: F.lg - 1,
-    fontWeight: W.extra,
-    letterSpacing: 0.2,
-  },
-  textAlt: {
-    color: C.primary,
+    ...T.button,
   },
 });
