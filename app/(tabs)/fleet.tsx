@@ -9,6 +9,8 @@ import {
   Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MapView from 'react-native-maps';
+import { TRUCK_MAP_ENABLED } from '@/features/driver/lib/mapEnvironment';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import {
@@ -198,19 +200,30 @@ export default function FleetScreen() {
             </ColorBlock>
 
             <View style={styles.card}>
-              {/* Placeholder map: the real map is pending (DESIGN.md §6). */}
-              <Pressable style={styles.map} onPress={openInMaps} accessibilityRole="button" accessibilityLabel="Mapa con la ubicación del camión">
-                <View style={[styles.street, { top: '35%' }]} />
-                <View style={[styles.street, { top: '80%' }]} />
-                <View style={[styles.streetV, { left: '20%' }]} />
-                <View style={[styles.streetV, { left: '70%' }]} />
-                <View style={styles.pin}>
-                  <MaterialCommunityIcons name="truck" size={20} color={C.white} />
-                </View>
-                <View style={styles.mapExpand}>
-                  <Ionicons name="expand-outline" size={20} color={C.navy} />
-                </View>
-              </Pressable>
+              {/* Static preview: the map is centered on the truck, so the pin is drawn over its center
+                  instead of as a marker (lite mode can't render custom marker views). */}
+              {TRUCK_MAP_ENABLED && (
+                <Pressable style={styles.map} onPress={openInMaps} accessibilityRole="button" accessibilityLabel="Abrir la ubicación del camión en el mapa">
+                  <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                    <MapView
+                      style={StyleSheet.absoluteFill}
+                      liteMode
+                      toolbarEnabled={false}
+                      scrollEnabled={false}
+                      zoomEnabled={false}
+                      rotateEnabled={false}
+                      pitchEnabled={false}
+                      region={{ latitude: data.lat, longitude: data.lng, latitudeDelta: MAP_DELTA, longitudeDelta: MAP_DELTA }}
+                    />
+                  </View>
+                  <View style={styles.pin} pointerEvents="none">
+                    <MaterialCommunityIcons name="truck" size={20} color={C.white} />
+                  </View>
+                  <View style={styles.mapExpand} pointerEvents="none">
+                    <Ionicons name="expand-outline" size={20} color={C.navy} />
+                  </View>
+                </Pressable>
+              )}
               <View style={styles.address}>
                 <Ionicons name="location-outline" size={22} color={C.blue} />
                 <Text style={styles.addressText}>{data.address || 'Ubicación del camión'}</Text>
@@ -241,6 +254,9 @@ function DetailRow({ label, value, last }: { label: string; value: string; last?
 }
 
 const PIN = 56;
+const MAP_HEIGHT = 180;
+/** About a dozen blocks around the truck: enough to recognise the area. */
+const MAP_DELTA = 0.008;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.cream },
@@ -277,9 +293,7 @@ const styles = StyleSheet.create({
   blockSub: { ...T.label },
 
   card: { borderRadius: R.card, backgroundColor: C.white, overflow: 'hidden' },
-  map: { height: 150, backgroundColor: C.blueLight, alignItems: 'center', justifyContent: 'center' },
-  street: { position: 'absolute', left: 0, right: 0, height: 16, backgroundColor: C.white },
-  streetV: { position: 'absolute', top: 0, bottom: 0, width: 16, backgroundColor: C.white },
+  map: { height: MAP_HEIGHT, backgroundColor: C.blueLight, alignItems: 'center', justifyContent: 'center' },
   pin: {
     width: PIN,
     height: PIN,
