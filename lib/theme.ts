@@ -1,79 +1,109 @@
 /**
- * Sistema de diseño — Control de Mercadería
- * Línea visual: SaaS operativo / logístico. Azul de marca con carácter,
- * grises slate modernos, acentos para estados. Mobile-first.
+ * Design system — LOOP (loop-rediseno/DESIGN.md).
+ * Light UI meant to be read under direct sunlight: cream background, navy
+ * ink, solid color blocks and heavy, very rounded shapes.
+ *
+ * The legacy keys (primary, exit, entry, textMuted…) are kept and remapped to
+ * the LOOP palette so screens that have not been redesigned yet stay coherent.
  */
 
-export const C = {
-  // Superficies / fondos
-  bg: '#EEF2F9',
-  surface: '#FFFFFF',
-  surfaceAlt: '#F7F9FD',
-  surfaceSunken: '#F1F4FA',
+const palette = {
+  cream: '#F2F0EA',
+  white: '#FFFFFF',
+  navy: '#121C4E',
+  ink2: '#4D5578',
+  ink2OnGreen: '#1F2B4F',
+  blue: '#2456E6',
+  blueText: '#1E46C8',
+  blueLight: '#DCE5FF',
+  green: '#8FD45A',
+  greenSoft: '#DDF2CB',
+  greenDot: '#3C8A1E',
+  orange: '#F08A00',
+  orangeSoft: '#FFE9C7',
+  orangeText: '#8A4B00',
+  red: '#C8322B',
+  redSoft: '#FCE4E1',
+  redText: '#A3271F',
+  odoo: '#714B67',
+  line: '#ECE9E0',
+  handle: '#D5D2C8',
+  scrim: 'rgba(18,28,78,0.55)',
+  pillOnBlue: 'rgba(8,18,84,0.34)',
+  pillOnGreen: 'rgba(18,28,78,0.16)',
+  cameraScrim: 'rgba(4,6,16,0.6)',
+};
 
-  // Azul de marca (royal, con carácter — no el azul puro genérico)
-  primary: '#2B50E0',
-  primaryDark: '#1E3BB0',
-  primaryLight: '#E9EEFF',
-  primaryGlow: '#5B7BFF',
+export const C = {
+  ...palette,
+
+  // Surfaces
+  bg: palette.cream,
+  surface: palette.white,
+  surfaceAlt: palette.cream,
+  surfaceSunken: palette.cream,
+
+  // Brand
+  primary: palette.blue,
+  primaryDark: palette.navy,
+  primaryLight: palette.blueLight,
+  primaryGlow: palette.blue,
 
   // Headers
-  headerFrom: '#3A5DEA',
-  headerTo: '#1E3BB0',
-  onHeader: '#FFFFFF',
-  onHeaderMuted: '#C2D0FB',
+  headerFrom: palette.navy,
+  headerTo: palette.navy,
+  onHeader: palette.white,
+  onHeaderMuted: palette.blueLight,
 
-  // Tipos de control
-  exit: '#2B50E0',
-  exitLight: '#E9EEFF',
-  exitFrom: '#3A5DEA',
-  exitTo: '#1E3BB0',
-  entry: '#0FA968',
-  entryLight: '#DCF5EA',
-  entryFrom: '#12B873',
-  entryTo: '#0B7E4E',
+  // Direction: blue = goes out / up, green = comes in / down.
+  exit: palette.blue,
+  exitLight: palette.blueLight,
+  exitFrom: palette.blue,
+  exitTo: palette.blue,
+  // The block green (#8FD45A) fails contrast as text or under white text, so
+  // legacy usages (icons, labels, white-on-fill) get the darker dot green.
+  entry: palette.greenDot,
+  entryLight: palette.greenSoft,
+  entryFrom: palette.greenDot,
+  entryTo: palette.greenDot,
 
-  // Estados
-  danger: '#E5484D',
-  dangerLight: '#FDECEC',
-  warning: '#E8870B',
-  warningLight: '#FDF1DC',
-  warningBorder: '#F6D9A8',
-  success: '#0FA968',
-  successLight: '#DCF5EA',
-  accent: '#0EA5C4',
-  accentLight: '#DDF4F9',
+  // Status
+  danger: palette.red,
+  dangerLight: palette.redSoft,
+  warning: palette.orange,
+  warningLight: palette.orangeSoft,
+  warningBorder: palette.orange,
+  success: palette.greenDot,
+  successLight: palette.greenSoft,
+  accent: palette.blue,
+  accentLight: palette.blueLight,
 
-  // Acción de supervisor (corrección/override con auditoría — distinta de
-  // "warning", que es para alertas). Morado, coherente con SENT_TO_AGUAS.
+  // Supervisor override has no LOOP equivalent yet; kept until it gets a mockup.
   supervisor: '#6D28D9',
   supervisorLight: '#EDE4FC',
   supervisorDark: '#5321A8',
 
-  // Integración Odoo (ERP externo, distinto de Aguas). Morado-violeta propio
-  // para no pisar `accent` (cian, ya usado en otras pantallas) ni confundirse
-  // con `warning`/`danger` de los estados de validación.
-  odoo: '#8B5CF6',
-  odooLight: '#F0EAFE',
-  odooBorder: '#DCCCFB',
+  // Odoo
+  odooLight: '#F1E8EE',
+  odooBorder: '#DCC8D6',
 
-  // Texto (escala slate)
-  text: '#0E1726',
-  textStrong: '#0A111E',
-  textSub: '#46546B',
-  textMuted: '#8593A8',
-  textFaint: '#AAB4C5',
+  // Text: the spec defines only two ink levels to keep 4.5:1 contrast.
+  text: palette.navy,
+  textStrong: palette.navy,
+  textSub: palette.ink2,
+  textMuted: palette.ink2,
+  textFaint: '#8A8FA6',
 
-  // Bordes / inputs
-  border: '#E2E8F1',
-  borderStrong: '#D2DAE6',
-  inputBg: '#F1F4FA',
+  // Borders / inputs (cards carry no border in LOOP; these are inner dividers)
+  border: palette.line,
+  borderStrong: palette.handle,
+  inputBg: palette.cream,
 
-  retornableBorder: '#2B50E0',
-  descartableBorder: '#E8870B',
+  retornableBorder: palette.blue,
+  descartableBorder: palette.orange,
 };
 
-/** Escala de espaciado (múltiplos de 4). */
+/** Spacing scale (multiples of 4). */
 export const S = {
   xs: 4,
   sm: 8,
@@ -82,20 +112,45 @@ export const S = {
   xl: 20,
   xxl: 28,
   xxxl: 40,
+  /** Horizontal screen margin. */
+  gutter: 16,
+  /** Horizontal margin on Login and Home. */
+  gutterWide: 20,
 };
 
-/** Radios de borde. */
+/** Border radii. */
 export const R = {
   xs: 6,
   sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 22,
-  xxl: 28,
+  md: 14,
+  lg: 22,
+  xl: 28,
+  xxl: 32,
   full: 999,
+  block: 32,
+  card: 28,
+  row: 22,
+  field: 22,
+  cell: 14,
+  sheet: 32,
 };
 
-/** Tamaños de fuente. */
+/** Component heights; 44 is the minimum touch target. */
+export const H = {
+  touch: 44,
+  primaryButton: 60,
+  secondaryButton: 54,
+  circleButton: 48,
+  circleButtonLarge: 60,
+  pill: 44,
+  field: 60,
+  row: 64,
+  statusCell: 36,
+  icon: 24,
+  iconInPill: 20,
+};
+
+/** Font sizes. */
 export const F = {
   xs: 11,
   sm: 13,
@@ -107,7 +162,7 @@ export const F = {
   display: 28,
 };
 
-/** Pesos tipográficos. */
+/** Font weights. */
 export const W = {
   regular: '400',
   medium: '500',
@@ -116,41 +171,80 @@ export const W = {
   extra: '800',
 } as const;
 
-/** Sombras realistas (tinte azulado para coherencia). */
+/** Type scale from DESIGN.md §2; letterSpacing converted from em to pt. */
+export const T = {
+  display: { fontSize: 40, lineHeight: 44, fontWeight: W.extra, letterSpacing: -1.4 },
+  blockTitle: { fontSize: 30, lineHeight: 36, fontWeight: W.extra, letterSpacing: -0.9 },
+  sheetTitle: { fontSize: 26, lineHeight: 32, fontWeight: W.extra, letterSpacing: -0.78 },
+  tabTitle: { fontSize: 32, lineHeight: 38, fontWeight: W.extra, letterSpacing: -0.96 },
+  screenTitle: { fontSize: 22, lineHeight: 28, fontWeight: W.extra, letterSpacing: -0.44 },
+  section: { fontSize: 18, lineHeight: 24, fontWeight: W.extra, letterSpacing: -0.18 },
+  button: { fontSize: 17, lineHeight: 22, fontWeight: W.extra },
+  data: { fontSize: 16, lineHeight: 22, fontWeight: W.extra, letterSpacing: 0.16 },
+  body: { fontSize: 15, lineHeight: 22, fontWeight: W.medium },
+  label: { fontSize: 14, lineHeight: 20, fontWeight: W.bold },
+  secondary: { fontSize: 13, lineHeight: 18, fontWeight: W.semibold },
+  systemTag: { fontSize: 11, lineHeight: 14, fontWeight: W.extra, letterSpacing: 0.66 },
+} as const;
+
+/** Shadows. LOOP only shadows floating elements; cards and rows stay flat. */
 export const Shdw = {
   xs: {
-    shadowColor: '#1E293B',
+    shadowColor: palette.navy,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 1,
   },
   card: {
-    shadowColor: '#1E293B',
+    shadowColor: palette.navy,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
   },
   float: {
-    shadowColor: '#172554',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.13,
-    shadowRadius: 20,
-    elevation: 7,
+    shadowColor: palette.navy,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    elevation: 8,
   },
   header: {
-    shadowColor: '#1E3A8A',
+    shadowColor: palette.navy,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 16,
     elevation: 8,
   },
   brand: {
-    shadowColor: '#2B50E0',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.32,
-    shadowRadius: 22,
+    shadowColor: palette.navy,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 10,
+  },
+  // RN has no negative spread, so the mockup's -12/-14px spread is
+  // approximated with lower opacity.
+  primaryButton: {
+    shadowColor: palette.navy,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 10,
+  },
+  floatingWhite: {
+    shadowColor: palette.navy,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    elevation: 8,
+  },
+  tabBar: {
+    shadowColor: palette.navy,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.22,
+    shadowRadius: 16,
     elevation: 10,
   },
 };
