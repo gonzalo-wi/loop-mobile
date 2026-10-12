@@ -8,6 +8,12 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
+- Mapa real en "Mi camión" (repartidor), centrado en el camión; al tocarlo abre
+  la app de mapas. En los APK necesita la variable de build
+  `GOOGLE_MAPS_API_KEY` (EAS); sin ella la pantalla muestra solo la dirección y
+  "Abrir en el mapa".
+- Las cajas de cantidad del control de stock dicen qué son ("bultos ×N",
+  "sueltas", "unidades").
 - Pantalla "Carga/Descarga registrada" después de enviar dispensers, con el
   estado de Aguas y Odoo que se actualiza solo, "Nueva carga" y "Ver
   movimientos de hoy". Si falla el envío, panel con "Reintentar" (los
@@ -49,12 +55,20 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   botones de ícono del escáner (linterna, cerrar, agregar a mano).
 
 ### Changed
-- Rediseño LOOP (en curso, rama `feat/loop-redesign`): paleta clara pensada
+- Rediseño LOOP (rama `feat/loop-redesign`): paleta clara pensada
   para leer al sol (crema, marino y bloques de color pleno), tipografía Plus
   Jakarta Sans incluida en la app, formas más redondeadas y barra de pestañas
   flotante con la pestaña activa en marino. Nuevos componentes compartidos
   (botones, pastillas, selector segmentado, bloques de color, panel inferior,
-  aviso con "Deshacer", estado vacío) que las pantallas van adoptando.
+  aviso con "Deshacer", estado vacío). Aplicado a todas las pantallas: login,
+  inicio, dispensers y movimientos, pedidos, en ruta, historial, pantallas del
+  repartidor y controles de stock (nuevo, edición y aprobación). El buscador de
+  reparto ahora es un panel inferior en vez de pantalla completa.
+- El estado de Odoo de un movimiento dice "Registrado" en vez de "OK".
+- La barra inferior con la acción principal tiene un degradado crema arriba,
+  para que la lista se desvanezca en vez de cortarse.
+- El modo corrección de un control pasó de violeta a naranja (el color de
+  atención del rediseño).
 - Dispensers (Carga / Descarga) en la home ahora también lo ven los roles
   CONTROLADOR y PICKER, no solo CARGADOR_DISPENSERS y ADMIN: en planta la misma
   persona alterna entre controlar, pickear y cargar.
