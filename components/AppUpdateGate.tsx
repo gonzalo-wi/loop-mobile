@@ -1,19 +1,13 @@
 import { useEffect, useState } from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getLatestVersion } from '@/features/app-update/services/appUpdateApi';
 import { downloadApk, installApk } from '@/features/app-update/services/apkInstaller';
-import { isNewerVersion } from '@/features/app-update/utils';
+import { isNewerVersion, splitReleaseNotes } from '@/features/app-update/utils';
 import { INSTALLED_VERSION } from '@/features/app-update/installedVersion';
 import type { AppVersionInfo } from '@/features/app-update/types';
-import { C, R, F, W, Shdw } from '@/lib/theme';
+import { BottomSheet, PrimaryButton, SecondaryButton } from '@/components/ui';
+import { C, R, S, T } from '@/lib/theme';
 
 type Phase = 'prompt' | 'downloading' | 'installing' | 'error';
 
@@ -76,171 +70,130 @@ export function AppUpdateGate() {
 
   const pct = Math.round(progress * 100);
   const busy = phase === 'downloading' || phase === 'installing';
+  const noteLines = splitReleaseNotes(info.notes);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleLater}>
-      <View style={styles.backdrop}>
-        <View style={styles.card}>
-          <View style={styles.iconWrap}>
-            <Ionicons name="cloud-download" size={30} color={C.primary} />
-          </View>
-
-          <Text style={styles.title}>Actualización disponible</Text>
-          <Text style={styles.versionLine}>
-            Versión {info.latestVersion}
-            <Text style={styles.versionCurrent}>  ·  tenés {INSTALLED_VERSION}</Text>
-          </Text>
-
-          {info.mandatory && (
-            <View style={styles.mandatoryChip}>
-              <Ionicons name="lock-closed" size={11} color={C.warning} />
-              <Text style={styles.mandatoryText}>Actualización obligatoria</Text>
-            </View>
-          )}
-
-          {info.notes ? <Text style={styles.notes}>{info.notes}</Text> : null}
-
-          {/* Progreso de descarga */}
-          {phase === 'downloading' && (
-            <View style={styles.progressBlock}>
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${pct}%` }]} />
-              </View>
-              <Text style={styles.progressText}>Descargando... {pct}%</Text>
-            </View>
-          )}
-
-          {phase === 'installing' && (
-            <View style={styles.installBlock}>
-              <ActivityIndicator color={C.primary} />
-              <Text style={styles.progressText}>Abriendo instalador...</Text>
-            </View>
-          )}
-
-          {phase === 'error' && error ? (
-            <View style={styles.errorBox}>
-              <Ionicons name="warning-outline" size={16} color={C.danger} />
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          ) : null}
-
-          {/* Acciones */}
-          <View style={styles.actions}>
-            <TouchableOpacity
-              style={[styles.primaryBtn, busy && styles.btnDisabled]}
-              onPress={handleUpdate}
-              disabled={busy}
-              activeOpacity={0.85}
-            >
-              {busy ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="download-outline" size={18} color="#fff" />
-                  <Text style={styles.primaryBtnText}>
-                    {phase === 'error' ? 'Reintentar' : 'Actualizar ahora'}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            {!info.mandatory && !busy && (
-              <TouchableOpacity style={styles.laterBtn} onPress={handleLater} activeOpacity={0.7}>
-                <Text style={styles.laterBtnText}>Después</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+    <BottomSheet
+      visible={visible}
+      onDismiss={handleLater}
+      icon="download-outline"
+      tone="info"
+      title="Actualización disponible"
+      actions={
+        <>
+          <PrimaryButton
+            title={phase === 'error' ? 'Reintentar' : 'Actualizar ahora'}
+            icon={phase === 'error' ? 'refresh' : 'download-outline'}
+            onPress={handleUpdate}
+            loading={busy}
+          />
+          {!info.mandatory && !busy && <SecondaryButton title="Después" onPress={handleLater} />}
+        </>
+      }
+    >
+      <View style={styles.versionRow}>
+        <View style={styles.versionPill}>
+          <Text style={styles.versionPillText}>Versión {info.latestVersion}</Text>
         </View>
+        <Text style={styles.versionCurrent}>tenés {INSTALLED_VERSION}</Text>
       </View>
-    </Modal>
+
+      {info.mandatory && (
+        <View style={styles.mandatoryChip}>
+          <Ionicons name="lock-closed" size={13} color={C.orangeText} />
+          <Text style={styles.mandatoryText}>Actualización obligatoria</Text>
+        </View>
+      )}
+
+      {noteLines.length > 0 ? (
+        <View style={styles.notes}>
+          {noteLines.map((line, i) => (
+            <View key={i} style={styles.noteRow}>
+              <View style={styles.noteDot} />
+              <Text style={styles.noteText}>{line}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {phase === 'downloading' && (
+        <View style={styles.progressBlock}>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${pct}%` }]} />
+          </View>
+          <Text style={styles.progressText}>Descargando... {pct}%</Text>
+        </View>
+      )}
+
+      {phase === 'installing' && (
+        <View style={styles.installBlock}>
+          <ActivityIndicator color={C.navy} />
+          <Text style={styles.progressText}>Abriendo instalador...</Text>
+        </View>
+      )}
+
+      {phase === 'error' && error ? (
+        <View style={styles.errorBox}>
+          <Ionicons name="warning-outline" size={18} color={C.redText} />
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(10,17,30,0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  card: {
-    width: '100%',
-    maxWidth: 380,
-    backgroundColor: C.surface,
-    borderRadius: R.xl,
-    padding: 24,
-    alignItems: 'center',
-    ...Shdw.float,
-  },
-  iconWrap: {
-    width: 64,
-    height: 64,
+  versionRow: { flexDirection: 'row', alignItems: 'center', gap: S.md, marginTop: -S.sm },
+  versionPill: {
+    height: 32,
+    paddingHorizontal: S.md,
     borderRadius: R.full,
-    backgroundColor: C.primaryLight,
-    alignItems: 'center',
+    backgroundColor: C.blue,
     justifyContent: 'center',
-    marginBottom: 14,
   },
-  title: { fontSize: F.xl, fontWeight: W.extra, color: C.text, textAlign: 'center' },
-  versionLine: { fontSize: F.base, fontWeight: W.bold, color: C.primary, marginTop: 4 },
-  versionCurrent: { color: C.textMuted, fontWeight: W.medium },
+  versionPillText: { ...T.label, fontFamily: T.button.fontFamily, color: C.white, fontVariant: ['tabular-nums'] },
+  versionCurrent: { ...T.label, fontFamily: T.secondary.fontFamily, color: C.ink2, fontVariant: ['tabular-nums'] },
 
   mandatoryChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: C.warningLight,
+    alignSelf: 'flex-start',
+    gap: S.xs + 2,
+    minHeight: 32,
+    paddingHorizontal: S.md,
     borderRadius: R.full,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginTop: 12,
+    backgroundColor: C.orangeSoft,
   },
-  mandatoryText: { fontSize: F.xs, fontWeight: W.extra, color: C.warning, textTransform: 'uppercase' },
+  mandatoryText: { ...T.secondary, fontFamily: T.label.fontFamily, color: C.orangeText },
 
-  notes: {
-    fontSize: F.sm + 1,
-    color: C.textSub,
-    textAlign: 'center',
-    lineHeight: 20,
-    marginTop: 14,
+  notes: { gap: S.sm, padding: S.lg, borderRadius: R.field, backgroundColor: C.cream },
+  noteRow: { flexDirection: 'row', alignItems: 'flex-start', gap: S.md - 2 },
+  // Ring dot like the mockup: green fill with a navy edge.
+  noteDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 3,
+    borderColor: C.navy,
+    backgroundColor: C.green,
+    marginTop: 4,
   },
+  noteText: { ...T.body, color: C.navy, flex: 1 },
 
-  progressBlock: { width: '100%', marginTop: 20, gap: 8 },
-  progressTrack: {
-    height: 8,
-    borderRadius: R.full,
-    backgroundColor: C.inputBg,
-    overflow: 'hidden',
-  },
-  progressFill: { height: '100%', backgroundColor: C.primary, borderRadius: R.full },
-  progressText: { fontSize: F.sm, color: C.textMuted, fontWeight: W.semibold, textAlign: 'center' },
+  progressBlock: { gap: S.sm },
+  progressTrack: { height: 8, borderRadius: R.full, backgroundColor: C.cream, overflow: 'hidden' },
+  progressFill: { height: '100%', backgroundColor: C.blue, borderRadius: R.full },
+  progressText: { ...T.secondary, color: C.ink2, textAlign: 'center' },
 
-  installBlock: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 20 },
+  installBlock: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: S.md - 2 },
 
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: C.dangerLight,
-    borderRadius: R.md,
-    padding: 12,
-    marginTop: 18,
+    gap: S.sm,
+    padding: S.md,
+    borderRadius: R.cell,
+    backgroundColor: C.redSoft,
   },
-  errorText: { flex: 1, fontSize: F.sm, color: C.danger, fontWeight: W.semibold },
-
-  actions: { width: '100%', marginTop: 22, gap: 8 },
-  primaryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: C.primary,
-    borderRadius: R.lg,
-    height: 52,
-  },
-  btnDisabled: { opacity: 0.7 },
-  primaryBtnText: { color: '#fff', fontSize: F.md, fontWeight: W.extra },
-  laterBtn: { alignItems: 'center', paddingVertical: 12 },
-  laterBtnText: { color: C.textMuted, fontSize: F.base, fontWeight: W.bold },
+  errorText: { ...T.secondary, color: C.redText, flex: 1 },
 });

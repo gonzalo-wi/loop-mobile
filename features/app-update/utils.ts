@@ -21,3 +21,15 @@ export function isNewerVersion(latest: string, current: string): boolean {
 export function formatVersionLabel(version: string | null): string {
   return version ? `LOOP v${version}` : 'LOOP';
 }
+
+// "•" is always a bullet; "-" and "*" only when a space (or nothing) follows,
+// so lines like "-5% de consumo" keep their sign.
+const LIST_MARKER = /^(?:•|[-*](?=\s|$))\s*/;
+
+/** Release notes arrive as plain text: one item per non-empty line, list markers stripped. */
+export function splitReleaseNotes(notes: string | null | undefined): string[] {
+  return (notes ?? '')
+    .split('\n')
+    .map((line) => line.trim().replace(LIST_MARKER, '').trim())
+    .filter(Boolean);
+}

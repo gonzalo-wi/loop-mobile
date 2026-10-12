@@ -3,13 +3,15 @@ import {
   Modal,
   View,
   Text,
-  Pressable,
   StyleSheet,
   Animated,
   Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { C, R, S, F, W, Shdw } from '@/lib/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { C, R, S, T } from '@/lib/theme';
+import { PrimaryButton } from './PrimaryButton';
+import { SecondaryButton } from './SecondaryButton';
 
 export type OverlayStatus = 'loading' | 'success' | 'error';
 
@@ -35,9 +37,9 @@ type StatusOverlayProps = {
 
 /**
  * Overlay de feedback animado para acciones async (guardar, enviar, etc.).
- * - loading: spinner girando.
- * - success: tilde verde con "pop" (spring).
- * - error: X roja con "pop" + botón para cerrar.
+ * - loading: spinner girando (tarjeta centrada).
+ * - success: tilde verde con "pop" (tarjeta centrada).
+ * - error, o cuando hay acciones: panel inferior con la X roja y los botones.
  * Usa Animated nativo (useNativeDriver) → fluido y liviano.
  */
 export function StatusOverlay({
@@ -49,6 +51,7 @@ export function StatusOverlay({
   dismissLabel = 'Entendido',
   onDismiss,
 }: StatusOverlayProps) {
+  const insets = useSafeAreaInsets();
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const cardScale = useRef(new Animated.Value(0.92)).current;
   const iconScale = useRef(new Animated.Value(0)).current;
@@ -102,176 +105,143 @@ export function StatusOverlay({
 
   const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
+  // Errors and questions are a bottom panel (thumb reach, room for the text);
+  // loading and success are a short centered card.
+  const asSheet = status === 'error' || (actions !== undefined && actions.length > 0);
+  // The sheet slides up from the bottom, reusing the card's enter spring.
+  const sheetOffset = cardScale.interpolate({ inputRange: [0.92, 1], outputRange: [SHEET_ENTER_OFFSET, 0] });
+
+  const icon =
+    status === 'loading' ? (
+      <Animated.View style={[styles.spinner, { transform: [{ rotate }] }]} />
+    ) : (
+      <Animated.View
+        style={[
+          styles.iconCircle,
+          status === 'success' ? styles.iconSuccess : styles.iconError,
+          { transform: [{ scale: iconScale }] },
+        ]}
+      >
+        <Ionicons
+          name={status === 'success' ? 'checkmark-sharp' : 'close-sharp'}
+          size={34}
+          color={status === 'success' ? C.navy : C.white}
+        />
+      </Animated.View>
+    );
+
+  const buttons =
+    actions && actions.length > 0 ? (
+      <View style={styles.actions}>
+        {actions.map((action) =>
+          action.variant === 'secondary' ? (
+            <SecondaryButton key={action.label} title={action.label} icon={action.icon} onPress={action.onPress} />
+          ) : (
+            <PrimaryButton key={action.label} title={action.label} icon={action.icon} onPress={action.onPress} />
+          ),
+        )}
+      </View>
+    ) : status === 'error' && onDismiss ? (
+      <View style={styles.actions}>
+        <PrimaryButton title={dismissLabel} onPress={onDismiss} />
+      </View>
+    ) : null;
+
   return (
-    <Modal transparent visible={visible} animationType="none" onRequestClose={onDismiss}>
-      <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
-        <Animated.View style={[styles.card, { transform: [{ scale: cardScale }] }]}>
-          {status === 'loading' && (
-            <Animated.View style={[styles.spinner, { transform: [{ rotate }] }]} />
-          )}
-
-          {status === 'success' && (
-            <Animated.View
-              style={[styles.iconCircle, styles.iconSuccess, { transform: [{ scale: iconScale }] }]}
-            >
-              <Ionicons name="checkmark-sharp" size={46} color="#fff" />
-            </Animated.View>
-          )}
-
-          {status === 'error' && (
-            <Animated.View
-              style={[styles.iconCircle, styles.iconError, { transform: [{ scale: iconScale }] }]}
-            >
-              <Ionicons name="close-sharp" size={46} color="#fff" />
-            </Animated.View>
-          )}
-
-          {title ? <Text style={styles.title}>{title}</Text> : null}
-          {message ? <Text style={styles.message}>{message}</Text> : null}
-
-          {actions && actions.length > 0 ? (
-            <View style={styles.actions}>
-              {actions.map((action) => {
-                const secondary = action.variant === 'secondary';
-                return (
-                  <Pressable
-                    key={action.label}
-                    onPress={action.onPress}
-                    style={({ pressed }) => [
-                      styles.actionBtn,
-                      secondary ? styles.actionSecondary : styles.actionPrimary,
-                      pressed && styles.dismissPressed,
-                    ]}
-                  >
-                    {action.icon ? (
-                      <Ionicons
-                        name={action.icon}
-                        size={18}
-                        color={secondary ? C.textSub : '#fff'}
-                      />
-                    ) : null}
-                    <Text style={[styles.actionText, secondary && styles.actionTextSecondary]}>
-                      {action.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          ) : status === 'error' && onDismiss ? (
-            <Pressable
-              onPress={onDismiss}
-              style={({ pressed }) => [styles.dismissBtn, pressed && styles.dismissPressed]}
-            >
-              <Text style={styles.dismissText}>{dismissLabel}</Text>
-            </Pressable>
-          ) : null}
-        </Animated.View>
+    <Modal transparent visible={visible} animationType="none" onRequestClose={onDismiss} statusBarTranslucent>
+      <Animated.View
+        style={[styles.overlay, asSheet ? styles.overlaySheet : styles.overlayCard, { opacity: overlayOpacity }]}
+      >
+        {asSheet ? (
+          <Animated.View
+            style={[
+              styles.sheet,
+              { paddingBottom: insets.bottom + S.xxl - 4, transform: [{ translateY: sheetOffset }] },
+            ]}
+          >
+            <View style={styles.handle} />
+            {icon}
+            {title ? <Text style={styles.sheetTitle} accessibilityRole="header">{title}</Text> : null}
+            {message ? <Text style={styles.sheetMessage}>{message}</Text> : null}
+            {buttons}
+          </Animated.View>
+        ) : (
+          <Animated.View
+            style={[styles.card, { transform: [{ scale: cardScale }] }]}
+            accessibilityLiveRegion="polite"
+          >
+            {icon}
+            {title ? <Text style={styles.cardTitle}>{title}</Text> : null}
+            {message ? <Text style={styles.cardMessage}>{message}</Text> : null}
+          </Animated.View>
+        )}
       </Animated.View>
     </Modal>
   );
 }
 
+const ICON = 64;
+const SHEET_ENTER_OFFSET = 80;
+
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(14,23,38,0.45)',
+    backgroundColor: C.scrim,
+  },
+  overlayCard: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: S.xxl,
   },
+  overlaySheet: {
+    justifyContent: 'flex-end',
+  },
   card: {
     width: '100%',
     maxWidth: 320,
-    backgroundColor: C.surface,
-    borderRadius: R.xl,
+    backgroundColor: C.white,
+    borderRadius: R.block,
     paddingVertical: S.xxl,
     paddingHorizontal: S.xl,
     alignItems: 'center',
-    ...Shdw.float,
+    gap: S.sm,
+  },
+  sheet: {
+    backgroundColor: C.white,
+    borderTopLeftRadius: R.sheet,
+    borderTopRightRadius: R.sheet,
+    paddingTop: S.md,
+    paddingHorizontal: S.gutterWide,
+    gap: S.lg,
+  },
+  handle: {
+    alignSelf: 'center',
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: C.handle,
   },
   spinner: {
     width: 56,
     height: 56,
-    borderRadius: 999,
+    borderRadius: 28,
     borderWidth: 5,
-    borderColor: C.primaryLight,
-    borderTopColor: C.primary,
-    marginBottom: S.lg,
+    borderColor: C.cream,
+    borderTopColor: C.navy,
+    marginBottom: S.sm,
   },
   iconCircle: {
-    width: 78,
-    height: 78,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: S.lg,
-  },
-  iconSuccess: {
-    backgroundColor: C.success,
-  },
-  iconError: {
-    backgroundColor: C.danger,
-  },
-  title: {
-    fontSize: F.lg,
-    fontWeight: W.extra,
-    color: C.text,
-    textAlign: 'center',
-    letterSpacing: -0.2,
-  },
-  message: {
-    fontSize: F.sm + 1,
-    fontWeight: W.medium,
-    color: C.textSub,
-    textAlign: 'center',
-    marginTop: S.sm,
-    lineHeight: 20,
-  },
-  dismissBtn: {
-    marginTop: S.xl,
-    alignSelf: 'stretch',
-    height: 48,
-    borderRadius: R.md,
-    backgroundColor: C.primary,
+    width: ICON,
+    height: ICON,
+    borderRadius: ICON / 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dismissPressed: {
-    transform: [{ scale: 0.98 }],
-    opacity: 0.92,
-  },
-  dismissText: {
-    color: '#fff',
-    fontSize: F.md,
-    fontWeight: W.extra,
-  },
-  actions: {
-    alignSelf: 'stretch',
-    marginTop: S.xl,
-    gap: S.sm,
-  },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: S.sm,
-    height: 52,
-    borderRadius: R.md,
-  },
-  actionPrimary: {
-    backgroundColor: C.primary,
-  },
-  actionSecondary: {
-    backgroundColor: C.surfaceSunken,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  actionText: {
-    color: '#fff',
-    fontSize: F.md,
-    fontWeight: W.extra,
-  },
-  actionTextSecondary: {
-    color: C.textSub,
-  },
+  iconSuccess: { backgroundColor: C.green },
+  iconError: { backgroundColor: C.red },
+  cardTitle: { ...T.screenTitle, color: C.navy, textAlign: 'center' },
+  cardMessage: { ...T.body, color: C.ink2, textAlign: 'center' },
+  sheetTitle: { ...T.sheetTitle, color: C.navy },
+  sheetMessage: { ...T.body, color: C.ink2 },
+  actions: { gap: S.sm, marginTop: S.xs },
 });
