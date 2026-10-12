@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { C, R, S, F, W } from '@/lib/theme';
+import { C, H, R, S, T } from '@/lib/theme';
 
 type ErrorMessageProps = {
   message?: string | null;
@@ -11,8 +11,8 @@ export function ErrorMessage({ message }: ErrorMessageProps) {
   if (!message) return null;
 
   return (
-    <View style={styles.banner}>
-      <Ionicons name="alert-circle" size={18} color={C.danger} />
+    <View style={styles.banner} accessibilityRole="alert">
+      <Ionicons name="alert-circle" size={H.iconInPill} color={C.redText} />
       <Text style={styles.text}>{message}</Text>
     </View>
   );
@@ -23,17 +23,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: S.sm,
-    backgroundColor: C.dangerLight,
-    borderRadius: R.md,
-    borderWidth: 1,
-    borderColor: 'rgba(229,72,77,0.18)',
-    paddingHorizontal: 12,
-    paddingVertical: 11,
+    backgroundColor: C.redSoft,
+    borderRadius: R.cell,
+    paddingHorizontal: S.lg,
+    paddingVertical: S.md,
   },
   text: {
+    ...T.label,
     flex: 1,
-    color: C.danger,
-    fontSize: F.sm + 1,
-    fontWeight: W.semibold,
+    color: C.redText,
   },
 });

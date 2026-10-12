@@ -16,19 +16,15 @@ export default function TabLayout() {
     <Tabs
       tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{
-        // Screens end above the floating bar until each one is redesigned to scroll under it.
-        sceneStyle: { backgroundColor: C.bg, paddingBottom: tabBarClearance(insets.bottom) },
-        headerStyle: { backgroundColor: C.primary },
-        headerTintColor: C.onHeader,
-        headerTitleStyle: { fontWeight: '800', color: C.onHeader, fontSize: 18 },
-        headerShadowVisible: false,
+        // Screens end above the floating bar so no content is ever hidden under it.
+        sceneStyle: { backgroundColor: C.cream, paddingBottom: tabBarClearance(insets.bottom) },
+        headerShown: false,
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Inicio',
-          headerShown: false,
           tabBarBadge: isDriver && pendingCount > 0 ? pendingCount : undefined,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
@@ -39,7 +35,6 @@ export default function TabLayout() {
         name="orders"
         options={{
           title: 'Pedidos',
-          headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'cart' : 'cart-outline'} size={22} color={color} />
           ),
@@ -49,7 +44,6 @@ export default function TabLayout() {
         name="remito"
         options={{
           title: 'Remito',
-          headerShown: false,
           // El remito es del reparto del repartidor. href:null lo saca de la barra por completo.
           href: isDriver ? undefined : null,
           tabBarIcon: ({ color, focused }) => (
@@ -61,7 +55,6 @@ export default function TabLayout() {
         name="arrivals"
         options={{
           title: 'En ruta',
-          headerShown: false,
           href: isDriver ? null : undefined,
           tabBarIcon: ({ color, focused }) => (
             <MaterialCommunityIcons name={focused ? 'truck-fast' : 'truck-fast-outline'} size={22} color={color} />
@@ -72,7 +65,6 @@ export default function TabLayout() {
         name="fleet"
         options={{
           title: 'Mi camión',
-          headerShown: false,
           // Solo el repartidor tiene un camión propio para ubicar.
           href: isDriver ? undefined : null,
           tabBarIcon: ({ color, focused }) => (
@@ -84,7 +76,6 @@ export default function TabLayout() {
         name="history"
         options={{
           title: 'Historial',
-          headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'time' : 'time-outline'} size={22} color={color} />
           ),

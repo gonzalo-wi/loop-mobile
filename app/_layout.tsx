@@ -6,7 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useRouteStore } from '@/store/routeStore';
 import { getToken, getStoredUser, getStoredRoute } from '@/lib/storage';
 import { AppUpdateGate } from '@/components/AppUpdateGate';
-import { C, T } from '@/lib/theme';
+import { C } from '@/lib/theme';
 import { FONT_ASSETS } from '@/lib/fontAssets';
 
 /** `navigatorReady` is false while the Stack is not mounted yet (fonts loading). */
@@ -79,70 +79,8 @@ export default function RootLayout() {
     <>
       {/* Dark icons on the cream UI; screens with a navy top (login) override it while mounted. */}
       <StatusBar style="dark" />
-      <Stack
-      screenOptions={{
-        headerStyle: { backgroundColor: C.primary },
-        headerTintColor: C.onHeader,
-        headerTitleStyle: { fontFamily: T.section.fontFamily, fontSize: T.section.fontSize },
-        headerShadowVisible: false,
-        contentStyle: { backgroundColor: C.bg },
-      }}
-    >
-      <Stack.Screen name="login" options={{ headerShown: false }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen
-        name="new-control"
-        options={{
-          title: 'Nuevo Control',
-          headerBackTitle: 'Atrás',
-        }}
-      />
-      <Stack.Screen
-        name="edit-control"
-        options={{
-          title: 'Control',
-          headerBackTitle: 'Historial',
-        }}
-      />
-      <Stack.Screen
-        name="approval-detail"
-        options={{
-          title: 'Control Pendiente',
-          headerBackTitle: 'Inicio',
-        }}
-      />
-      <Stack.Screen
-        name="create-order"
-        options={{
-          title: 'Nuevo Pedido',
-          headerBackTitle: 'Pedidos',
-        }}
-      />
-      <Stack.Screen
-        name="order-detail"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="dispensers"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="dispenser-movements"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="dispenser-movement-detail"
-        options={{
-          headerShown: false,
-        }}
-      />
-      </Stack>
+      {/* Every screen draws its own ScreenHeader; routes are picked up from app/. */}
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.cream } }} />
       <AppUpdateGate />
     </>
   );

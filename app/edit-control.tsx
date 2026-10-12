@@ -641,7 +641,7 @@ const styles = StyleSheet.create({
     paddingRight: S.sm,
     minHeight: H.field,
   },
-  searchInput: { ...T.body, flex: 1, color: C.navy, paddingVertical: 0 },
+  searchInput: { ...T.data, flex: 1, color: C.navy, paddingVertical: 0 },
   clearBtn: { width: H.touch, height: H.touch, alignItems: 'center', justifyContent: 'center' },
   noResults: {
     ...T.body,
