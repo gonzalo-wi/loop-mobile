@@ -6,7 +6,6 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/store/authStore';
 import {
   BottomBar,
+  BottomSheet,
   CircleButton,
   EmptyState,
   Pill,
@@ -28,12 +28,16 @@ import { DatePickerModal } from '@/features/stock-controls/components/DatePicker
 import { BarcodeScannerModal } from '@/features/dispensers/components/BarcodeScannerModal';
 import { MovementDataBlock } from '@/features/dispensers/components/MovementDataBlock';
 import { SerialRow } from '@/features/dispensers/components/SerialRow';
+import { MovementRegisteredScreen } from '@/features/dispensers/components/MovementRegisteredScreen';
+import { findActiveMovement, getSubmitFailureCopy } from '@/features/dispensers/lib/submitFailure';
+import { ApiError } from '@/lib/api';
 import { getSerialRowStatus } from '@/features/dispensers/lib/serialRowStatus';
 import { toShortDisplayDate } from '@/features/dispensers/lib/displayDate';
 import {
   getAguasLocations,
   getAguasStates,
   createDispenserMovement,
+  getDispenserMovements,
 } from '@/features/dispensers/services/dispenserApi';
 import {
   getUnregisteredSerials,
@@ -44,26 +48,24 @@ import {
   validateOdooEquipment,
 } from '@/features/dispensers/services/odooApi';
 import { pollOdooStatus } from '@/features/dispensers/hooks/useOdooPolling';
-import {
-  expectsOdooDispatch,
-  getExclusionNotice,
-  shouldSendSerial,
-} from '@/features/dispensers/lib/movementOutcome';
+import { shouldSendSerial } from '@/features/dispensers/lib/movementOutcome';
+import { isAwaitingSystems } from '@/features/dispensers/lib/registrationFollowUp';
 import { baggedSerialsToSend, toggleBagged } from '@/features/dispensers/lib/bagged';
 import type {
   AguasCatalog,
   AguasCatalogItem,
+  DispenserMovement,
   DispenserMovementType,
   OdooValidationResult,
 } from '@/features/dispensers/types';
 import { C, H, R, S, T } from '@/lib/theme';
 
-// Tiempo de éxito visible antes de resolver el estado de Odoo y resetear el form.
-const SUCCESS_OVERLAY_MS = 1600;
-// Ventana de polling de Odoo tras crear el movimiento (ver useOdooPolling).
-const ODOO_RESULT_OVERLAY_MS = 2200;
 // Debounce para no spammear la validación Odoo mientras se escanea en tanda.
 const ODOO_VALIDATE_DEBOUNCE_MS = 900;
+
+type SubmitFailure =
+  | { kind: 'failed'; title: string; message: string }
+  | { kind: 'duplicate'; message: string; movementId: string };
 
 type SerialSource = 'scan' | 'manual';
 /**
@@ -143,6 +145,10 @@ export default function DispensersScreen() {
   const odooValidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
+  const [registered, setRegistered] = useState<DispenserMovement | null>(null);
+  // Id of the registered movement still being followed (Aguas/Odoo pending).
+  const [followingId, setFollowingId] = useState<string | null>(null);
+  const [submitFailure, setSubmitFailure] = useState<SubmitFailure | null>(null);
   const [overlay, setOverlay] = useState<{
     visible: boolean;
     status: OverlayStatus;
@@ -294,86 +300,73 @@ export default function DispensersScreen() {
     !submitting;
 
   async function handleSubmit() {
+    if (submitting) return;
+    setSubmitFailure(null);
     setSubmitting(true);
     setOverlay({ visible: true, status: 'loading', title: 'Registrando movimiento...' });
+    const key = { type, routeCode: routeCode.trim(), movementDate: toDateString(movementDate) };
     try {
       const created = await createDispenserMovement({
         type,
-        routeCode: routeCode.trim(),
+        routeCode: key.routeCode,
         technician: technician.trim(),
         locationId: location?.id,
         stateId: movState?.id,
-        movementDate: toDateString(movementDate),
+        movementDate: key.movementDate,
         serials: sendableSerials.map((s) => s.code),
         baggedSerials: baggedSerialsToSend(type, sendableSerials),
       });
 
-      const count = sendableSerials.length;
-      const isLoadMovement = type === 'LOAD';
-      const notice = getExclusionNotice(created);
-      const nothingSentToAguas = created.status === 'SKIPPED_UNREGISTERED';
+      // The confirmation screen stays until the operator chooses what's next,
+      // so the form can be cleared right away behind it.
+      setOverlay((o) => ({ ...o, visible: false }));
+      setRegistered(created);
+      setRouteCode('');
+      setSerials([]);
 
-      setOverlay({
-        visible: true,
-        status: 'success',
-        title: '¡Movimiento registrado!',
-        message: nothingSentToAguas
-          ? `${count} dispenser${count !== 1 ? 's' : ''} · Reparto ${routeCode.trim()}. No se envió a Aguas.`
-          : isLoadMovement
-            ? `${count} dispenser${count !== 1 ? 's' : ''} · Reparto ${routeCode.trim()}. Enviando a Aguas y Odoo...`
-            : `${count} dispenser${count !== 1 ? 's' : ''} · Reparto ${routeCode.trim()}. Se está enviando a Aguas.`,
-      });
-
-      // El reset del form es rápido para no trabar al operario; el resultado
-      // de Odoo (asíncrono) se resuelve aparte y solo actualiza el overlay
-      // mientras siga visible.
-      setTimeout(() => {
-        setOverlay((o) => ({ ...o, visible: false }));
-        setRouteCode('');
-        setSerials([]);
-        // Los excluidos se avisan con un diálogo (no un toast) para que no pasen desapercibidos:
-        // es el caso en que el operario cree que cargó algo que no fue a Aguas.
-        if (notice) {
-          Alert.alert(notice.title, notice.message, [{ text: 'Entendido' }], {
-            cancelable: !notice.requiresConfirmation,
-          });
-        }
-      }, SUCCESS_OVERLAY_MS);
-
-      // Sin nada enviado a Aguas no hay salida a Odoo: el polling esperaría en vano.
-      if (expectsOdooDispatch(created)) {
-        pollOdooStatus(created.id)
+      // Follow Aguas/Odoo for a short window so the confirmation shows their answer.
+      if (isAwaitingSystems(created)) {
+        setFollowingId(created.id);
+        pollOdooStatus(created.id, { isPending: isAwaitingSystems })
           .then((resolved) => {
-            const odooMessage =
-              resolved.odooStatus === 'SENT'
-                ? `Registrado en Odoo · ${resolved.odooPickingName ?? 'comprobante generado'}.`
-                : resolved.odooStatus === 'ERROR'
-                  ? 'Odoo rechazó la carga. Revisalo en Movimientos.'
-                  : 'Odoo sigue procesando, revisalo en Movimientos.';
-            const odooStatusForOverlay: OverlayStatus =
-              resolved.odooStatus === 'ERROR' ? 'error' : 'success';
-
-            setOverlay({
-              visible: true,
-              status: odooStatusForOverlay,
-              title: resolved.odooStatus === 'ERROR' ? 'Aviso de Odoo' : '¡Movimiento registrado!',
-              message: odooMessage,
-            });
-            setTimeout(() => {
-              setOverlay((o) => ({ ...o, visible: false }));
-            }, ODOO_RESULT_OVERLAY_MS);
+            setRegistered((current) => (current?.id === resolved.id ? resolved : current));
           })
           .catch(() => {
             // Si falla la reconsulta, no molestamos: el estado se puede ver en Movimientos.
+          })
+          .finally(() => {
+            setFollowingId((current) => (current === created.id ? null : current));
           });
       }
     } catch (e) {
-      setOverlay({
-        visible: true,
-        status: 'error',
-        title: 'No se pudo registrar',
-        message: e instanceof Error ? e.message : 'Intentá de nuevo',
-      });
+      const error = e instanceof ApiError ? e : { message: e instanceof Error ? e.message : undefined };
+      const status = e instanceof ApiError ? e.status : undefined;
+
+      // When the server rejected it, look for the movement it collides with,
+      // so the panel can take the operator there instead of creating another one.
+      let existing: DispenserMovement | null = null;
+      if (status !== undefined) {
+        setOverlay({ visible: true, status: 'loading', title: 'Verificando...' });
+        try {
+          const { movements } = await getDispenserMovements({
+            type: key.type,
+            routeCode: key.routeCode,
+            from: key.movementDate,
+            to: key.movementDate,
+            size: 20,
+          });
+          existing = findActiveMovement(movements, key);
+        } catch {
+          // Without the lookup we still show the generic failure below.
+        }
+      }
+
+      setOverlay((o) => ({ ...o, visible: false }));
+      setSubmitFailure(
+        existing
+          ? { kind: 'duplicate', message: error.message || 'Ya existe un movimiento para ese reparto y fecha.', movementId: existing.id }
+          : { kind: 'failed', ...getSubmitFailureCopy({ message: error.message, status }, sendableSerials.length) },
+      );
     } finally {
       setSubmitting(false);
     }
@@ -616,6 +609,47 @@ export default function DispensersScreen() {
         invalidFeedbackLabel={isLoad ? 'No normalizado · no se envía: ' : 'No normalizado → Odoo: '}
         onAdd={addScanned}
         onClose={() => setShowScanner(false)}
+      />
+
+      <MovementRegisteredScreen
+        movement={registered}
+        followingUp={registered !== null && followingId === registered.id}
+        onNew={() => setRegistered(null)}
+        onSeeMovements={() => {
+          setRegistered(null);
+          router.push('/dispenser-movements');
+        }}
+      />
+
+      <BottomSheet
+        visible={submitFailure !== null}
+        onDismiss={() => setSubmitFailure(null)}
+        tone={submitFailure?.kind === 'duplicate' ? 'error' : 'warning'}
+        icon={submitFailure?.kind === 'duplicate' ? 'close' : 'cloud-offline-outline'}
+        title={submitFailure?.kind === 'duplicate' ? 'No se pudo registrar' : submitFailure?.title}
+        message={submitFailure?.message}
+        actions={
+          submitFailure?.kind === 'duplicate' ? (
+            <>
+              <PrimaryButton
+                title="Ver ese movimiento"
+                icon="arrow-forward"
+                iconPosition="end"
+                onPress={() => {
+                  const id = submitFailure.movementId;
+                  setSubmitFailure(null);
+                  router.push(`/dispenser-movement-detail?id=${id}`);
+                }}
+              />
+              <SecondaryButton title="Entendido" onPress={() => setSubmitFailure(null)} />
+            </>
+          ) : (
+            <>
+              <PrimaryButton title="Reintentar" icon="refresh" onPress={handleSubmit} loading={submitting} />
+              <SecondaryButton title="Cerrar" onPress={() => setSubmitFailure(null)} />
+            </>
+          )
+        }
       />
 
       <StatusOverlay
