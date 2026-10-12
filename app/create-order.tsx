@@ -11,7 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getOrderableProducts, createOrder, getOrders } from '@/features/driver/services/ordersApi';
@@ -239,7 +239,6 @@ export default function CreateOrderScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <Stack.Screen options={{ headerShown: false }} />
         {header}
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={C.navy} />
@@ -252,7 +251,6 @@ export default function CreateOrderScreen() {
   if (loadError) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <Stack.Screen options={{ headerShown: false }} />
         {header}
         <View style={styles.centered}>
           <EmptyState icon="alert-circle-outline" title="No se pudieron cargar los productos" hint={loadError} />
@@ -266,7 +264,6 @@ export default function CreateOrderScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <Stack.Screen options={{ headerShown: false }} />
       {header}
       <KeyboardAvoidingView
         style={styles.flatList}

@@ -12,7 +12,7 @@ import {
   Platform,
   Pressable,
 } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DatePickerModal } from '@/features/stock-controls/components/DatePickerModal';
@@ -378,7 +378,6 @@ export default function NewControlScreen() {
   if (productsLoading) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <Stack.Screen options={{ headerShown: false }} />
         {header}
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={C.navy} />
@@ -391,7 +390,6 @@ export default function NewControlScreen() {
   if (productsError) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <Stack.Screen options={{ headerShown: false }} />
         {header}
         <View style={styles.centered}>
           <EmptyState icon="cloud-offline-outline" title="No se pudieron cargar los productos" hint={productsError} />
@@ -414,7 +412,6 @@ export default function NewControlScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
         style={[styles.container, { paddingTop: insets.top }]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

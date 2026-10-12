@@ -12,7 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -278,12 +278,10 @@ export default function EditControlScreen() {
     }
   }
 
-  const hideNativeHeader = <Stack.Screen options={{ headerShown: false }} />;
 
   if (loading) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        {hideNativeHeader}
         <ScreenHeader title="Control" onBack={() => router.back()} />
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={C.navy} />
@@ -295,7 +293,6 @@ export default function EditControlScreen() {
   if (error || !control) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        {hideNativeHeader}
         <ScreenHeader title="Error" onBack={() => router.back()} />
         <View style={styles.centered}>
           <EmptyState
@@ -346,7 +343,6 @@ export default function EditControlScreen() {
   if (!isEditable && !correcting) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        {hideNativeHeader}
         {header}
         <FlatList
           data={[]}
@@ -506,7 +502,6 @@ export default function EditControlScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {hideNativeHeader}
       {header}
       <KeyboardAvoidingView
         style={styles.flex}

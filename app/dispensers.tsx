@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { useRouter, Stack, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/store/authStore';
@@ -459,7 +459,6 @@ export default function DispensersScreen() {
   if (catalogLoading) {
     return (
       <View style={[styles.screen, { paddingTop: insets.top }]}>
-        <Stack.Screen options={{ headerShown: false }} />
         {header}
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={C.navy} />
@@ -472,7 +471,6 @@ export default function DispensersScreen() {
   if (catalogError) {
     return (
       <View style={[styles.screen, { paddingTop: insets.top }]}>
-        <Stack.Screen options={{ headerShown: false }} />
         {header}
         <View style={styles.centered}>
           <EmptyState icon="cloud-offline-outline" title="No se pudieron cargar los catálogos" hint={catalogError} />
@@ -486,7 +484,6 @@ export default function DispensersScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <Stack.Screen options={{ headerShown: false }} />
       {header}
 
       <FlatList

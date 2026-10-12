@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getStockControl, approveStockControl } from '@/features/stock-controls/services/stockControlApi';
@@ -145,7 +145,6 @@ export default function ApprovalDetailScreen() {
   if (loading) {
     return (
       <View style={[styles.screen, { paddingTop: insets.top }]}>
-        <Stack.Screen options={{ headerShown: false }} />
         {header('Control pendiente')}
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={C.navy} />
@@ -157,7 +156,6 @@ export default function ApprovalDetailScreen() {
   if (error || !control) {
     return (
       <View style={[styles.screen, { paddingTop: insets.top }]}>
-        <Stack.Screen options={{ headerShown: false }} />
         {header('Control pendiente')}
         <View style={styles.centered}>
           <EmptyState
@@ -182,7 +180,6 @@ export default function ApprovalDetailScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <Stack.Screen options={{ headerShown: false }} />
       {header(typeTitle, control.branchName)}
 
       <ScrollView
