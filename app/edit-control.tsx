@@ -359,8 +359,8 @@ export default function EditControlScreen() {
               {hasAguasInfo ? (
                 <View style={styles.infoCard}>
                   <View style={styles.infoCardHeader}>
-                    <Ionicons name="water-outline" size={H.iconInPill - 4} color={C.supervisor} />
-                    <Text style={[styles.infoCardLabel, { color: C.supervisor }]}>Datos de Aguas</Text>
+                    <Ionicons name="water-outline" size={H.iconInPill - 4} color={C.navy} />
+                    <Text style={[styles.infoCardLabel, { color: C.navy }]}>Datos de Aguas</Text>
                   </View>
                   {control.aguasFormulario ? (
                     <Text style={styles.infoCardText}>
@@ -417,14 +417,14 @@ export default function EditControlScreen() {
 
       {correcting && (
         <View style={styles.correctionModeBar}>
-          <Ionicons name="shield-checkmark-outline" size={H.iconInPill - 4} color={C.white} />
+          <Ionicons name="shield-checkmark-outline" size={H.iconInPill - 4} color={C.navy} />
           <Text style={styles.correctionModeBarText}>MODO CORRECCIÓN</Text>
         </View>
       )}
 
       {correcting && (
         <View style={styles.correctionBanner}>
-          <Ionicons name="alert-circle-outline" size={H.iconInPill} color={C.supervisorDark} />
+          <Ionicons name="alert-circle-outline" size={H.iconInPill} color={C.orangeText} />
           <Text style={styles.correctionBannerText}>
             Estás corrigiendo un control ya enviado a Aguas. Esta acción queda
             auditada y los productos cargados reemplazan por completo a los actuales.
@@ -595,23 +595,23 @@ const styles = StyleSheet.create({
   },
   reasonInput: { borderWidth: 3, borderColor: C.orange },
 
-  // Correct control (SUPERVISOR) — "supervisor" purple: deliberate elevated-role
-  // action, not an alert. No LOOP equivalent yet.
+  // Correct control (SUPERVISOR): orange is LOOP's attention color — the edit is audited
+  // and replaces what was already sent to Aguas.
   correctionModeBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: S.sm - 2,
-    backgroundColor: C.supervisor,
+    backgroundColor: C.orange,
     borderRadius: R.full,
     minHeight: H.touch,
   },
-  correctionModeBarText: { ...T.systemTag, color: C.white },
+  correctionModeBarText: { ...T.systemTag, color: C.navy },
   correctionBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: S.sm,
-    backgroundColor: C.supervisorLight,
+    backgroundColor: C.orangeSoft,
     borderRadius: R.card,
     padding: S.lg,
   },

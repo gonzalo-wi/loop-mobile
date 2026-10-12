@@ -85,11 +85,6 @@ export const C = {
   accent: palette.blue,
   accentLight: palette.blueLight,
 
-  // Supervisor override has no LOOP equivalent yet; kept until it gets a mockup.
-  supervisor: '#6D28D9',
-  supervisorLight: '#EDE4FC',
-  supervisorDark: '#5321A8',
-
   // Odoo
   odooLight: '#F1E8EE',
   odooBorder: '#DCC8D6',
