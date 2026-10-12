@@ -35,6 +35,10 @@ const palette = {
   pillOnGreen: 'rgba(18,28,78,0.16)',
   cameraScrim: 'rgba(4,6,16,0.6)',
   railOnCream: 'rgba(18,28,78,0.08)',
+  onNavyMuted: '#C9D0EA',
+  onNavyTag: '#E4E8F8',
+  onNavyTagBg: 'rgba(255,255,255,0.14)',
+  onNavyDeco: 'rgba(255,255,255,0.22)',
 };
 
 export const C = {

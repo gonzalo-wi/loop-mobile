@@ -1,26 +1,25 @@
 import { View, Text, Image, StyleSheet } from 'react-native';
-import { C, S, F, W } from '@/lib/theme';
+import { C, S, T } from '@/lib/theme';
 
 const logoImage = require('@/assets/images/logoLoop.png');
 
 const SIZES = {
-  md: { logo: 72 },
-  lg: { logo: 128 },
+  md: { width: 72, height: 64 },
+  lg: { width: 148, height: 130 },
 };
 
 type AppLogoProps = {
+  /** Shows the "LOOP" wordmark and the tagline under the logo. */
   showText?: boolean;
   size?: 'md' | 'lg';
   tagline?: string;
-  /** Usar sobre fondos oscuros: tagline en blanco semitransparente */
-  onDark?: boolean;
 };
 
+/** Logo for the navy login hero: image, "LOOP" wordmark and tagline. */
 export function AppLogo({
   showText = true,
   size = 'lg',
-  tagline = 'Gestión de repartos y depósito',
-  onDark = false,
+  tagline = 'Control operativo de repartos',
 }: AppLogoProps) {
   const s = SIZES[size];
 
@@ -28,30 +27,59 @@ export function AppLogo({
     <View style={styles.container}>
       <Image
         source={logoImage}
-        style={{ width: s.logo, height: s.logo }}
+        style={{ width: s.width, height: s.height }}
         resizeMode="contain"
+        accessibilityLabel="Ivess"
       />
-      {showText && (
-        <Text style={[styles.tagline, onDark && styles.taglineDark]}>{tagline}</Text>
-      )}
+      {showText ? (
+        <>
+          <Text style={styles.wordmark}>LOOP</Text>
+          <Text style={styles.tagline}>{tagline}</Text>
+        </>
+      ) : null}
     </View>
   );
 }
 
+/** Logo inside a navy circle, for headers on light backgrounds. */
+export function AppLogoBadge() {
+  return (
+    <View style={styles.badge}>
+      <Image source={logoImage} style={styles.badgeImage} resizeMode="contain" accessibilityLabel="Ivess" />
+    </View>
+  );
+}
+
+const WORDMARK_TRACKING = 3.6;
+
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
+    gap: S.xs + 2,
+  },
+  wordmark: {
+    ...T.blockTitle,
+    letterSpacing: WORDMARK_TRACKING,
+    // Balances the trailing tracking so the word stays optically centered.
+    paddingLeft: WORDMARK_TRACKING,
+    color: C.white,
+    marginTop: S.sm + 2,
   },
   tagline: {
-    fontSize: F.sm,
-    fontWeight: W.medium,
-    color: C.textMuted,
+    ...T.body,
+    color: C.onNavyMuted,
     textAlign: 'center',
-    marginTop: S.xs + 2,
   },
-  taglineDark: {
-    color: 'rgba(255,255,255,0.60)',
-    fontWeight: W.semibold,
-    letterSpacing: 0.2,
+  badge: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: C.navy,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeImage: {
+    width: 40,
+    height: 35,
   },
 });

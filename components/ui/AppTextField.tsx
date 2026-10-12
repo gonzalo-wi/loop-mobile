@@ -45,13 +45,14 @@ export const AppTextField = forwardRef<TextInput, AppTextFieldProps>(function Ap
         style={[
           styles.field,
           { backgroundColor: surface === 'white' ? C.white : C.cream },
+          secure && styles.fieldSecure,
           focused && styles.fieldFocused,
           hasError && styles.fieldError,
           disabled && styles.fieldDisabled,
         ]}
       >
         {icon ? (
-          <Ionicons name={icon} size={19} color={activeColor} style={styles.icon} />
+          <Ionicons name={icon} size={22} color={activeColor} style={styles.icon} />
         ) : null}
 
         <TextInput
@@ -74,13 +75,14 @@ export const AppTextField = forwardRef<TextInput, AppTextFieldProps>(function Ap
         {secure ? (
           <TouchableOpacity
             onPress={() => setHidden((v) => !v)}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel={hidden ? 'Mostrar contraseña' : 'Ocultar contraseña'}
             style={styles.eyeBtn}
           >
             <Ionicons
               name={hidden ? 'eye-outline' : 'eye-off-outline'}
-              size={20}
-              color={C.textSub}
+              size={22}
+              color={C.navy}
             />
           </TouchableOpacity>
         ) : null}
@@ -93,13 +95,13 @@ export const AppTextField = forwardRef<TextInput, AppTextFieldProps>(function Ap
 
 const styles = StyleSheet.create({
   container: {
-    gap: S.xs + 2,
+    gap: S.sm,
   },
   label: {
     ...T.secondary,
     fontFamily: T.label.fontFamily,
-    color: C.navy,
-    marginLeft: 2,
+    color: C.ink2,
+    paddingLeft: 6,
   },
   field: {
     flexDirection: 'row',
@@ -123,7 +125,7 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   icon: {
-    marginRight: 10,
+    marginRight: S.md,
   },
   input: {
     flex: 1,
@@ -131,8 +133,17 @@ const styles = StyleSheet.create({
     color: C.navy,
     paddingVertical: 0,
   },
+  fieldSecure: {
+    paddingRight: S.sm - 3,
+  },
   eyeBtn: {
-    paddingLeft: 8,
+    width: H.touch,
+    height: H.touch,
+    borderRadius: H.touch / 2,
+    backgroundColor: C.cream,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: S.sm,
   },
   errorText: {
     ...T.secondary,

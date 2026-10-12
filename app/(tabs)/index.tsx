@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
+  Pressable,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
@@ -11,13 +12,15 @@ import {
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/store/authStore';
 import { useRouteStore } from '@/store/routeStore';
 import { getStockControls } from '@/features/stock-controls/services/stockControlApi';
 import { canAccessDispensers } from '@/features/dispensers/lib/access';
 import { HeroHeader } from '@/components/HeroHeader';
+import { AppLogoBadge, BLOCK_TONE, Pill } from '@/components/ui';
 import type { StockControl } from '@/features/stock-controls/types';
-import { C, R, F, W, Shdw } from '@/lib/theme';
+import { C, R, S, T, Shdw } from '@/lib/theme';
 
 const DONE_STATUSES = new Set(['ACCEPTED_BY_DRIVER', 'SENT_TO_AGUAS']);
 
@@ -34,53 +37,102 @@ function firstName(name?: string): string {
   return name?.trim().split(' ')[0] ?? '';
 }
 
-// ─── Controller home (sin cambios) ─────────────────────────────────────────────
+// ─── Controller home ───────────────────────────────────────────────────────────
+
+/** Barcode bars drawn in the Dispensers block (decorative). */
+const BARCODE_BARS = [3, 7, 2, 9, 3, 5, 2, 8, 3, 6];
+
+function DirectionTile({
+  type, onPress,
+}: { type: 'EXIT' | 'ENTRY'; onPress: () => void }) {
+  const isExit = type === 'EXIT';
+  const tone = BLOCK_TONE[isExit ? 'blue' : 'green'];
+  const word = isExit ? 'Salida' : 'Entrada';
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Control de ${word}`}
+      style={({ pressed }) => [home.tile, { backgroundColor: tone.bg }, pressed && home.pressed]}
+    >
+      <View style={[home.tileIcon, { backgroundColor: isExit ? C.white : C.navy }]}>
+        <Ionicons
+          name={isExit ? 'arrow-up' : 'arrow-down'}
+          size={26}
+          color={isExit ? C.blue : C.green}
+          style={home.tileIconGlyph}
+        />
+      </View>
+      <View>
+        <Text style={[home.tileKicker, { color: tone.fgSub }]}>Control de</Text>
+        <Text style={[home.tileWord, { color: tone.fg }]} numberOfLines={1} adjustsFontSizeToFit>
+          {word}
+        </Text>
+        <Text style={[home.tileHint, { color: tone.fgSub }]}>
+          {isExit ? 'Mercadería que sale del depósito' : 'Mercadería que retorna al depósito'}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
+function DispensersTile({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="Dispensers, carga y descarga"
+      style={({ pressed }) => [home.dispensers, pressed && home.pressed]}
+    >
+      <View style={home.barcode} pointerEvents="none">
+        {BARCODE_BARS.map((w, i) => (
+          <View key={i} style={[home.bar, { width: w }]} />
+        ))}
+      </View>
+      <View style={home.dispensersTag}>
+        <Text style={home.dispensersTagText}>DISPENSERS</Text>
+      </View>
+      <View style={home.dispensersFoot}>
+        <View style={home.dispensersText}>
+          <Text style={home.dispensersTitle}>Carga / Descarga</Text>
+          <Text style={home.dispensersHint}>Escanear dispensers del camión</Text>
+        </View>
+        <View style={home.dispensersArrow}>
+          <Ionicons name="arrow-forward" size={26} color={C.navy} />
+        </View>
+      </View>
+    </Pressable>
+  );
+}
 
 function ControllerHome() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user, logout } = useAuthStore();
   const canDispensers = canAccessDispensers(user?.role);
 
   return (
-    <View style={styles.screen}>
-      <HeroHeader
-        title={`Hola, ${firstName(user?.name)}`}
-        subtitle={user?.role}
-        rightAction={{ label: 'Salir', icon: 'log-out-outline', onPress: logout }}
-      />
-      <View style={styles.body}>
-        <Text style={styles.sectionTitle}>Nuevo control</Text>
-        <TouchableOpacity style={styles.controlCard} onPress={() => router.push('/new-control?type=EXIT')} activeOpacity={0.85}>
-          <View style={[styles.iconBlock, styles.iconBlockExit]}><Ionicons name="arrow-up" size={24} color={C.exit} /></View>
-          <View style={styles.cardText}>
-            <Text style={styles.cardTitle}>Control de Salida</Text>
-            <Text style={styles.cardSub}>Mercadería que sale del depósito</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={C.textMuted} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.controlCard} onPress={() => router.push('/new-control?type=ENTRY')} activeOpacity={0.85}>
-          <View style={[styles.iconBlock, styles.iconBlockEntry]}><Ionicons name="arrow-down" size={24} color={C.entry} /></View>
-          <View style={styles.cardText}>
-            <Text style={styles.cardTitle}>Control de Entrada</Text>
-            <Text style={styles.cardSub}>Mercadería que retorna al depósito</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={C.textMuted} />
-        </TouchableOpacity>
-        {canDispensers && (
-          <>
-            <Text style={[styles.sectionTitle, { marginTop: 22 }]}>Dispensers</Text>
-            <TouchableOpacity style={styles.controlCard} onPress={() => router.push('/dispensers')} activeOpacity={0.85}>
-              <View style={[styles.iconBlock, { backgroundColor: C.accentLight }]}><Ionicons name="cube" size={24} color={C.accent} /></View>
-              <View style={styles.cardText}>
-                <Text style={styles.cardTitle}>Carga / Descarga</Text>
-                <Text style={styles.cardSub}>Escanear dispensers del camión</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={C.textMuted} />
-            </TouchableOpacity>
-          </>
-        )}
+    <ScrollView
+      style={home.screen}
+      contentContainerStyle={[home.content, { paddingTop: insets.top + S.lg }]}
+    >
+      <View style={home.header}>
+        <AppLogoBadge />
+        <View style={home.headerText}>
+          <Text style={home.hello} accessibilityRole="header">{`Hola, ${firstName(user?.name)}`}</Text>
+          {user?.role ? <Text style={home.role}>{user.role.toUpperCase()}</Text> : null}
+        </View>
+        <Pill label="Salir" icon="log-out-outline" onPress={logout} />
       </View>
-    </View>
+
+      <View style={home.grid}>
+        <View style={home.tiles}>
+          <DirectionTile type="EXIT" onPress={() => router.push('/new-control?type=EXIT')} />
+          <DirectionTile type="ENTRY" onPress={() => router.push('/new-control?type=ENTRY')} />
+        </View>
+        {canDispensers && <DispensersTile onPress={() => router.push('/dispensers')} />}
+      </View>
+    </ScrollView>
   );
 }
 
@@ -319,30 +371,14 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
-  body: { paddingHorizontal: 16, paddingTop: 22 },
   driverBody: { padding: 16, gap: 16 },
 
-  sectionTitle: {
-    fontSize: 12, fontWeight: '800', color: C.textMuted, textTransform: 'uppercase',
-    letterSpacing: 1, marginBottom: 12, marginTop: 4,
-  },
   label: {
     fontSize: 11, fontWeight: '800', color: C.textMuted, textTransform: 'uppercase',
     letterSpacing: 0.9, marginBottom: 2, marginLeft: 2,
   },
   sec: { gap: 9 },
 
-  // Controller cards
-  controlCard: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface,
-    borderRadius: R.lg, padding: 16, marginBottom: 12, ...Shdw.card,
-  },
-  iconBlock: { width: 52, height: 52, borderRadius: R.md, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
-  iconBlockExit: { backgroundColor: C.exitLight },
-  iconBlockEntry: { backgroundColor: C.entryLight },
-  cardText: { flex: 1 },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: C.text },
-  cardSub: { fontSize: 13, color: C.textMuted, marginTop: 3 },
 
   // Estado
   statusCard: {
@@ -412,4 +448,72 @@ const styles = StyleSheet.create({
   errorText: { color: C.danger, fontSize: 14, textAlign: 'center', marginBottom: 12 },
   retryBtn: { paddingHorizontal: 22, paddingVertical: 10, backgroundColor: C.primary, borderRadius: R.md },
   retryText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+});
+
+const TILE_HEIGHT = 250;
+const DISPENSERS_HEIGHT = 190;
+const TILE_ICON = 56;
+
+const home = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.cream },
+  content: { paddingHorizontal: S.gutterWide, paddingBottom: S.xxl, gap: S.xxl - 4 },
+  pressed: { opacity: 0.9, transform: [{ scale: 0.98 }] },
+
+  header: { flexDirection: 'row', alignItems: 'center', gap: S.md },
+  headerText: { flex: 1 },
+  hello: { ...T.screenTitle, color: C.navy },
+  role: { ...T.secondary, fontFamily: T.label.fontFamily, fontSize: 12, lineHeight: 16, letterSpacing: 0.96, color: C.ink2 },
+
+  grid: { gap: S.md },
+  tiles: { flexDirection: 'row', gap: S.md },
+  tile: {
+    flex: 1,
+    height: TILE_HEIGHT,
+    padding: S.xl,
+    borderRadius: R.block,
+    justifyContent: 'space-between',
+  },
+  tileIcon: {
+    width: TILE_ICON,
+    height: TILE_ICON,
+    borderRadius: TILE_ICON / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Diagonal arrows like the mockup (out goes up-right, in goes down-left).
+  tileIconGlyph: { transform: [{ rotate: '45deg' }] },
+  tileKicker: { ...T.label, fontFamily: T.secondary.fontFamily },
+  tileWord: { ...T.tabTitle },
+  tileHint: { ...T.secondary, fontFamily: T.body.fontFamily, marginTop: S.xs + 2 },
+
+  dispensers: {
+    height: DISPENSERS_HEIGHT,
+    padding: S.xl,
+    borderRadius: R.block,
+    backgroundColor: C.navy,
+    overflow: 'hidden',
+    justifyContent: 'space-between',
+  },
+  barcode: { position: 'absolute', top: S.xl, right: S.xl, height: TILE_ICON, flexDirection: 'row', gap: 5 },
+  bar: { borderRadius: 2, backgroundColor: C.onNavyDeco },
+  dispensersTag: {
+    alignSelf: 'flex-start',
+    paddingVertical: S.xs + 2,
+    paddingHorizontal: S.md,
+    borderRadius: R.full,
+    backgroundColor: C.onNavyTagBg,
+  },
+  dispensersTagText: { ...T.secondary, fontFamily: T.label.fontFamily, fontSize: 12, lineHeight: 16, letterSpacing: 0.96, color: C.onNavyTag },
+  dispensersFoot: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: S.md },
+  dispensersText: { flex: 1, gap: 2 },
+  dispensersTitle: { ...T.blockTitle, fontSize: 28, lineHeight: 34, color: C.white },
+  dispensersHint: { ...T.label, fontFamily: T.body.fontFamily, color: C.onNavyMuted },
+  dispensersArrow: {
+    width: TILE_ICON,
+    height: TILE_ICON,
+    borderRadius: TILE_ICON / 2,
+    backgroundColor: C.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

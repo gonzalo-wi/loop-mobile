@@ -44,6 +44,12 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   botones de ícono del escáner (linterna, cerrar, agregar a mano).
 
 ### Changed
+- Rediseño LOOP (en curso, rama `feat/loop-redesign`): paleta clara pensada
+  para leer al sol (crema, marino y bloques de color pleno), tipografía Plus
+  Jakarta Sans incluida en la app, formas más redondeadas y barra de pestañas
+  flotante con la pestaña activa en marino. Nuevos componentes compartidos
+  (botones, pastillas, selector segmentado, bloques de color, panel inferior,
+  aviso con "Deshacer", estado vacío) que las pantallas van adoptando.
 - Dispensers (Carga / Descarga) en la home ahora también lo ven los roles
   CONTROLADOR y PICKER, no solo CARGADOR_DISPENSERS y ADMIN: en planta la misma
   persona alterna entre controlar, pickear y cargar.

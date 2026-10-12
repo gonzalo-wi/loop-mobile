@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import type { ScrollView as ScrollViewType } from 'react-native';
 import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/store/authStore';
@@ -30,11 +31,11 @@ import {
   StatusOverlay,
   type OverlayStatus,
 } from '@/components/ui';
-import { C, S, F, W, R } from '@/lib/theme';
+import { C, S, T } from '@/lib/theme';
 
 const { height: SCREEN_H } = Dimensions.get('window');
-const HERO_H = Math.min(Math.round(SCREEN_H * 0.40), 300);
-const HERO_BG = '#162359';
+const HERO_H = Math.min(Math.round(SCREEN_H * 0.42), 340);
+const HERO_RADIUS = 40;
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('');
@@ -61,7 +62,7 @@ export default function LoginScreen() {
   // Al abrir el teclado colapsamos el hero (logo) para que la tarjeta suba
   // y queden visibles los dos inputs + el botón.
   const keyboardVisible = keyboardHeight > 0;
-  const heroCollapsed = insets.top + 84;
+  const heroCollapsed = insets.top + 104;
   const heroHeight = useRef(new Animated.Value(HERO_H)).current;
 
   useEffect(() => {
@@ -144,13 +145,8 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.screen}>
-      {/* Hero background — fijo detrás de todo */}
-      <View pointerEvents="none" style={styles.heroBg}>
-        <View style={styles.heroDeco1} />
-        <View style={styles.heroDeco2} />
-        <View style={styles.heroDeco3} />
-      </View>
-
+      {/* Light icons over the navy hero */}
+      <StatusBar style="light" />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -160,30 +156,24 @@ export default function LoginScreen() {
           style={styles.flex}
           contentContainerStyle={[
             styles.scroll,
-            { paddingBottom: insets.bottom + S.xl + keyboardHeight },
+            { paddingBottom: insets.bottom + S.xxl - 4 + keyboardHeight },
           ]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="none"
           showsVerticalScrollIndicator={false}
         >
-          {/* Logo en la sección oscura — se colapsa con el teclado abierto */}
+          {/* Navy hero; collapses while the keyboard is open so both fields and the button fit */}
           <Animated.View
-            style={[styles.heroContent, { paddingTop: insets.top, height: heroHeight }]}
+            style={[styles.hero, { paddingTop: insets.top + S.xl, height: heroHeight }]}
           >
-            <AppLogo
-              onDark
-              size={keyboardVisible ? 'md' : 'lg'}
-              showText={!keyboardVisible}
-              tagline="Control operativo de repartos"
-            />
+            <View pointerEvents="none" style={styles.decoBlue} />
+            <View pointerEvents="none" style={styles.decoGreen} />
+            <AppLogo size={keyboardVisible ? 'md' : 'lg'} showText={!keyboardVisible} />
           </Animated.View>
 
-          {/* Sheet blanco con bordes redondeados arriba — superpuesto al hero */}
-          <View style={[styles.sheet, keyboardVisible && styles.sheetCompact]}>
-            <View style={styles.sheetHandle} />
-
-            <Text style={styles.sheetTitle}>Iniciar sesión</Text>
-            <Text style={styles.sheetSub}>Ingresá con tu usuario asignado</Text>
+          <View style={styles.body}>
+            <Text style={styles.title} accessibilityRole="header">Iniciar sesión</Text>
+            <Text style={styles.subtitle}>Ingresá con tu usuario asignado</Text>
 
             <View style={styles.form}>
               <ErrorMessage message={error} />
@@ -199,6 +189,7 @@ export default function LoginScreen() {
                 }}
                 autoCapitalize="none"
                 autoCorrect={false}
+                autoComplete="username"
                 returnKeyType="next"
                 onSubmitEditing={() => passwordRef.current?.focus()}
                 editable={!loading}
@@ -216,6 +207,7 @@ export default function LoginScreen() {
                   if (error) setError(null);
                 }}
                 onFocus={scrollToBottom}
+                autoComplete="current-password"
                 returnKeyType="done"
                 onSubmitEditing={handleLogin}
                 editable={!loading}
@@ -225,6 +217,7 @@ export default function LoginScreen() {
                 <PrimaryButton
                   title="Ingresar"
                   icon="arrow-forward"
+                  iconPosition="end"
                   onPress={handleLogin}
                   loading={loading}
                   disabled={!canSubmit}
@@ -233,9 +226,8 @@ export default function LoginScreen() {
             </View>
 
             <View style={styles.footer}>
-              <View style={styles.divider} />
               <View style={styles.secureRow}>
-                <Ionicons name="shield-checkmark" size={13} color={C.textFaint} />
+                <Ionicons name="shield-checkmark-outline" size={16} color={C.ink2} />
                 <Text style={styles.secureText}>Acceso operativo seguro · Ivess</Text>
               </View>
               <Text style={styles.version}>{formatVersionLabel(INSTALLED_VERSION)}</Text>
@@ -255,127 +247,78 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: C.surface },
+  screen: { flex: 1, backgroundColor: C.cream },
   flex: { flex: 1 },
-
-  heroBg: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: HERO_H + 36,
-    backgroundColor: HERO_BG,
-    overflow: 'hidden',
-  },
-  // Círculo grande esquina superior derecha — profundidad sutil
-  heroDeco1: {
-    position: 'absolute',
-    width: 360,
-    height: 360,
-    borderRadius: 999,
-    top: -140,
-    right: -110,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  // Círculo mediano inferior izquierda — acento de marca
-  heroDeco2: {
-    position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 999,
-    bottom: -50,
-    left: -70,
-    backgroundColor: 'rgba(43,80,224,0.22)',
-  },
-  // Círculo chico superior izquierda — textura leve
-  heroDeco3: {
-    position: 'absolute',
-    width: 90,
-    height: 90,
-    borderRadius: 999,
-    top: 30,
-    left: 24,
-    backgroundColor: 'rgba(255,255,255,0.035)',
-  },
-
   scroll: { flexGrow: 1 },
 
-  heroContent: {
+  hero: {
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: S.xxl,
+    paddingHorizontal: S.xxl - 4,
+    borderBottomLeftRadius: HERO_RADIUS,
+    borderBottomRightRadius: HERO_RADIUS,
+    backgroundColor: C.navy,
+  },
+  decoBlue: {
+    position: 'absolute',
+    top: -90,
+    right: -90,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: C.blue,
+  },
+  decoGreen: {
+    position: 'absolute',
+    bottom: -90,
+    left: -80,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: C.green,
   },
 
-  sheet: {
-    backgroundColor: C.surface,
-    borderTopLeftRadius: R.xxl + 6,
-    borderTopRightRadius: R.xxl + 6,
-    marginTop: -36,
-    paddingHorizontal: S.xl + 4,
-    paddingTop: S.md,
-    paddingBottom: S.xxl,
-    minHeight: SCREEN_H - HERO_H + 36,
-    shadowColor: '#162359',
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 10,
+  body: {
+    flexGrow: 1,
+    paddingTop: S.xxl,
+    paddingHorizontal: S.gutterWide,
   },
-  // Con el teclado abierto el sheet no necesita estirarse a pantalla completa
-  sheetCompact: {
-    minHeight: 0,
+  title: {
+    ...T.blockTitle,
+    fontSize: 28,
+    lineHeight: 34,
+    color: C.navy,
   },
-  sheetHandle: {
-    width: 44,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: C.border,
-    alignSelf: 'center',
-    marginBottom: S.xl + 4,
-  },
-  sheetTitle: {
-    fontSize: F.xxl,
-    fontWeight: W.extra,
-    color: C.text,
-    letterSpacing: -0.5,
-  },
-  sheetSub: {
-    fontSize: F.sm + 1,
-    fontWeight: W.medium,
-    color: C.textMuted,
-    marginTop: S.xs + 1,
-    marginBottom: S.lg + 4,
+  subtitle: {
+    ...T.body,
+    color: C.ink2,
+    marginTop: S.xs,
   },
 
-  form: { gap: S.md + 2 },
-  buttonWrap: { marginTop: S.sm },
+  form: { gap: S.lg, marginTop: S.xxl - 4 },
+  buttonWrap: { marginTop: S.xs + 2 },
 
   footer: {
+    marginTop: 'auto',
+    paddingTop: S.xxl,
     alignItems: 'center',
-    marginTop: S.xxl + 4,
-    gap: S.xs + 2,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: C.border,
-    alignSelf: 'stretch',
-    marginBottom: S.sm + 2,
+    gap: S.xs,
   },
   secureRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: S.xs + 2,
   },
   secureText: {
-    fontSize: F.xs + 1,
-    color: C.textFaint,
-    fontWeight: W.medium,
+    ...T.secondary,
+    color: C.ink2,
   },
   version: {
-    fontSize: F.xs,
-    color: C.textFaint,
-    fontWeight: W.medium,
-    letterSpacing: 0.4,
-    marginTop: 2,
+    ...T.secondary,
+    fontSize: 12,
+    lineHeight: 16,
+    color: C.ink2,
+    fontVariant: ['tabular-nums'],
   },
 });

@@ -14,6 +14,8 @@ type PrimaryButtonProps = {
   loading?: boolean;
   disabled?: boolean;
   icon?: keyof typeof Ionicons.glyphMap;
+  /** 'end' for forward arrows ("Ingresar →"). */
+  iconPosition?: 'start' | 'end';
   /** 'solid' (navy, the one main action) | 'soft' (cream) | 'ghost' (no background). */
   variant?: 'solid' | 'soft' | 'ghost';
 };
@@ -28,6 +30,7 @@ export function PrimaryButton({
   loading = false,
   disabled = false,
   icon,
+  iconPosition = 'start',
   variant = 'solid',
 }: PrimaryButtonProps) {
   const isDisabled = disabled || loading;
@@ -54,8 +57,13 @@ export function PrimaryButton({
         <ActivityIndicator color={contentColor} />
       ) : (
         <View style={styles.content}>
-          {icon ? <Ionicons name={icon} size={H.iconInPill} color={contentColor} /> : null}
+          {icon && iconPosition === 'start' ? (
+            <Ionicons name={icon} size={H.iconInPill + 2} color={contentColor} />
+          ) : null}
           <Text style={[styles.text, { color: contentColor }]}>{title}</Text>
+          {icon && iconPosition === 'end' ? (
+            <Ionicons name={icon} size={H.iconInPill + 2} color={contentColor} />
+          ) : null}
         </View>
       )}
     </Pressable>

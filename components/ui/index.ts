@@ -1,5 +1,5 @@
 export { ScreenBackground } from './ScreenBackground';
-export { AppLogo } from './AppLogo';
+export { AppLogo, AppLogoBadge } from './AppLogo';
 export { AppTextField } from './AppTextField';
 export { PrimaryButton } from './PrimaryButton';
 export { LoginCard } from './LoginCard';
