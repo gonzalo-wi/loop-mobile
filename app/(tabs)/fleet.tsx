@@ -2,21 +2,29 @@ import { useState, useCallback } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   ActivityIndicator,
   ScrollView,
   Linking,
-  LayoutAnimation,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { HeroHeader } from '@/components/HeroHeader';
+import {
+  BLOCK_TONE,
+  CircleButton,
+  ColorBlock,
+  EmptyState,
+  PrimaryButton,
+  ScreenHeader,
+  SecondaryButton,
+} from '@/components/ui';
 import { useRouteStore } from '@/store/routeStore';
 import { getFleetLocation } from '@/features/fleet/services/fleetApi';
 import type { FleetLocation } from '@/features/fleet/types';
 import { ApiError } from '@/lib/api';
-import { C, R, F, W, Shdw } from '@/lib/theme';
+import { C, H, R, S, T } from '@/lib/theme';
 
 const REFRESH_MS = 20000; // refresco "en vivo" (>10s para no saturar Powerfleet)
 const STALE_MIN = 15; // a partir de acá la ubicación se considera desactualizada
@@ -72,6 +80,7 @@ function vehicleStatus(loc: FleetLocation): { text: string; tone: StatusTone } {
 }
 
 export default function FleetScreen() {
+  const insets = useSafeAreaInsets();
   const { route } = useRouteStore();
   const plate = route?.truckPlate ?? null;
   const repartoLabel = route?.routeCode ? `Reparto ${route.routeCode}` : 'Sin reparto';
@@ -81,7 +90,6 @@ export default function FleetScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
-  const [expanded, setExpanded] = useState(false);
 
   const load = useCallback(
     async (silent = false) => {
@@ -124,11 +132,6 @@ export default function FleetScreen() {
     Linking.openURL(url).catch(() => setError('No se pudo abrir la app de mapas.'));
   }
 
-  function toggleDetails() {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpanded((v) => !v);
-  }
-
   const status = data ? vehicleStatus(data) : null;
   const stale = data ? minutesSince(data.gpsDateTime) >= STALE_MIN : false;
 
@@ -136,154 +139,90 @@ export default function FleetScreen() {
     ? 'Ubicación en tiempo real'
     : refreshing
       ? 'Actualizando ubicación...'
-      : `${plate} · Actualizado ${relativeShort(updatedAt)}`;
+      : `Actualizado ${relativeShort(updatedAt)}`;
+  const blockTone = stale ? 'orange' : 'green';
+  const blockColors = BLOCK_TONE[blockTone];
 
   return (
-    <View style={styles.screen}>
-      <HeroHeader
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
+      <ScreenHeader
         title="Mi camión"
         subtitle={headerSub}
-        rightAction={plate ? { icon: 'refresh', onPress: () => load(true) } : undefined}
+        right={plate ? <CircleButton icon="refresh" onPress={() => load(true)} accessibilityLabel="Actualizar ubicación" /> : undefined}
       />
 
       <ScrollView contentContainerStyle={styles.body}>
-        {/* Sin patente */}
         {!plate && (
-          <View style={styles.stateBox}>
-            <View style={[styles.stateIcon, { backgroundColor: C.warningLight }]}>
-              <Ionicons name="alert-circle-outline" size={38} color={C.warning} />
-            </View>
-            <Text style={styles.stateTitle}>Sin patente cargada</Text>
-            <Text style={styles.stateSub}>
-              Tu reparto no tiene una patente asignada. Contactá al administrador para poder ubicar el camión.
-            </Text>
-          </View>
+          <EmptyState
+            icon="alert-circle-outline"
+            title="Sin patente cargada"
+            hint="Tu reparto no tiene una patente asignada. Contactá al administrador para poder ubicar el camión."
+          />
         )}
 
-        {/* Cargando */}
         {plate && loading && (
-          <View style={styles.stateBox}>
-            <ActivityIndicator size="large" color={C.primary} />
+          <View style={styles.loading}>
+            <ActivityIndicator size="large" color={C.navy} />
             <Text style={styles.loadingText}>Ubicando tu camión...</Text>
           </View>
         )}
 
-        {/* Error */}
         {plate && !loading && error && !data && (
-          <View style={styles.stateBox}>
-            <View style={[styles.stateIcon, { backgroundColor: C.dangerLight }]}>
-              <Ionicons name="cloud-offline-outline" size={38} color={C.danger} />
+          <>
+            <EmptyState icon="cloud-offline-outline" title="No se pudo ubicar" hint={error} />
+            <View style={styles.retryWrap}>
+              <SecondaryButton title="Reintentar" icon="refresh" onPress={() => load()} />
             </View>
-            <Text style={styles.stateTitle}>No se pudo ubicar</Text>
-            <Text style={styles.stateSub}>{error}</Text>
-            <TouchableOpacity style={styles.retryBtn} onPress={() => load()} activeOpacity={0.85}>
-              <Ionicons name="refresh" size={18} color="#fff" />
-              <Text style={styles.retryText}>Reintentar</Text>
-            </TouchableOpacity>
-          </View>
+          </>
         )}
 
-        {/* Resultado */}
         {plate && data && status && (
           <>
+            <ColorBlock tone={blockTone} style={styles.block}>
+              <View style={styles.blockTop}>
+                <View style={styles.plate} accessibilityLabel={`Patente ${data.licensePlate}`}>
+                  <Text style={styles.plateLabel}>PATENTE</Text>
+                  <Text style={styles.plateText}>{data.licensePlate}</Text>
+                </View>
+                <View style={styles.engine}>
+                  <Ionicons name="power" size={18} color={C.navy} />
+                  <Text style={styles.engineText}>{status.text}</Text>
+                </View>
+              </View>
+              <Text style={[styles.blockTitle, { color: blockColors.fg }]} accessibilityRole="header">
+                {stale ? 'Ubicación desactualizada' : 'GPS activo'}
+              </Text>
+              <Text style={[styles.blockSub, { color: blockColors.fgSub }]}>
+                Último reporte del GPS: {formatSignal(data.gpsDateTime)}
+              </Text>
+            </ColorBlock>
+
             <View style={styles.card}>
-              {/* Patente + GPS */}
-              <View style={styles.vehTop}>
-                <View>
-                  <Text style={styles.plateLabel}>Patente</Text>
-                  <Text style={styles.plate}>{data.licensePlate}</Text>
-                </View>
-                <View style={styles.gpsRow}>
-                  <View style={[styles.dot, { backgroundColor: stale ? C.warning : C.success }]} />
-                  <Text style={[styles.gpsText, stale && { color: C.warning }]}>
-                    {stale ? 'Desactualizado' : 'GPS activo'}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Estado (neutral por defecto) */}
-              <View style={styles.badgeRow}>
-                <StatusBadge tone={status.tone} text={status.text} />
-              </View>
-
-              {/* Mapa */}
-              <TouchableOpacity style={styles.map} activeOpacity={0.9} onPress={openInMaps}>
-                <View style={styles.mapBg} />
-                <View style={[styles.street, { top: '30%' }]} />
-                <View style={[styles.street, { top: '62%' }]} />
-                <View style={[styles.streetV, { left: '26%' }]} />
-                <View style={[styles.streetV, { left: '64%' }]} />
-                <View style={styles.pinWrap}>
-                  <View style={styles.pin}>
-                    <MaterialCommunityIcons name="truck" size={17} color="#fff" />
-                  </View>
-                  <View style={styles.pinStem} />
+              {/* Placeholder map: the real map is pending (DESIGN.md §6). */}
+              <Pressable style={styles.map} onPress={openInMaps} accessibilityRole="button" accessibilityLabel="Mapa con la ubicación del camión">
+                <View style={[styles.street, { top: '35%' }]} />
+                <View style={[styles.street, { top: '80%' }]} />
+                <View style={[styles.streetV, { left: '20%' }]} />
+                <View style={[styles.streetV, { left: '70%' }]} />
+                <View style={styles.pin}>
+                  <MaterialCommunityIcons name="truck" size={20} color={C.white} />
                 </View>
                 <View style={styles.mapExpand}>
-                  <Ionicons name="expand-outline" size={16} color={C.textSub} />
+                  <Ionicons name="expand-outline" size={20} color={C.navy} />
                 </View>
-                <View style={styles.mapAddr}>
-                  <Ionicons name="location" size={15} color={C.primary} />
-                  <Text style={styles.mapAddrText} numberOfLines={1}>{data.address || 'Ubicación del camión'}</Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Meta */}
-              <View style={styles.metaRow}>
-                <View style={styles.metaItem}>
-                  <Ionicons name="time-outline" size={15} color={C.textMuted} />
-                  <Text style={styles.metaText}>Última señal <Text style={styles.metaStrong}>{formatSignal(data.gpsDateTime)}</Text></Text>
-                </View>
-                <View style={styles.metaItem}>
-                  <MaterialCommunityIcons name="truck-outline" size={15} color={C.textMuted} />
-                  <Text style={styles.metaStrong}>{repartoLabel}</Text>
-                </View>
+              </Pressable>
+              <View style={styles.address}>
+                <Ionicons name="location-outline" size={22} color={C.blue} />
+                <Text style={styles.addressText}>{data.address || 'Ubicación del camión'}</Text>
               </View>
-
-              {stale && (
-                <View style={styles.staleBanner}>
-                  <Ionicons name="alert-circle-outline" size={16} color={C.warning} />
-                  <Text style={styles.staleText}>Ubicación desactualizada · último reporte {formatSignal(data.gpsDateTime)}</Text>
-                </View>
-              )}
-
-              <TouchableOpacity style={styles.mapBtn} onPress={openInMaps} activeOpacity={0.9}>
-                <Ionicons name="navigate" size={19} color="#fff" />
-                <Text style={styles.mapBtnText}>Abrir mapa</Text>
-              </TouchableOpacity>
+              <View style={styles.mapBtn}>
+                <PrimaryButton title="Abrir en el mapa" icon="navigate-outline" onPress={openInMaps} />
+              </View>
             </View>
 
-            {/* Detalles del vehículo (plegable) */}
-            <View style={styles.card}>
-              <TouchableOpacity style={styles.expHead} onPress={toggleDetails} activeOpacity={0.7}>
-                <View style={styles.expLeadIc}>
-                  <Ionicons name="clipboard-outline" size={18} color={C.textSub} />
-                </View>
-                <Text style={styles.expTitle}>Detalles del vehículo</Text>
-                <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color={C.textMuted} />
-              </TouchableOpacity>
-
-              {expanded && (
-                <View style={styles.expList}>
-                  <DetailRow icon="truck-outline" label="Conductor" value={repartoLabel} />
-                  <DetailRow icon="time-outline" label="Último reporte GPS" value={formatSignal(data.gpsDateTime)} />
-                  <DetailRow icon="power" label="Estado del motor" value={data.engineOn ? 'Encendido' : 'Apagado'} />
-                  <DetailRow
-                    icon="location-outline"
-                    label="Coordenadas"
-                    value={`${data.lat.toFixed(5)}, ${data.lng.toFixed(5)}`}
-                    coords
-                    last
-                  />
-                </View>
-              )}
-            </View>
-
-            <View style={styles.autoLine}>
-              <Ionicons name="sync-outline" size={14} color={C.textMuted} />
-              <Text style={styles.autoText}>
-                Actualización automática · {refreshing ? 'actualizando...' : relativeShort(updatedAt)}
-              </Text>
+            <View style={[styles.card, styles.details]}>
+              <DetailRow label="Conductor" value={repartoLabel} />
+              <DetailRow label="Coordenadas" value={`${data.lat.toFixed(5)}, ${data.lng.toFixed(5)}`} last />
             </View>
           </>
         )}
@@ -292,149 +231,83 @@ export default function FleetScreen() {
   );
 }
 
-function StatusBadge({ tone, text }: { tone: StatusTone; text: string }) {
-  const map = {
-    neutral: { bg: C.surfaceSunken, fg: C.textSub, dot: C.textMuted },
-    ok: { bg: C.successLight, fg: C.success, dot: C.success },
-    warn: { bg: C.warningLight, fg: C.warning, dot: C.warning },
-  }[tone];
+function DetailRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
   return (
-    <View style={[styles.badge, { backgroundColor: map.bg }]}>
-      <View style={[styles.dot, { backgroundColor: map.dot }]} />
-      <Text style={[styles.badgeText, { color: map.fg }]}>{text}</Text>
+    <View style={[styles.drow, !last && styles.drowDivider]}>
+      <Text style={styles.drowK}>{label}</Text>
+      <Text style={styles.drowV}>{value}</Text>
     </View>
   );
 }
 
-function DetailRow({
-  icon,
-  label,
-  value,
-  coords,
-  last,
-}: {
-  icon: keyof typeof Ionicons.glyphMap | 'truck-outline';
-  label: string;
-  value: string;
-  coords?: boolean;
-  last?: boolean;
-}) {
-  const Icon = icon === 'truck-outline' ? MaterialCommunityIcons : Ionicons;
-  return (
-    <View style={[styles.drow, last && styles.drowLast]}>
-      <View style={styles.drowK}>
-        <Icon name={icon as never} size={16} color={C.textMuted} />
-        <Text style={styles.drowKText}>{label}</Text>
-      </View>
-      <Text style={[styles.drowV, coords && styles.drowCoords]}>{value}</Text>
-    </View>
-  );
-}
+const PIN = 56;
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: C.bg },
-  body: { padding: 16, gap: 12 },
+  screen: { flex: 1, backgroundColor: C.cream },
+  body: { paddingHorizontal: S.gutter, paddingBottom: S.lg, gap: S.md, flexGrow: 1 },
+  loading: { alignItems: 'center', paddingVertical: S.xxxl, gap: S.md },
+  loadingText: { ...T.body, color: C.ink2 },
+  retryWrap: { alignSelf: 'center' },
 
-  stateBox: { alignItems: 'center', paddingVertical: 44, paddingHorizontal: 24, gap: 10 },
-  stateIcon: {
-    width: 78, height: 78, borderRadius: R.full,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 6,
+  block: { gap: S.sm, padding: S.xl },
+  blockTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: S.md, marginBottom: S.sm },
+  plate: {
+    alignItems: 'center',
+    paddingVertical: S.xs,
+    paddingHorizontal: S.lg,
+    borderRadius: R.md,
+    borderWidth: 3,
+    borderColor: C.navy,
+    backgroundColor: C.white,
   },
-  stateTitle: { fontSize: F.lg, fontWeight: W.extra, color: C.text },
-  stateSub: { fontSize: F.base, color: C.textMuted, textAlign: 'center', lineHeight: 21 },
-  loadingText: { marginTop: 12, color: C.textMuted, fontSize: F.base },
-  retryBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12,
-    backgroundColor: C.primary, borderRadius: R.md, paddingHorizontal: 22, paddingVertical: 12,
+  plateLabel: { ...T.systemTag, color: C.ink2 },
+  plateText: { ...T.screenTitle, fontSize: 26, letterSpacing: 2.5, color: C.navy },
+  engine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: S.sm,
+    flexShrink: 1,
+    minHeight: 36,
+    paddingHorizontal: S.md + 2,
+    borderRadius: R.full,
+    backgroundColor: C.pillOnGreen,
   },
-  retryText: { color: '#fff', fontSize: F.md, fontWeight: W.bold },
+  engineText: { ...T.label, color: C.navy, flexShrink: 1 },
+  blockTitle: { ...T.blockTitle, fontSize: 28, lineHeight: 34 },
+  blockSub: { ...T.label },
 
-  card: {
-    backgroundColor: C.surface, borderRadius: 20, padding: 16,
-    borderWidth: 1, borderColor: C.border, ...Shdw.card,
-  },
-
-  vehTop: { flexDirection: 'row', alignItems: 'flex-start' },
-  plateLabel: {
-    fontSize: 11, fontWeight: W.extra, letterSpacing: 0.8,
-    textTransform: 'uppercase', color: C.textMuted, marginBottom: 4,
-  },
-  plate: { fontSize: 22, fontWeight: W.extra, color: C.text, letterSpacing: 1 },
-  gpsRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 'auto', marginTop: 4 },
-  gpsText: { fontSize: 12, fontWeight: W.bold, color: C.textSub },
-  dot: { width: 7, height: 7, borderRadius: 999 },
-
-  badgeRow: { flexDirection: 'row', marginTop: 12 },
-  badge: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    borderRadius: 999, paddingHorizontal: 11, paddingVertical: 6,
-  },
-  badgeText: { fontSize: 12.5, fontWeight: W.extra },
-
-  // Mapa
-  map: {
-    height: 158, borderRadius: 15, overflow: 'hidden',
-    borderWidth: 1, borderColor: C.border, marginTop: 14, backgroundColor: '#E9EFF4',
-  },
-  mapBg: { ...StyleSheet.absoluteFillObject, backgroundColor: '#EAF0F5' },
-  street: { position: 'absolute', left: 0, right: 0, height: 9, backgroundColor: '#FFFFFF', opacity: 0.9 },
-  streetV: { position: 'absolute', top: 0, bottom: 0, width: 9, backgroundColor: '#FFFFFF', opacity: 0.9 },
-  pinWrap: {
-    position: 'absolute', left: 0, right: 0, top: 0, bottom: 24,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  card: { borderRadius: R.card, backgroundColor: C.white, overflow: 'hidden' },
+  map: { height: 150, backgroundColor: C.blueLight, alignItems: 'center', justifyContent: 'center' },
+  street: { position: 'absolute', left: 0, right: 0, height: 16, backgroundColor: C.white },
+  streetV: { position: 'absolute', top: 0, bottom: 0, width: 16, backgroundColor: C.white },
   pin: {
-    width: 34, height: 34, borderRadius: 999, backgroundColor: C.primary,
-    alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: '#fff',
-    ...Shdw.float,
+    width: PIN,
+    height: PIN,
+    borderRadius: PIN / 2,
+    borderWidth: 4,
+    borderColor: C.white,
+    backgroundColor: C.navy,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  pinStem: { width: 2, height: 8, backgroundColor: '#fff', marginTop: -1, borderRadius: 2 },
   mapExpand: {
-    position: 'absolute', right: 10, top: 10, width: 32, height: 32, borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.94)', alignItems: 'center', justifyContent: 'center', ...Shdw.xs,
+    position: 'absolute',
+    top: S.md,
+    right: S.md,
+    width: H.touch,
+    height: H.touch,
+    borderRadius: H.touch / 2,
+    backgroundColor: C.white,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  mapAddr: {
-    position: 'absolute', left: 10, right: 10, bottom: 10,
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 11, paddingHorizontal: 11, paddingVertical: 8, ...Shdw.xs,
-  },
-  mapAddrText: { flex: 1, fontSize: 13, fontWeight: W.bold, color: C.text },
+  address: { flexDirection: 'row', alignItems: 'center', gap: S.md, paddingHorizontal: S.lg, paddingTop: S.lg },
+  addressText: { ...T.data, color: C.navy, flex: 1 },
+  mapBtn: { padding: S.lg },
 
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginTop: 14 },
-  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  metaText: { fontSize: 12.5, color: C.textSub, fontWeight: W.semibold },
-  metaStrong: { fontSize: 12.5, color: C.text, fontWeight: W.bold },
-
-  staleBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12,
-    backgroundColor: C.warningLight, borderRadius: R.md, padding: 11,
-  },
-  staleText: { flex: 1, fontSize: 12.5, color: C.warning, fontWeight: W.semibold },
-
-  mapBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9,
-    backgroundColor: C.primary, borderRadius: R.lg, height: 50, marginTop: 14,
-  },
-  mapBtnText: { color: '#fff', fontSize: F.md, fontWeight: W.extra },
-
-  // Detalles plegables
-  expHead: { flexDirection: 'row', alignItems: 'center', gap: 11 },
-  expLeadIc: {
-    width: 34, height: 34, borderRadius: 10, backgroundColor: C.surfaceSunken,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  expTitle: { flex: 1, fontSize: 14.5, fontWeight: W.bold, color: C.text },
-  expList: { marginTop: 8, borderTopWidth: 1, borderTopColor: C.border },
-  drow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-    paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: C.border,
-  },
-  drowLast: { borderBottomWidth: 0 },
-  drowK: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  drowKText: { fontSize: 13, color: C.textMuted, fontWeight: W.semibold },
-  drowV: { fontSize: 13.5, color: C.text, fontWeight: W.bold, textAlign: 'right' },
-  drowCoords: { fontSize: 12, color: C.textSub, fontWeight: W.semibold },
-
-  autoLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 2 },
-  autoText: { fontSize: 12, color: C.textMuted, fontWeight: W.medium },
+  details: { paddingHorizontal: S.xl },
+  drow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: S.md, minHeight: 56 },
+  drowDivider: { borderBottomWidth: 1, borderBottomColor: C.line },
+  drowK: { ...T.body, color: C.ink2 },
+  drowV: { ...T.data, color: C.navy, fontVariant: ['tabular-nums'], flexShrink: 1, textAlign: 'right' },
 });

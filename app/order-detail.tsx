@@ -5,18 +5,16 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
-  TouchableOpacity,
-  Pressable,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getOrder, startOrder, completeOrder } from '@/features/driver/services/ordersApi';
 import { useAuthStore } from '@/store/authStore';
-import { HeroHeader } from '@/components/HeroHeader';
-import { OrderStatusStepper } from '@/features/driver/components/OrderStatusStepper';
+import { BottomBar, EmptyState, PrimaryButton, ScreenHeader, SecondaryButton } from '@/components/ui';
+import { OrderStatusBlock } from '@/features/driver/components/OrderStatusBlock';
 import type { Order, OrderItem } from '@/features/driver/types';
-import { C, R, S, F, W, Shdw } from '@/lib/theme';
+import { C, H, R, S, T } from '@/lib/theme';
 
 function formatDate(dateStr: string): string {
   const [y, m, d] = dateStr.split('-');
@@ -28,20 +26,9 @@ function formatDateTime(dateStr: string): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-const STATUS_INFO: Record<string, {
-  label: string;
-  color: string;
-  bg: string;
-  icon: keyof typeof Ionicons.glyphMap;
-}> = {
-  PENDING: { label: 'Pendiente de preparación', color: C.warning, bg: C.warningLight, icon: 'hourglass-outline' },
-  IN_PROGRESS: { label: 'En preparación', color: C.primary, bg: C.primaryLight, icon: 'construct-outline' },
-  COMPLETED: { label: 'Completado', color: C.entry, bg: C.entryLight, icon: 'checkmark-done-circle-outline' },
-};
-
-const ACTION: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap; color: string } | null> = {
-  PENDING: { label: 'Empezar a preparar', icon: 'play-circle-outline', color: C.primary },
-  IN_PROGRESS: { label: 'Marcar como completado', icon: 'checkmark-done-circle-outline', color: C.entry },
+const ACTION: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap } | null> = {
+  PENDING: { label: 'Empezar a preparar', icon: 'play-circle-outline' },
+  IN_PROGRESS: { label: 'Marcar como completado', icon: 'checkmark-done-circle-outline' },
   COMPLETED: null,
 };
 
@@ -50,27 +37,37 @@ function ItemRow({ item }: { item: OrderItem }) {
   const hasUnit = item.unitQuantity > 0;
 
   return (
-    <View style={styles.itemRow}>
+    <View style={styles.item}>
       <View style={styles.itemInfo}>
         <Text style={styles.itemName}>{item.productName}</Text>
         <Text style={styles.itemCode}>{item.productCode}</Text>
       </View>
-      <View style={styles.itemQtys}>
-        {hasBulk && (
-          <View style={styles.qtyPill}>
-            <Text style={styles.qtyNum}>{item.bulkQuantity}</Text>
-            <Text style={styles.qtyLabel}>
-              {item.unitsPerBulk ? `b · ${item.unitsPerBulk}u` : 'bultos'}
-            </Text>
-          </View>
-        )}
-        {hasUnit && (
-          <View style={[styles.qtyPill, styles.qtyPillUnit]}>
-            <Text style={[styles.qtyNum, styles.qtyNumUnit]}>{item.unitQuantity}</Text>
-            <Text style={[styles.qtyLabel, styles.qtyLabelUnit]}>uds.</Text>
-          </View>
-        )}
-      </View>
+      {hasBulk && (
+        <View style={styles.qty}>
+          <Text style={styles.qtyNum}>{item.bulkQuantity}</Text>
+          <Text style={styles.qtyLabel}>{item.unitsPerBulk ? `b · ${item.unitsPerBulk}u` : 'bultos'}</Text>
+        </View>
+      )}
+      {hasUnit && (
+        <View style={[styles.qty, styles.qtyUnit]}>
+          <Text style={[styles.qtyNum, styles.qtyNumUnit]}>{item.unitQuantity}</Text>
+          <Text style={[styles.qtyLabel, styles.qtyLabelUnit]}>uds.</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function AuditRow({
+  icon, iconColor, verb, name, at, first,
+}: { icon: keyof typeof Ionicons.glyphMap; iconColor: string; verb: string; name: string; at: string; first: boolean }) {
+  return (
+    <View style={[styles.auditRow, !first && styles.auditDivider]}>
+      <Ionicons name={icon} size={22} color={iconColor} />
+      <Text style={styles.auditText}>
+        {verb} <Text style={styles.auditName}>{name}</Text>
+      </Text>
+      <Text style={styles.auditTime}>{formatDateTime(at)}</Text>
     </View>
   );
 }
@@ -112,12 +109,16 @@ export default function OrderDetailScreen() {
     }
   }
 
+  const header = (title: string, subtitle?: string) => (
+    <ScreenHeader title={title} subtitle={subtitle} onBack={() => router.back()} />
+  );
+
   if (loading) {
     return (
-      <View style={styles.screen}>
-        <HeroHeader title="Pedido" onBack={() => router.back()} />
+      <View style={[styles.screen, { paddingTop: insets.top }]}>
+        {header('Pedido')}
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={C.primary} />
+          <ActivityIndicator size="large" color={C.navy} />
         </View>
       </View>
     );
@@ -125,247 +126,158 @@ export default function OrderDetailScreen() {
 
   if (error || !order) {
     return (
-      <View style={styles.screen}>
-        <HeroHeader title="Pedido" onBack={() => router.back()} />
+      <View style={[styles.screen, { paddingTop: insets.top }]}>
+        {header('Pedido')}
         <View style={styles.centered}>
-          <Text style={styles.errorText}>{error ?? 'Pedido no encontrado'}</Text>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Text style={styles.backBtnText}>Volver</Text>
-          </TouchableOpacity>
+          <EmptyState icon="alert-circle-outline" title="No se pudo abrir el pedido" hint={error ?? 'Pedido no encontrado'} />
+          <View style={styles.retryWrap}>
+            <SecondaryButton title="Volver" icon="chevron-back" onPress={() => router.back()} />
+          </View>
         </View>
       </View>
     );
   }
 
-  const statusInfo = STATUS_INFO[order.status];
   const action = !isDriver ? ACTION[order.status] : null;
-  const isCompleted = order.status === 'COMPLETED';
+  const started = order.startedByName && order.startedAt ? { name: order.startedByName, at: order.startedAt } : null;
+  const completed = order.completedByName && order.completedAt ? { name: order.completedByName, at: order.completedAt } : null;
 
   return (
-    <View style={styles.screen}>
-      <HeroHeader
-        title={`Reparto ${order.routeCode}`}
-        subtitle={`Pedido · ${formatDate(order.orderDate)}`}
-        onBack={() => router.back()}
-      />
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
+      {header(`Reparto ${order.routeCode}`, `Pedido · ${formatDate(order.orderDate)}`)}
 
       <ScrollView
-        contentContainerStyle={[styles.scroll, action && styles.scrollWithAction]}
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: (action ? BOTTOM_BAR_SPACE : S.xxl) + insets.bottom },
+        ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Banner de estado */}
-        <View style={[styles.statusBanner, { backgroundColor: statusInfo.bg }]}>
-          <Ionicons name={statusInfo.icon} size={20} color={statusInfo.color} />
-          <Text style={[styles.statusLabel, { color: statusInfo.color }]}>
-            {statusInfo.label}
-          </Text>
-        </View>
+        <OrderStatusBlock status={order.status} />
 
-        {/* Wizard */}
-        <View style={styles.card}>
-          <Text style={styles.sectionLabel}>Estado del pedido</Text>
-          <View style={styles.stepperWrap}>
-            <OrderStatusStepper status={order.status} />
+        {/* Auditoría: quién hizo cada acción */}
+        {(started || completed) && (
+          <View style={styles.card}>
+            {started && (
+              <AuditRow icon="person-outline" iconColor={C.ink2} verb="Preparado por" name={started.name} at={started.at} first />
+            )}
+            {completed && (
+              <AuditRow
+                icon="checkmark-circle-outline"
+                iconColor={C.greenDot}
+                verb="Completado por"
+                name={completed.name}
+                at={completed.at}
+                first={!started}
+              />
+            )}
           </View>
+        )}
 
-          {/* Auditoría: quién hizo cada acción */}
-          {(order.startedByName || order.completedByName) && (
-            <View style={styles.auditRow}>
-              {order.startedByName && order.startedAt && (
-                <View style={styles.auditItem}>
-                  <Ionicons name="person-outline" size={13} color={C.textMuted} />
-                  <Text style={styles.auditText}>
-                    Preparado por {order.startedByName} · {formatDateTime(order.startedAt)}
-                  </Text>
-                </View>
-              )}
-              {order.completedByName && order.completedAt && (
-                <View style={styles.auditItem}>
-                  <Ionicons name="checkmark-circle-outline" size={13} color={C.entry} />
-                  <Text style={[styles.auditText, { color: C.entry }]}>
-                    Completado por {order.completedByName} · {formatDateTime(order.completedAt)}
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle} accessibilityRole="header">Productos</Text>
+          <View style={styles.countPill}>
+            <Text style={styles.countPillText}>{order.items.length}</Text>
+          </View>
         </View>
+        {order.items.map((item) => (
+          <ItemRow key={item.id} item={item} />
+        ))}
 
-        {/* Productos */}
-        <View style={styles.card}>
-          <Text style={styles.sectionLabel}>
-            Productos · {order.items.length}
-          </Text>
-          {order.items.map((item, i) => (
-            <View key={item.id}>
-              {i > 0 && <View style={styles.separator} />}
-              <ItemRow item={item} />
-            </View>
-          ))}
-        </View>
-
-        {/* Observaciones */}
         {order.observations ? (
           <View style={styles.card}>
-            <Text style={styles.sectionLabel}>Observaciones</Text>
+            <Text style={styles.obsLabel}>Observaciones</Text>
             <Text style={styles.obsText}>{order.observations}</Text>
           </View>
         ) : null}
-
-        {/* Banner completado para no-drivers (sin botón de acción) */}
-        {!isDriver && isCompleted && (
-          <View style={styles.completedBanner}>
-            <Ionicons name="checkmark-done-circle" size={20} color={C.entry} />
-            <Text style={styles.completedText}>Pedido entregado al repartidor</Text>
-          </View>
-        )}
       </ScrollView>
 
-      {/* Botón de acción fijo — solo para admin/picker/supervisor y estados accionables */}
+      {/* Acción fija — solo para admin/picker/supervisor y estados accionables */}
       {action && (
-        <View style={[styles.actionBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-          {actionError && (
-            <View style={styles.actionErrorBanner}>
-              <Ionicons name="alert-circle-outline" size={15} color={C.danger} />
-              <Text style={styles.actionErrorText}>{actionError}</Text>
-            </View>
-          )}
-          <Pressable
-            style={({ pressed }) => [
-              styles.actionBtn,
-              { backgroundColor: action.color },
-              actioning && styles.actionBtnDisabled,
-              pressed && !actioning && styles.actionBtnPressed,
-            ]}
-            onPress={handleAction}
-            disabled={actioning}
-          >
-            {actioning ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Ionicons name={action.icon} size={22} color="#fff" />
-                <Text style={styles.actionBtnText}>{action.label}</Text>
-              </>
+        <BottomBar>
+          <View style={styles.flex}>
+            {actionError && (
+              <View style={styles.actionError}>
+                <Ionicons name="alert-circle-outline" size={18} color={C.redText} />
+                <Text style={styles.actionErrorText}>{actionError}</Text>
+              </View>
             )}
-          </Pressable>
-        </View>
+            <PrimaryButton title={action.label} icon={action.icon} onPress={handleAction} loading={actioning} />
+          </View>
+        </BottomBar>
       )}
     </View>
   );
 }
 
+// Primary button + the bottom bar's vertical padding, so the last product isn't hidden.
+const BOTTOM_BAR_SPACE = H.primaryButton + S.md * 2 + S.lg;
+
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: C.bg },
-  scroll: { padding: 16, gap: 12, paddingBottom: 32 },
-  scrollWithAction: { paddingBottom: 110 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  errorText: { color: C.danger, fontSize: F.base, textAlign: 'center', marginBottom: 14 },
-  backBtn: { paddingHorizontal: 22, paddingVertical: 10, backgroundColor: C.primary, borderRadius: R.md },
-  backBtnText: { color: '#fff', fontSize: F.base, fontWeight: W.bold },
+  screen: { flex: 1, backgroundColor: C.cream },
+  flex: { flex: 1 },
+  scroll: { paddingHorizontal: S.gutter, gap: S.md },
+  centered: { flex: 1, justifyContent: 'center', padding: S.gutter, gap: S.lg },
+  retryWrap: { alignSelf: 'center' },
 
-  statusBanner: {
-    flexDirection: 'row',
+  card: { paddingHorizontal: S.xl, paddingVertical: S.xs, borderRadius: R.card, backgroundColor: C.white },
+  auditRow: { flexDirection: 'row', alignItems: 'center', gap: S.md, minHeight: 56 },
+  auditDivider: { borderTopWidth: 1, borderTopColor: C.line },
+  auditText: { ...T.body, fontSize: T.label.fontSize, color: C.ink2, flex: 1 },
+  auditName: { fontFamily: T.button.fontFamily, color: C.navy },
+  auditTime: { ...T.data, color: C.navy, fontVariant: ['tabular-nums'] },
+
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: S.sm, marginTop: S.sm },
+  sectionTitle: { ...T.section, color: C.navy },
+  countPill: {
+    minWidth: 28,
+    height: 24,
+    paddingHorizontal: S.sm,
+    borderRadius: 12,
+    backgroundColor: C.navy,
     alignItems: 'center',
-    gap: S.sm + 2,
-    borderRadius: R.lg,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    justifyContent: 'center',
   },
-  statusLabel: { fontSize: F.md, fontWeight: W.bold },
+  countPillText: { ...T.secondary, fontFamily: T.button.fontFamily, color: C.white, fontVariant: ['tabular-nums'] },
 
-  card: {
-    backgroundColor: C.surface,
-    borderRadius: R.lg,
-    padding: 16,
-    gap: 14,
-    ...Shdw.card,
-  },
-  sectionLabel: {
-    fontSize: F.xs + 1,
-    fontWeight: W.extra,
-    color: C.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  stepperWrap: { paddingVertical: S.xs },
-
-  auditRow: { gap: 6, borderTopWidth: 1, borderTopColor: C.border, paddingTop: 12 },
-  auditItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  auditText: { fontSize: F.xs + 1, color: C.textMuted, fontWeight: W.medium },
-
-  separator: { height: 1, backgroundColor: C.border, marginVertical: 8 },
-  itemRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  itemInfo: { flex: 1 },
-  itemName: { fontSize: F.base, fontWeight: W.semibold, color: C.text },
-  itemCode: { fontSize: F.xs, color: C.textMuted, fontWeight: W.medium, marginTop: 2 },
-  itemQtys: { flexDirection: 'row', gap: 8 },
-  qtyPill: {
-    alignItems: 'center',
-    backgroundColor: C.primaryLight,
-    borderRadius: R.sm,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    minWidth: 52,
-  },
-  qtyPillUnit: { backgroundColor: C.surfaceSunken },
-  qtyNum: { fontSize: F.lg, fontWeight: W.extra, color: C.primary, lineHeight: 22 },
-  qtyNumUnit: { color: C.textSub },
-  qtyLabel: { fontSize: F.xs - 1, fontWeight: W.semibold, color: C.primary, textAlign: 'center' },
-  qtyLabelUnit: { color: C.textMuted },
-
-  obsText: { fontSize: F.base, color: C.textSub, lineHeight: 22 },
-
-  completedBanner: {
+  item: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: S.sm,
-    backgroundColor: C.entryLight,
-    borderRadius: R.lg,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(15,169,104,0.2)',
+    paddingVertical: S.md,
+    paddingLeft: S.xl,
+    paddingRight: S.md,
+    borderRadius: R.card,
+    backgroundColor: C.white,
   },
-  completedText: { fontSize: F.base, fontWeight: W.bold, color: C.entry },
+  itemInfo: { flex: 1, gap: 2 },
+  itemName: { ...T.data, color: C.navy },
+  itemCode: { ...T.secondary, fontFamily: T.body.fontFamily, color: C.ink2 },
+  qty: {
+    minWidth: 64,
+    paddingVertical: S.sm,
+    paddingHorizontal: S.md,
+    borderRadius: R.row,
+    backgroundColor: C.cream,
+    alignItems: 'center',
+  },
+  qtyUnit: { backgroundColor: C.blueLight },
+  qtyNum: { ...T.screenTitle, color: C.navy, fontVariant: ['tabular-nums'] },
+  qtyNumUnit: { color: C.blueText },
+  qtyLabel: { ...T.secondary, color: C.ink2 },
+  qtyLabelUnit: { color: C.blueText },
 
-  // Barra de acción fija
-  actionBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: C.surface,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 16,
-    gap: 10,
-    ...Shdw.float,
-  },
-  actionErrorBanner: {
+  obsLabel: { ...T.label, color: C.ink2, paddingTop: S.md },
+  obsText: { ...T.body, color: C.navy, paddingBottom: S.md },
+
+  actionError: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: C.dangerLight,
-    borderRadius: R.md,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(229,72,77,0.18)',
+    gap: S.sm,
+    padding: S.md,
+    marginBottom: S.sm,
+    borderRadius: R.cell,
+    backgroundColor: C.redSoft,
   },
-  actionErrorText: { flex: 1, fontSize: F.sm, color: C.danger, fontWeight: W.semibold },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    height: 56,
-    borderRadius: R.lg,
-    ...Shdw.float,
-  },
-  actionBtnDisabled: { opacity: 0.6 },
-  actionBtnPressed: { transform: [{ scale: 0.98 }], opacity: 0.92 },
-  actionBtnText: { color: '#fff', fontSize: F.md, fontWeight: W.extra },
+  actionErrorText: { ...T.secondary, color: C.redText, flex: 1 },
 });

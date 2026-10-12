@@ -2,16 +2,17 @@ import { useState } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { HeroHeader } from '@/components/HeroHeader';
+import { ColorBlock, EmptyState, ScreenHeader } from '@/components/ui';
 import { useRouteStore } from '@/store/routeStore';
 import { downloadRemito, openRemitoPdf } from '@/features/remito/services/remitoApi';
-import { C, R, F, W, Shdw } from '@/lib/theme';
+import { C, H, R, S, T } from '@/lib/theme';
 
 function todayStr(): string {
   const d = new Date();
@@ -19,6 +20,7 @@ function todayStr(): string {
 }
 
 export default function RemitoScreen() {
+  const insets = useSafeAreaInsets();
   const { route } = useRouteStore();
   const routeId = route?.routeId ?? null;
 
@@ -40,54 +42,56 @@ export default function RemitoScreen() {
   }
 
   return (
-    <View style={styles.screen}>
-      <HeroHeader
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
+      <ScreenHeader
         title="Remito"
         subtitle={route ? `Reparto ${route.routeCode} · hoy` : 'Remito de salida'}
       />
 
       <ScrollView contentContainerStyle={styles.body}>
         {!routeId ? (
-          <View style={styles.stateBox}>
-            <View style={[styles.stateIcon, { backgroundColor: C.warningLight }]}>
-              <Ionicons name="alert-circle-outline" size={38} color={C.warning} />
-            </View>
-            <Text style={styles.stateTitle}>Sin reparto asignado</Text>
-            <Text style={styles.stateSub}>
-              Tu usuario no tiene un reparto cargado. Contactá al administrador.
-            </Text>
-          </View>
+          <EmptyState
+            icon="alert-circle-outline"
+            title="Sin reparto asignado"
+            hint="Tu usuario no tiene un reparto cargado. Contactá al administrador."
+          />
         ) : (
           <>
-            <View style={styles.card}>
-              <View style={styles.iconWrap}>
-                <Ionicons name="document-text-outline" size={30} color={C.primary} />
+            {/* Salida = azul: el remito es del control de salida del reparto. */}
+            <ColorBlock tone="blue" style={styles.block}>
+              <View pointerEvents="none" style={styles.deco} />
+              <View style={styles.iconCircle}>
+                <Ionicons name="document-text-outline" size={30} color={C.blue} />
               </View>
-              <Text style={styles.title}>Remito de salida de hoy</Text>
-              <Text style={styles.desc}>
-                Abrí el remito del control de salida de tu reparto en el visor de PDF del teléfono.
-              </Text>
-
-              <TouchableOpacity
-                style={[styles.btn, loading && styles.btnDisabled]}
+              <View style={styles.texts}>
+                <View style={styles.kicker}>
+                  <Ionicons name="arrow-up" size={16} color={C.blueLight} />
+                  <Text style={styles.kickerText}>Control de salida</Text>
+                </View>
+                <Text style={styles.title} accessibilityRole="header">Remito de hoy</Text>
+                <Text style={styles.desc}>Se abre en el visor de PDF del teléfono.</Text>
+              </View>
+              <Pressable
                 onPress={handleOpen}
                 disabled={loading}
-                activeOpacity={0.9}
+                accessibilityRole="button"
+                accessibilityState={{ busy: loading }}
+                style={({ pressed }) => [styles.btn, pressed && !loading && styles.pressed]}
               >
                 {loading ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={C.navy} />
                 ) : (
                   <>
-                    <Ionicons name="download-outline" size={19} color="#fff" />
+                    <Ionicons name="download-outline" size={22} color={C.navy} />
                     <Text style={styles.btnText}>Ver remito de hoy</Text>
                   </>
                 )}
-              </TouchableOpacity>
-            </View>
+              </Pressable>
+            </ColorBlock>
 
             {error && (
               <View style={styles.notice}>
-                <Ionicons name="time-outline" size={18} color={C.warning} />
+                <Ionicons name="time-outline" size={20} color={C.orangeText} />
                 <Text style={styles.noticeText}>{error}</Text>
               </View>
             )}
@@ -98,69 +102,55 @@ export default function RemitoScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: C.bg },
-  body: { padding: 16, gap: 12 },
+const DECO = 240;
+const ICON = 60;
 
-  card: {
-    backgroundColor: C.surface,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: C.border,
-    padding: 22,
-    alignItems: 'center',
-    ...Shdw.card,
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.cream },
+  body: { paddingHorizontal: S.gutter, paddingBottom: S.lg, gap: S.md, flexGrow: 1 },
+
+  block: { overflow: 'hidden', gap: S.xl, padding: S.xl },
+  deco: {
+    position: 'absolute',
+    top: -60,
+    right: -60,
+    width: DECO,
+    height: DECO,
+    borderRadius: DECO / 2,
+    backgroundColor: C.pillOnBlue,
   },
-  iconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: R.full,
-    backgroundColor: C.primaryLight,
+  iconCircle: {
+    width: ICON,
+    height: ICON,
+    borderRadius: ICON / 2,
+    backgroundColor: C.white,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
   },
-  title: { fontSize: F.lg, fontWeight: W.extra, color: C.text, textAlign: 'center' },
-  desc: {
-    fontSize: F.base,
-    color: C.textMuted,
-    textAlign: 'center',
-    lineHeight: 21,
-    marginTop: 6,
-    marginBottom: 18,
-  },
+  texts: { gap: S.xs },
+  kicker: { flexDirection: 'row', alignItems: 'center', gap: S.xs + 2 },
+  kickerText: { ...T.label, color: C.blueLight },
+  title: { ...T.blockTitle, color: C.white },
+  desc: { ...T.body, color: C.blueLight },
   btn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 9,
-    backgroundColor: C.primary,
-    borderRadius: R.lg,
-    height: 52,
-    width: '100%',
+    gap: S.md - 2,
+    height: H.primaryButton,
+    borderRadius: H.primaryButton / 2,
+    backgroundColor: C.white,
   },
-  btnDisabled: { opacity: 0.7 },
-  btnText: { color: '#fff', fontSize: F.md, fontWeight: W.extra },
+  pressed: { opacity: 0.85 },
+  btnText: { ...T.button, color: C.navy },
 
   notice: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: C.warningLight,
-    borderRadius: R.md,
-    padding: 13,
+    gap: S.sm,
+    padding: S.lg,
+    borderRadius: R.field,
+    backgroundColor: C.orangeSoft,
   },
-  noticeText: { flex: 1, fontSize: F.sm + 1, color: C.warning, fontWeight: W.semibold },
-
-  stateBox: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 24, gap: 10 },
-  stateIcon: {
-    width: 78,
-    height: 78,
-    borderRadius: R.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-  },
-  stateTitle: { fontSize: F.lg, fontWeight: W.extra, color: C.text },
-  stateSub: { fontSize: F.base, color: C.textMuted, textAlign: 'center', lineHeight: 21 },
+  noticeText: { ...T.body, color: C.orangeText, flex: 1 },
 });

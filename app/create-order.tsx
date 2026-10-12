@@ -3,7 +3,7 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   FlatList,
   StyleSheet,
   ActivityIndicator,
@@ -18,7 +18,8 @@ import { getOrderableProducts, createOrder, getOrders } from '@/features/driver/
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight';
 import { useRouteStore } from '@/store/routeStore';
 import type { OrderableProduct } from '@/features/driver/types';
-import { C, R, Shdw } from '@/lib/theme';
+import { BottomBar, EmptyState, ScreenHeader, SecondaryButton } from '@/components/ui';
+import { C, H, R, S, T, Shdw } from '@/lib/theme';
 
 const DAYS_LONG = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 function ymd(d: Date): string {
@@ -39,6 +40,37 @@ type ProductValues = {
   unitQuantity: string;
   bulkQuantity: string;
 };
+
+/** Big numeric box: cream at rest, white with a blue ring while typing. */
+function QuantityBox({
+  label,
+  value,
+  onChangeText,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (value: string) => void;
+}) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <View style={styles.inputBlock}>
+      <Text style={styles.inputLabel}>{label}</Text>
+      <TextInput
+        style={[styles.input, focused && styles.inputFocused]}
+        value={value}
+        // Digits only: an empty box means 0.
+        onChangeText={(t) => onChangeText(t.replace(/[^0-9]/g, ''))}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        keyboardType="number-pad"
+        placeholder="0"
+        placeholderTextColor={C.ink2}
+        returnKeyType="done"
+        accessibilityLabel={label}
+      />
+    </View>
+  );
+}
 
 function OrderProductCard({
   product,
@@ -61,35 +93,19 @@ function OrderProductCard({
 
       <View style={styles.productInputs}>
         {product.allowsBulk && product.unitsPerBulk != null && (
-          <View style={styles.inputBlock}>
-            <Text style={styles.inputLabel}>
-              Bultos ({product.unitsPerBulk} u/bulto)
-            </Text>
-            <TextInput
-              style={styles.input}
-              value={values.bulkQuantity}
-              onChangeText={(t) => onChange(product.id, { ...values, bulkQuantity: t })}
-              keyboardType="number-pad"
-              placeholder="0"
-              placeholderTextColor={C.textMuted}
-              returnKeyType="done"
-            />
-          </View>
+          <QuantityBox
+            label={`Bultos · ${product.unitsPerBulk} u`}
+            value={values.bulkQuantity}
+            onChangeText={(t) => onChange(product.id, { ...values, bulkQuantity: t })}
+          />
         )}
 
         {product.allowsUnit && (
-          <View style={styles.inputBlock}>
-            <Text style={styles.inputLabel}>Unidades</Text>
-            <TextInput
-              style={styles.input}
-              value={values.unitQuantity}
-              onChangeText={(t) => onChange(product.id, { ...values, unitQuantity: t })}
-              keyboardType="number-pad"
-              placeholder="0"
-              placeholderTextColor={C.textMuted}
-              returnKeyType="done"
-            />
-          </View>
+          <QuantityBox
+            label="Unidades"
+            value={values.unitQuantity}
+            onChangeText={(t) => onChange(product.id, { ...values, unitQuantity: t })}
+          />
         )}
       </View>
 
@@ -110,8 +126,8 @@ export default function CreateOrderScreen() {
   const insets = useSafeAreaInsets();
   const keyboardVisible = keyboardHeight > 0;
   const listPaddingBottom = keyboardVisible
-    ? (Platform.OS === 'android' ? 24 + keyboardHeight : 24)
-    : 96 + insets.bottom;
+    ? (Platform.OS === 'android' ? S.xxl + keyboardHeight : S.xxl)
+    : BOTTOM_BAR_SPACE + insets.bottom;
 
   const [products, setProducts] = useState<OrderableProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -212,39 +228,49 @@ export default function CreateOrderScreen() {
     }
   }
 
+  const selectedCount = products.filter((p) => {
+    const v = values[p.id];
+    return normalizeNumber(v?.unitQuantity ?? '') > 0 || normalizeNumber(v?.bulkQuantity ?? '') > 0;
+  }).length;
+  const title = isSuggest ? 'Sugerir pedido' : 'Nuevo pedido';
+  const subtitle = route ? `Reparto ${route.routeCode} · ${route.branchName}` : undefined;
+  const header = <ScreenHeader title={title} subtitle={subtitle} onBack={() => router.back()} />;
+
   if (loading) {
     return (
-      <>
-        <Stack.Screen options={{ title: 'Nuevo Pedido' }} />
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        {header}
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={C.primary} />
+          <ActivityIndicator size="large" color={C.navy} />
           <Text style={styles.loadingText}>Cargando productos...</Text>
         </View>
-      </>
+      </View>
     );
   }
 
   if (loadError) {
     return (
-      <>
-        <Stack.Screen options={{ title: 'Error' }} />
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        {header}
         <View style={styles.centered}>
-          <Text style={styles.errorText}>{loadError}</Text>
-          <TouchableOpacity onPress={() => router.back()} style={styles.retryBtn}>
-            <Text style={styles.retryText}>Volver</Text>
-          </TouchableOpacity>
+          <EmptyState icon="alert-circle-outline" title="No se pudieron cargar los productos" hint={loadError} />
+          <View style={styles.retryWrap}>
+            <SecondaryButton title="Volver" icon="chevron-back" onPress={() => router.back()} />
+          </View>
         </View>
-      </>
+      </View>
     );
   }
 
   return (
-    <>
-      <Stack.Screen options={{ title: isSuggest ? 'Sugerir pedido' : 'Nuevo Pedido' }} />
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <Stack.Screen options={{ headerShown: false }} />
+      {header}
       <KeyboardAvoidingView
-        style={styles.container}
+        style={styles.flatList}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
       >
         <FlatList
           style={styles.flatList}
@@ -254,20 +280,13 @@ export default function CreateOrderScreen() {
           contentContainerStyle={[styles.list, { paddingBottom: listPaddingBottom }]}
           ListHeaderComponent={
             <View style={styles.formHeader}>
-              {route && (
-                <View style={styles.routeInfo}>
-                  <Text style={styles.routeInfoText}>
-                    Reparto {route.routeCode} · {route.branchName}
-                  </Text>
-                </View>
-              )}
               {suggestLabel && (
                 <View style={styles.suggestBanner}>
-                  <Ionicons name="sparkles" size={16} color={C.primary} />
+                  <Ionicons name="sparkles-outline" size={20} color={C.blueText} />
                   <Text style={styles.suggestBannerText}>{suggestLabel}</Text>
                 </View>
               )}
-              <Text style={styles.sectionTitle}>Productos</Text>
+              <Text style={styles.sectionTitle}>Productos · tocá un casillero y escribí la cantidad</Text>
             </View>
           }
           renderItem={({ item }) => (
@@ -278,167 +297,127 @@ export default function CreateOrderScreen() {
             />
           )}
           ListFooterComponent={
-            <View style={styles.footer}>
-              <TextInput
-                style={styles.obsInput}
-                placeholder="Observaciones (opcional)"
-                placeholderTextColor={C.textMuted}
-                value={observations}
-                onChangeText={setObservations}
-                multiline
-                maxLength={500}
-              />
-            </View>
+            <TextInput
+              style={styles.obsInput}
+              placeholder="Observaciones (opcional)"
+              placeholderTextColor={C.ink2}
+              value={observations}
+              onChangeText={setObservations}
+              multiline
+              maxLength={500}
+              accessibilityLabel="Observaciones"
+            />
           }
         />
 
         {!keyboardVisible && (
-          <View style={[styles.stickyBar, { paddingBottom: Math.max(insets.bottom, 14) }]}>
-            <TouchableOpacity
-              style={[styles.submitBtn, submitting && styles.submitDisabled]}
+          <BottomBar>
+            <Pressable
+              style={({ pressed }) => [styles.submitBtn, pressed && !submitting && styles.pressed, submitting && styles.submitDisabled]}
               onPress={handleSubmit}
               disabled={submitting}
-              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={`Enviar pedido, ${selectedCount} producto${selectedCount !== 1 ? 's' : ''}`}
             >
               {submitting ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={C.white} />
               ) : (
-                <Text style={styles.submitText}>Enviar Pedido</Text>
+                <>
+                  <Text style={styles.submitText}>Enviar pedido</Text>
+                  {selectedCount > 0 && (
+                    <View style={styles.countPill}>
+                      <Text style={styles.countPillText}>
+                        {selectedCount} producto{selectedCount !== 1 ? 's' : ''}
+                      </Text>
+                    </View>
+                  )}
+                </>
               )}
-            </TouchableOpacity>
-          </View>
+            </Pressable>
+          </BottomBar>
         )}
       </KeyboardAvoidingView>
-    </>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
-  list: { paddingBottom: 24 },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: C.bg,
-  },
-  loadingText: { marginTop: 12, color: C.textMuted, fontSize: 15 },
-  errorText: { color: C.danger, fontSize: 15, textAlign: 'center', marginBottom: 14 },
-  retryBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: C.primary,
-    borderRadius: R.md,
-  },
-  retryText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+// Submit button + the bottom bar's vertical padding, so the last product isn't hidden.
+const BOTTOM_BAR_SPACE = H.primaryButton + S.md * 2 + S.lg;
 
-  formHeader: { padding: 12, gap: 8 },
-  routeInfo: {
-    backgroundColor: C.primaryLight,
-    borderRadius: R.md,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  routeInfoText: { fontSize: 14, color: C.primary, fontWeight: '600' },
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.cream },
+  flatList: { flex: 1 },
+  list: { paddingHorizontal: S.gutter, gap: S.md },
+  centered: { flex: 1, justifyContent: 'center', padding: S.gutter, gap: S.lg },
+  loadingText: { ...T.body, color: C.ink2, textAlign: 'center' },
+  retryWrap: { alignSelf: 'center' },
+  pressed: { opacity: 0.9 },
+
+  formHeader: { gap: S.md },
   suggestBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
-    backgroundColor: C.primaryLight,
-    borderRadius: R.md,
-    paddingHorizontal: 13,
-    paddingVertical: 11,
+    gap: S.md - 2,
+    padding: S.lg,
+    borderRadius: R.field,
+    backgroundColor: C.blueLight,
   },
-  suggestBannerText: { flex: 1, fontSize: 13, color: C.primary, fontWeight: '600', lineHeight: 18 },
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: C.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
+  suggestBannerText: { ...T.body, color: C.navy, flex: 1 },
+  sectionTitle: { ...T.label, color: C.ink2, paddingLeft: S.sm },
 
   productCard: {
-    backgroundColor: C.surface,
-    marginHorizontal: 12,
-    marginBottom: 8,
-    borderRadius: R.lg,
-    padding: 14,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: C.border,
-    ...Shdw.card,
+    gap: S.md,
+    padding: S.lg + 2,
+    borderRadius: R.card,
+    borderWidth: 2,
+    borderColor: C.white,
+    backgroundColor: C.white,
   },
-  productCardActive: {
-    borderColor: C.primary,
-    borderWidth: 1.5,
-  },
-  productHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  productName: { fontSize: 15, fontWeight: '600', color: C.text, flex: 1 },
-  productCode: { fontSize: 12, color: C.textMuted },
-  productInputs: { flexDirection: 'row', gap: 12 },
-  inputBlock: { flex: 1, gap: 4 },
-  inputLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: C.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
+  productCardActive: { borderColor: C.blue },
+  productHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: S.md },
+  productName: { ...T.data, fontSize: T.section.fontSize, color: C.navy, flex: 1 },
+  productCode: { ...T.secondary, color: C.ink2 },
+  productInputs: { flexDirection: 'row', gap: S.md },
+  inputBlock: { flex: 1, gap: S.sm },
+  inputLabel: { ...T.secondary, color: C.ink2, paddingLeft: S.sm },
   input: {
-    backgroundColor: C.inputBg,
-    borderRadius: R.md,
-    height: 52,
-    paddingHorizontal: 14,
-    fontSize: 22,
-    fontWeight: '700',
-    color: C.text,
+    height: H.field,
+    borderRadius: R.field,
+    borderWidth: 3,
+    borderColor: C.cream,
+    backgroundColor: C.cream,
     textAlign: 'center',
+    fontFamily: T.blockTitle.fontFamily,
+    fontSize: 26,
+    color: C.navy,
+    paddingVertical: 0,
   },
-  productTotal: {
-    fontSize: 13,
-    color: C.primary,
-    fontWeight: '600',
-  },
+  inputFocused: { backgroundColor: C.white, borderColor: C.blue },
+  productTotal: { ...T.secondary, fontFamily: T.label.fontFamily, color: C.blueText },
 
-  footer: { padding: 12, gap: 10 },
-  flatList: { flex: 1 },
-  stickyBar: {
-    backgroundColor: C.surface,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-    paddingHorizontal: 12,
-    paddingTop: 12,
-    shadowColor: '#172554',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 12,
-  },
   obsInput: {
-    backgroundColor: C.surface,
-    borderRadius: R.md,
-    borderWidth: 1,
-    borderColor: C.border,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: C.text,
-    minHeight: 48,
+    ...T.body,
+    minHeight: H.field,
+    marginTop: S.xs,
+    paddingHorizontal: S.xl,
+    paddingVertical: S.lg,
+    borderRadius: R.field,
+    backgroundColor: C.white,
+    color: C.navy,
   },
   submitBtn: {
-    backgroundColor: C.primary,
-    borderRadius: R.lg,
-    paddingVertical: 16,
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    ...Shdw.float,
+    gap: S.md,
+    height: H.primaryButton,
+    borderRadius: H.primaryButton / 2,
+    backgroundColor: C.navy,
+    ...Shdw.primaryButton,
   },
   submitDisabled: { opacity: 0.55 },
-  submitText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  submitText: { ...T.button, color: C.white },
+  countPill: { height: 32, paddingHorizontal: S.md, borderRadius: 16, backgroundColor: C.blue, justifyContent: 'center' },
+  countPillText: { ...T.label, fontFamily: T.button.fontFamily, color: C.white },
 });

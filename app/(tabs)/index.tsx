@@ -3,7 +3,6 @@ import {
   View,
   Text,
   Pressable,
-  TouchableOpacity,
   ScrollView,
   StyleSheet,
   ActivityIndicator,
@@ -17,10 +16,9 @@ import { useAuthStore } from '@/store/authStore';
 import { useRouteStore } from '@/store/routeStore';
 import { getStockControls } from '@/features/stock-controls/services/stockControlApi';
 import { canAccessDispensers } from '@/features/dispensers/lib/access';
-import { HeroHeader } from '@/components/HeroHeader';
-import { AppLogoBadge, BLOCK_TONE, Pill } from '@/components/ui';
+import { AppLogoBadge, BLOCK_TONE, ColorBlock, EmptyState, Pill, SecondaryButton } from '@/components/ui';
 import type { StockControl } from '@/features/stock-controls/types';
-import { C, R, S, T, Shdw } from '@/lib/theme';
+import { C, H, R, S, T } from '@/lib/theme';
 
 const DONE_STATUSES = new Set(['ACCEPTED_BY_DRIVER', 'SENT_TO_AGUAS']);
 
@@ -140,22 +138,15 @@ function ControllerHome() {
 
 function SummaryTile({
   value, label, icon, tone,
-}: { value: number; label: string; icon: keyof typeof Ionicons.glyphMap; tone: 'neutral' | 'warn' | 'ok' | 'blue' }) {
-  const map = {
-    neutral: { bg: C.surfaceSunken, fg: C.textSub },
-    warn: { bg: C.warningLight, fg: C.warning },
-    ok: { bg: C.successLight, fg: C.success },
-    blue: { bg: C.primaryLight, fg: C.primary },
-  }[tone];
+}: { value: number; label: string; icon: keyof typeof Ionicons.glyphMap; tone: 'neutral' | 'warn' | 'ok' }) {
+  const bg = { neutral: C.cream, warn: C.orangeSoft, ok: C.greenSoft }[tone];
   return (
     <View style={styles.tile}>
-      <View style={[styles.tileIc, { backgroundColor: map.bg }]}>
-        <Ionicons name={icon} size={17} color={map.fg} />
+      <View style={[styles.tileIcon, { backgroundColor: bg }]}>
+        <Ionicons name={icon} size={20} color={C.navy} />
       </View>
-      <View>
-        <Text style={styles.tileNum}>{value}</Text>
-        <Text style={styles.tileLb}>{label}</Text>
-      </View>
+      <Text style={styles.tileNum}>{value}</Text>
+      <Text style={styles.tileLabel}>{label}</Text>
     </View>
   );
 }
@@ -164,27 +155,28 @@ function PendingCard({ control, onPress }: { control: StockControl; onPress: () 
   const isExit = control.type === 'EXIT';
   const [y, m, d] = control.controlDate.split('-');
   return (
-    <TouchableOpacity style={styles.pend} onPress={onPress} activeOpacity={0.85}>
-      <View style={[styles.pendAccent, { backgroundColor: isExit ? C.exit : C.entry }]} />
-      <View style={styles.pendBody}>
-        <View style={styles.pendTop}>
-          <View style={[styles.miniBadge, { backgroundColor: isExit ? C.exitLight : C.entryLight }]}>
-            <Ionicons name={isExit ? 'arrow-up' : 'arrow-down'} size={12} color={isExit ? C.exit : C.entry} />
-            <Text style={[styles.miniBadgeText, { color: isExit ? C.exit : C.entry }]}>{isExit ? 'Salida' : 'Entrada'}</Text>
-          </View>
-          <Text style={styles.pendDate}>{`${d}/${m}/${y}`}</Text>
-        </View>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Revisar control de ${isExit ? 'salida' : 'entrada'}, reparto ${control.routeCode}`}
+      style={({ pressed }) => [styles.pend, pressed && home.pressed]}
+    >
+      <View style={styles.pendTop}>
+        <Pill label={isExit ? 'Salida' : 'Entrada'} icon={isExit ? 'arrow-up' : 'arrow-down'} tone={isExit ? 'blue' : 'green'} />
+        <Text style={styles.pendDate}>{`${d}/${m}/${y}`}</Text>
+      </View>
+      <View>
         <Text style={styles.pendBranch}>{control.branchName}</Text>
         <Text style={styles.pendRoute}>Reparto {control.routeCode}</Text>
-        <View style={styles.pendFoot}>
-          <Text style={styles.pendItems}>{control.items.length} productos</Text>
-          <View style={styles.pendCta}>
-            <Text style={styles.pendCtaText}>Revisar</Text>
-            <Ionicons name="chevron-forward" size={14} color="#fff" />
-          </View>
+      </View>
+      <View style={styles.pendFoot}>
+        <Text style={styles.pendItems}>{control.items.length} productos</Text>
+        <View style={styles.pendCta}>
+          <Text style={styles.pendCtaText}>Revisar</Text>
+          <Ionicons name="chevron-forward" size={16} color={C.white} />
         </View>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
@@ -192,6 +184,7 @@ function PendingCard({ control, onPress }: { control: StockControl; onPress: () 
 
 function DriverHome() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user, logout } = useAuthStore();
   const { route, setPendingCount } = useRouteStore();
 
@@ -235,130 +228,113 @@ function DriverHome() {
     ? [...today].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))[0]
     : null;
   const hasPending = pending.length > 0;
+  const statusTone = BLOCK_TONE[hasPending ? 'orange' : 'green'];
 
   return (
-    <View style={styles.screen}>
-      <HeroHeader
-        title={`Hola, ${firstName(user?.name)}`}
-        subtitle={route ? `Reparto ${route.routeCode} · ${route.branchName}` : 'REPARTIDOR'}
-        rightAction={{ label: 'Salir', icon: 'log-out-outline', onPress: logout }}
-      />
+    <ScrollView
+      style={home.screen}
+      contentContainerStyle={[home.content, { paddingTop: insets.top + S.lg }]}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.navy} />}
+    >
+      <View style={home.header}>
+        <AppLogoBadge />
+        <View style={home.headerText}>
+          <Text style={home.hello} accessibilityRole="header">{`Hola, ${firstName(user?.name)}`}</Text>
+          <Text style={styles.routeLine}>
+            {route ? `Reparto ${route.routeCode} · ${route.branchName}` : 'REPARTIDOR'}
+          </Text>
+        </View>
+        <Pill label="Salir" icon="log-out-outline" onPress={logout} />
+      </View>
 
-      <ScrollView
-        contentContainerStyle={styles.driverBody}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
-      >
-        {!route && (
-          <View style={styles.noRouteBanner}>
-            <Ionicons name="warning-outline" size={20} color={C.warning} />
-            <Text style={styles.noRouteText}>Sin reparto asignado. Contactá al administrador.</Text>
+      {!route && (
+        <EmptyState icon="warning-outline" title="Sin reparto asignado" hint="Contactá al administrador." />
+      )}
+
+      {loading && (
+        <View style={styles.centered}><ActivityIndicator size="large" color={C.navy} /></View>
+      )}
+
+      {error && !loading && (
+        <View style={styles.errorWrap}>
+          <EmptyState icon="cloud-offline-outline" title="No se pudo cargar tu día" hint={error} />
+          <View style={styles.retryWrap}>
+            <SecondaryButton title="Reintentar" icon="refresh" onPress={() => load()} />
           </View>
-        )}
+        </View>
+      )}
 
-        {loading && (
-          <View style={styles.centered}><ActivityIndicator size="large" color={C.primary} /></View>
-        )}
-
-        {error && !loading && (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity onPress={() => load()} style={styles.retryBtn}><Text style={styles.retryText}>Reintentar</Text></TouchableOpacity>
-          </View>
-        )}
-
-        {route && !loading && !error && (
-          <>
-            {/* Estado principal */}
-            {hasPending ? (
-              <View style={styles.highlight}>
-                <View style={styles.highlightIc}>
-                  <Ionicons name="clipboard-outline" size={22} color={C.primary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.highlightTt}>
-                    {pending.length} control{pending.length !== 1 ? 'es' : ''} pendiente{pending.length !== 1 ? 's' : ''}
-                  </Text>
-                  <Text style={styles.highlightDs}>Esperan tu revisión y aprobación</Text>
-                </View>
-              </View>
-            ) : (
-              <View style={styles.statusCard}>
-                <View style={styles.statusIc}><Ionicons name="checkmark" size={24} color={C.success} /></View>
-                <View>
-                  <Text style={styles.statusTt}>Todo al día</Text>
-                  <Text style={styles.statusDs}>No tenés controles pendientes</Text>
-                </View>
-              </View>
-            )}
-
-            {/* Pendientes de aprobación */}
-            {hasPending && (
-              <View style={styles.sec}>
-                <Text style={styles.label}>Pendientes de aprobación</Text>
-                {pending.map((c) => (
-                  <PendingCard key={c.id} control={c} onPress={() => router.push(`/approval-detail?id=${c.id}`)} />
-                ))}
-              </View>
-            )}
-
-            {/* Resumen de hoy */}
-            <View style={styles.sec}>
-              <Text style={styles.label}>Resumen de hoy</Text>
-              <View style={styles.stats}>
-                <SummaryTile value={pending.length} label="Pendientes" icon="time-outline" tone={hasPending ? 'warn' : 'neutral'} />
-                <SummaryTile value={completed} label="Completados" icon="checkmark" tone="ok" />
-                <SummaryTile value={today.length} label="Controles hoy" icon="documents-outline" tone="blue" />
-              </View>
+      {route && !loading && !error && (
+        <>
+          {/* Estado principal: verde al día, naranja con controles por revisar */}
+          <ColorBlock tone={hasPending ? 'orange' : 'green'} style={styles.status}>
+            <View style={styles.statusIcon}>
+              <Ionicons name={hasPending ? 'clipboard-outline' : 'checkmark'} size={30} color={hasPending ? C.orange : C.green} />
             </View>
+            <View>
+              <Text style={[styles.statusTitle, { color: statusTone.fg }]}>
+                {hasPending
+                  ? `${pending.length} control${pending.length !== 1 ? 'es' : ''} pendiente${pending.length !== 1 ? 's' : ''}`
+                  : 'Todo al día'}
+              </Text>
+              <Text style={[styles.statusSub, { color: statusTone.fgSub }]}>
+                {hasPending ? 'Esperan tu revisión y aprobación' : 'No tenés controles pendientes'}
+              </Text>
+            </View>
+          </ColorBlock>
 
-            {/* Última actividad */}
-            {lastActivity && (
-              <View style={styles.sec}>
-                <Text style={styles.label}>Última actividad</Text>
-                <TouchableOpacity
-                  style={styles.act}
-                  activeOpacity={0.85}
-                  onPress={() => router.push(`/edit-control?id=${lastActivity.id}`)}
-                >
-                  <View style={[styles.actIc, { backgroundColor: lastActivity.type === 'EXIT' ? C.exitLight : C.entryLight }]}>
-                    <Ionicons name={lastActivity.type === 'EXIT' ? 'arrow-up' : 'arrow-down'} size={20} color={lastActivity.type === 'EXIT' ? C.exit : C.entry} />
-                  </View>
-                  <View style={styles.actMid}>
-                    <Text style={styles.actTt}>Control de {lastActivity.type === 'EXIT' ? 'salida' : 'entrada'}</Text>
-                    <Text style={styles.actMt}>
-                      {route.truckPlate ? `${route.truckPlate} · ` : ''}Hoy {formatTime(lastActivity.createdAt)}
-                    </Text>
-                  </View>
-                  <View style={styles.actR}>
-                    {DONE_STATUSES.has(lastActivity.status) && (
-                      <View style={styles.okBadge}>
-                        <Ionicons name="checkmark" size={12} color={C.success} />
-                        <Text style={styles.okBadgeText}>Completado</Text>
-                      </View>
-                    )}
-                    <Ionicons name="chevron-forward" size={20} color={C.textFaint} />
-                  </View>
-                </TouchableOpacity>
-              </View>
-            )}
+          {hasPending && (
+            <View style={styles.sec}>
+              <Text style={styles.secTitle} accessibilityRole="header">Pendientes de aprobación</Text>
+              {pending.map((c) => (
+                <PendingCard key={c.id} control={c} onPress={() => router.push(`/approval-detail?id=${c.id}`)} />
+              ))}
+            </View>
+          )}
 
-            {/* Acciones secundarias (cuando no hay pendientes, para no dejar hueco) */}
-            {!hasPending && (
-              <View style={styles.btnRow}>
-                <TouchableOpacity style={styles.ghostBtn} activeOpacity={0.85} onPress={() => router.push('/history')}>
-                  <Ionicons name="time-outline" size={18} color={C.primary} />
-                  <Text style={styles.ghostBtnText}>Ver historial</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.ghostBtn} activeOpacity={0.85} onPress={() => router.push('/orders')}>
-                  <Ionicons name="cart-outline" size={18} color={C.primary} />
-                  <Text style={styles.ghostBtnText}>Ver pedidos</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </>
-        )}
-      </ScrollView>
-    </View>
+          <View style={styles.sec}>
+            <Text style={styles.secTitle} accessibilityRole="header">Resumen de hoy</Text>
+            <View style={styles.tiles}>
+              <SummaryTile value={pending.length} label="Pendientes" icon="time-outline" tone={hasPending ? 'warn' : 'neutral'} />
+              <SummaryTile value={completed} label="Completados" icon="checkmark" tone="ok" />
+              <SummaryTile value={today.length} label="Controles hoy" icon="document-text-outline" tone="neutral" />
+            </View>
+          </View>
+
+          {lastActivity && (
+            <View style={styles.sec}>
+              <Text style={styles.secTitle} accessibilityRole="header">Última actividad</Text>
+              <Pressable
+                style={({ pressed }) => [styles.act, pressed && home.pressed]}
+                onPress={() => router.push(`/edit-control?id=${lastActivity.id}`)}
+                accessibilityRole="button"
+              >
+                <View style={[styles.actIcon, { backgroundColor: lastActivity.type === 'EXIT' ? C.blueLight : C.greenSoft }]}>
+                  <Ionicons
+                    name={lastActivity.type === 'EXIT' ? 'arrow-up' : 'arrow-down'}
+                    size={22}
+                    color={lastActivity.type === 'EXIT' ? C.blueText : C.greenDot}
+                  />
+                </View>
+                <View style={styles.actMid}>
+                  <Text style={styles.actTitle}>Control de {lastActivity.type === 'EXIT' ? 'salida' : 'entrada'}</Text>
+                  <Text style={styles.actMeta}>
+                    {route.truckPlate ? `${route.truckPlate} · ` : ''}Hoy {formatTime(lastActivity.createdAt)}
+                  </Text>
+                </View>
+                {DONE_STATUSES.has(lastActivity.status) && (
+                  <View style={styles.okBadge}>
+                    <Ionicons name="checkmark" size={14} color={C.navy} />
+                    <Text style={styles.okBadgeText}>Completado</Text>
+                  </View>
+                )}
+                <Ionicons name="chevron-forward" size={20} color={C.ink2} />
+              </Pressable>
+            </View>
+          )}
+        </>
+      )}
+    </ScrollView>
   );
 }
 
@@ -369,85 +345,69 @@ export default function HomeScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
+const STATUS_ICON = 64;
+
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: C.bg },
-  driverBody: { padding: 16, gap: 16 },
+  routeLine: { ...T.secondary, color: C.ink2 },
+  centered: { paddingVertical: S.xxxl, alignItems: 'center' },
+  errorWrap: { gap: S.lg },
+  retryWrap: { alignSelf: 'center' },
 
-  label: {
-    fontSize: 11, fontWeight: '800', color: C.textMuted, textTransform: 'uppercase',
-    letterSpacing: 0.9, marginBottom: 2, marginLeft: 2,
+  status: { gap: S.xl, padding: S.xl },
+  statusIcon: {
+    width: STATUS_ICON,
+    height: STATUS_ICON,
+    borderRadius: STATUS_ICON / 2,
+    backgroundColor: C.navy,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  sec: { gap: 9 },
+  statusTitle: { ...T.blockTitle, fontSize: 32, lineHeight: 38 },
+  statusSub: { ...T.label, fontSize: T.body.fontSize },
 
+  sec: { gap: S.md },
+  secTitle: { ...T.section, color: C.navy },
 
-  // Estado
-  statusCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 13, padding: 15,
-    backgroundColor: C.surface, borderRadius: 18, borderWidth: 1, borderColor: C.border, ...Shdw.card,
+  tiles: { flexDirection: 'row', gap: S.sm },
+  tile: { flex: 1, gap: S.xs, padding: S.lg, borderRadius: R.card, backgroundColor: C.white },
+  tileIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: S.sm },
+  tileNum: { ...T.blockTitle, color: C.navy, fontVariant: ['tabular-nums'] },
+  tileLabel: { ...T.label, fontFamily: T.secondary.fontFamily, color: C.ink2 },
+
+  pend: { gap: S.md, padding: S.lg, borderRadius: R.card, backgroundColor: C.white },
+  pendTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  pendDate: { ...T.secondary, color: C.ink2, fontVariant: ['tabular-nums'] },
+  pendBranch: { ...T.section, color: C.navy },
+  pendRoute: { ...T.secondary, color: C.ink2 },
+  pendFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  pendItems: { ...T.secondary, color: C.ink2 },
+  pendCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: S.xs,
+    height: H.touch,
+    paddingLeft: S.lg,
+    paddingRight: S.md,
+    borderRadius: H.touch / 2,
+    backgroundColor: C.navy,
   },
-  statusIc: { width: 46, height: 46, borderRadius: 14, backgroundColor: C.successLight, alignItems: 'center', justifyContent: 'center' },
-  statusTt: { fontSize: 16, fontWeight: '800', color: C.text },
-  statusDs: { fontSize: 13, color: C.textMuted, marginTop: 1 },
+  pendCtaText: { ...T.label, color: C.white },
 
-  highlight: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14,
-    borderRadius: 18, backgroundColor: C.primaryLight, borderWidth: 1, borderColor: '#DBE4FF',
+  act: { flexDirection: 'row', alignItems: 'center', gap: S.md, padding: S.md + 2, borderRadius: R.card, backgroundColor: C.white },
+  actIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  actMid: { flex: 1, gap: 2 },
+  actTitle: { ...T.data, color: C.navy },
+  actMeta: { ...T.secondary, color: C.ink2, fontVariant: ['tabular-nums'] },
+  okBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: S.xs,
+    height: 28,
+    paddingHorizontal: S.md - 2,
+    borderRadius: 14,
+    backgroundColor: C.greenSoft,
   },
-  highlightIc: { width: 42, height: 42, borderRadius: 12, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', ...Shdw.xs },
-  highlightTt: { fontSize: 15, fontWeight: '800', color: C.text },
-  highlightDs: { fontSize: 12.5, color: C.textSub, marginTop: 1 },
-
-  // Tiles
-  stats: { flexDirection: 'row', gap: 9 },
-  tile: {
-    flex: 1, backgroundColor: C.surface, borderRadius: 16, borderWidth: 1, borderColor: C.border,
-    padding: 13, gap: 8, ...Shdw.card,
-  },
-  tileIc: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-  tileNum: { fontSize: 22, fontWeight: '800', color: C.text, fontVariant: ['tabular-nums'], lineHeight: 24 },
-  tileLb: { fontSize: 11.5, color: C.textMuted, fontWeight: '600' },
-
-  // Pending
-  pend: { flexDirection: 'row', backgroundColor: C.surface, borderRadius: 16, borderWidth: 1, borderColor: C.border, overflow: 'hidden', ...Shdw.card },
-  pendAccent: { width: 4 },
-  pendBody: { flex: 1, padding: 13 },
-  pendTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  miniBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
-  miniBadgeText: { fontSize: 12, fontWeight: '800' },
-  pendDate: { marginLeft: 'auto', fontSize: 12, color: C.textMuted, fontWeight: '600', fontVariant: ['tabular-nums'] },
-  pendBranch: { fontSize: 16, fontWeight: '800', color: C.text },
-  pendRoute: { fontSize: 12.5, color: C.textSub, marginTop: 1 },
-  pendFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 11 },
-  pendItems: { fontSize: 12.5, color: C.textMuted, fontWeight: '600' },
-  pendCta: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: C.primary, borderRadius: 999, paddingLeft: 13, paddingRight: 10, paddingVertical: 7 },
-  pendCtaText: { fontSize: 12.5, color: '#fff', fontWeight: '800' },
-
-  // Activity
-  act: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, backgroundColor: C.surface, borderRadius: 16, borderWidth: 1, borderColor: C.border, ...Shdw.card },
-  actIc: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  actMid: { flex: 1 },
-  actTt: { fontSize: 14.5, fontWeight: '700', color: C.text },
-  actMt: { fontSize: 12.5, color: C.textMuted, marginTop: 2, fontVariant: ['tabular-nums'] },
-  actR: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  okBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.successLight, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
-  okBadgeText: { fontSize: 12, fontWeight: '800', color: C.success },
-
-  // Secondary buttons
-  btnRow: { flexDirection: 'row', gap: 9 },
-  ghostBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
-    height: 46, borderRadius: 13, backgroundColor: C.surface, borderWidth: 1, borderColor: C.borderStrong,
-  },
-  ghostBtnText: { color: C.primary, fontSize: 13.5, fontWeight: '800' },
-
-  // Banners / states
-  noRouteBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.warningLight, borderRadius: R.md, padding: 14 },
-  noRouteText: { flex: 1, fontSize: 14, color: C.warning, fontWeight: '600' },
-  centered: { paddingVertical: 50, alignItems: 'center' },
-  errorBox: { alignItems: 'center', paddingVertical: 28 },
-  errorText: { color: C.danger, fontSize: 14, textAlign: 'center', marginBottom: 12 },
-  retryBtn: { paddingHorizontal: 22, paddingVertical: 10, backgroundColor: C.primary, borderRadius: R.md },
-  retryText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  okBadgeText: { ...T.secondary, fontFamily: T.label.fontFamily, color: C.navy },
 });
 
 const TILE_HEIGHT = 250;
