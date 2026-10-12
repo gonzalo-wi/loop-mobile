@@ -2,7 +2,7 @@ import { Pressable, Text, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { C, H, S, T } from '@/lib/theme';
 
-export type PillTone = 'white' | 'onBlue' | 'onGreen' | 'blue' | 'green';
+export type PillTone = 'white' | 'onBlue' | 'onGreen' | 'blue' | 'green' | 'destructive';
 
 type PillProps = {
   label: string;
@@ -20,6 +20,7 @@ const TONE: Record<PillTone, { bg: string; fg: string }> = {
   onGreen: { bg: C.pillOnGreen, fg: C.navy },
   blue: { bg: C.blue, fg: C.white },
   green: { bg: C.green, fg: C.navy },
+  destructive: { bg: C.redSoft, fg: C.redText },
 };
 
 export function Pill({ label, icon, onPress, tone = 'white', accessibilityLabel }: PillProps) {
@@ -59,14 +60,17 @@ const styles = StyleSheet.create({
     paddingRight: S.lg,
     justifyContent: 'center',
     alignSelf: 'flex-start',
+    maxWidth: '100%',
   },
   content: {
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: S.sm - 2,
   },
   text: {
     ...T.label,
+    flexShrink: 1,
   },
   pressed: {
     opacity: 0.8,

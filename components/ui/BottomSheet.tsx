@@ -3,6 +3,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C, R, S, T } from '@/lib/theme';
+import { useKeyboardHeight } from '@/lib/useKeyboardHeight';
 
 export type SheetTone = 'success' | 'warning' | 'error' | 'info';
 
@@ -16,7 +17,8 @@ const TONE: Record<SheetTone, { bg: string; fg: string }> = {
 type BottomSheetProps = {
   visible: boolean;
   onDismiss: () => void;
-  title: string;
+  /** Omit it when the content brings its own title row (e.g. with a close button). */
+  title?: string;
   message?: string;
   icon?: keyof typeof Ionicons.glyphMap;
   tone?: SheetTone;
@@ -38,22 +40,27 @@ export function BottomSheet({
   actions,
 }: BottomSheetProps) {
   const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardHeight();
   const t = TONE[tone];
+  // With the keyboard open the sheet sits on top of it; the safe-area inset is under the keyboard.
+  const bottomSpace = keyboardHeight > 0 ? keyboardHeight + S.lg : insets.bottom + S.xxl - 4;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onDismiss} statusBarTranslucent>
       <View style={styles.root}>
         <Pressable style={styles.scrim} onPress={onDismiss} accessibilityLabel="Cerrar" />
-        <View style={[styles.sheet, { paddingBottom: S.xxl - 4 + insets.bottom }]}>
+        <View style={[styles.sheet, { paddingBottom: bottomSpace }]}>
           <View style={styles.handle} />
           {icon ? (
             <View style={[styles.iconCircle, { backgroundColor: t.bg }]}>
               <Ionicons name={icon} size={30} color={t.fg} />
             </View>
           ) : null}
-          <Text style={styles.title} accessibilityRole="header">
-            {title}
-          </Text>
+          {title ? (
+            <Text style={styles.title} accessibilityRole="header">
+              {title}
+            </Text>
+          ) : null}
           {message ? <Text style={styles.message}>{message}</Text> : null}
           {children}
           {actions ? <View style={styles.actions}>{actions}</View> : null}

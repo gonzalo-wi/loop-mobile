@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useFonts } from 'expo-font';
+import { StatusBar } from 'expo-status-bar';
 import { useAuthStore } from '@/store/authStore';
 import { useRouteStore } from '@/store/routeStore';
 import { getToken, getStoredUser, getStoredRoute } from '@/lib/storage';
@@ -76,6 +77,8 @@ export default function RootLayout() {
 
   return (
     <>
+      {/* Dark icons on the cream UI; screens with a navy top (login) override it while mounted. */}
+      <StatusBar style="dark" />
       <Stack
       screenOptions={{
         headerStyle: { backgroundColor: C.primary },

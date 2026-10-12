@@ -24,3 +24,4 @@ export type { SheetTone } from './BottomSheet';
 export { Toast, TOAST_DURATION_MS } from './Toast';
 export { BottomBar } from './BottomBar';
 export { FloatingTabBar, tabBarClearance, TAB_BAR_HEIGHT } from './FloatingTabBar';
+export { TextEntrySheet } from './TextEntrySheet';

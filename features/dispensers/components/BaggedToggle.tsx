@@ -1,6 +1,6 @@
 import { Text, TouchableOpacity, View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { C, R, F, W } from '@/lib/theme';
+import { C, H, R, S, T } from '@/lib/theme';
 
 type Props = {
   code: string;
@@ -9,11 +9,11 @@ type Props = {
   onPress?: () => void;
 };
 
-/** Marca "Embolsado" de una serie en una descarga. Cian para no confundirse con los estados de validación. */
+/** "Embolsado" mark of a serial in an unload. Blue so it doesn't read as a validation status. */
 export function BaggedToggle({ code, bagged, onPress }: Props) {
   const content = (
     <>
-      <Ionicons name={bagged ? 'bag-check' : 'bag-outline'} size={13} color={bagged ? C.surface : C.textMuted} />
+      <Ionicons name={bagged ? 'bag-check' : 'bag-outline'} size={13} color={bagged ? C.white : C.ink2} />
       {/* Sin marcar va solo el ícono, para no apretar la fila en pantallas angostas. */}
       {bagged && <Text style={[styles.text, styles.textOn]}>Embolsado</Text>}
     </>
@@ -27,7 +27,7 @@ export function BaggedToggle({ code, bagged, onPress }: Props) {
     <TouchableOpacity
       style={[styles.pill, bagged && styles.pillOn]}
       onPress={onPress}
-      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+      hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
       accessibilityRole="checkbox"
       accessibilityState={{ checked: bagged }}
       accessibilityLabel={`Embolsado ${code}`}
@@ -41,15 +41,15 @@ const styles = StyleSheet.create({
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+    gap: S.xs,
+    height: 32,
+    minWidth: H.touch,
+    justifyContent: 'center',
+    paddingHorizontal: S.sm + 2,
     borderRadius: R.full,
-    borderWidth: 1,
-    borderColor: C.borderStrong,
-    backgroundColor: C.surface,
+    backgroundColor: C.cream,
   },
-  pillOn: { backgroundColor: C.accent, borderColor: C.accent },
-  text: { fontSize: F.xs, fontWeight: W.bold, color: C.textMuted },
-  textOn: { color: C.surface },
+  pillOn: { backgroundColor: C.blue },
+  text: { ...T.secondary, fontFamily: T.label.fontFamily, fontSize: 12, lineHeight: 16, color: C.ink2 },
+  textOn: { color: C.white },
 });
