@@ -35,6 +35,8 @@ const palette = {
   pillOnGreen: 'rgba(18,28,78,0.16)',
   cameraScrim: 'rgba(4,6,16,0.6)',
   railOnCream: 'rgba(18,28,78,0.08)',
+  // Cream at 0 alpha: fading to plain 'transparent' would pass through gray.
+  creamClear: 'rgba(242,240,234,0)',
   onNavyMuted: '#C9D0EA',
   onNavyTag: '#E4E8F8',
   onNavyTagBg: 'rgba(255,255,255,0.14)',
