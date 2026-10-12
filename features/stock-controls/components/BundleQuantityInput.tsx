@@ -86,32 +86,47 @@ export function BundleQuantityInput({ label, unitsPerBundle, value, onChange }: 
 
   return (
     <View style={styles.row}>
-      <Text style={styles.label}>{label}</Text>
-      <FieldInput
-        style={styles.input}
-        keyboardType="numeric"
-        value={bundlesStr}
-        onChangeText={handleBundlesChange}
-        placeholder="0"
-        selectTextOnFocus
-        accessibilityLabel={`${label}: bultos`}
-      />
-      <Text style={styles.sep}>+</Text>
-      <FieldInput
-        style={styles.input}
-        keyboardType="numeric"
-        value={looseStr}
-        onChangeText={handleLooseChange}
-        onBlur={handleBlur}
-        placeholder="0"
-        selectTextOnFocus
-        accessibilityLabel={`${label}: unidades sueltas`}
-      />
-      <Text style={styles.eqSep}>=</Text>
-      <View style={[styles.totalWrap, displayTotal > 0 && styles.totalWrapActive]}>
-        <Text style={[styles.totalText, displayTotal > 0 && styles.totalTextActive]}>
-          {displayTotal}
-        </Text>
+      <View style={styles.cell}>
+        <Text style={styles.label}>{label}</Text>
+      </View>
+      <View style={styles.inputCol}>
+        <FieldInput
+          style={styles.input}
+          keyboardType="numeric"
+          value={bundlesStr}
+          onChangeText={handleBundlesChange}
+          placeholder="0"
+          selectTextOnFocus
+          accessibilityLabel={`${label}: bultos`}
+        />
+        <Text style={styles.caption}>{`bultos ×${unitsPerBundle}`}</Text>
+      </View>
+      <View style={[styles.cell, styles.sepCell]}>
+        <Text style={styles.sep}>+</Text>
+      </View>
+      <View style={styles.inputCol}>
+        <FieldInput
+          style={styles.input}
+          keyboardType="numeric"
+          value={looseStr}
+          onChangeText={handleLooseChange}
+          onBlur={handleBlur}
+          placeholder="0"
+          selectTextOnFocus
+          accessibilityLabel={`${label}: unidades sueltas`}
+        />
+        <Text style={styles.caption}>sueltas</Text>
+      </View>
+      <View style={[styles.cell, styles.sepCell]}>
+        <Text style={styles.sep}>=</Text>
+      </View>
+      <View style={styles.totalCol}>
+        <View style={[styles.totalWrap, displayTotal > 0 && styles.totalWrapActive]}>
+          <Text style={[styles.totalText, displayTotal > 0 && styles.totalTextActive]}>
+            {displayTotal}
+          </Text>
+        </View>
+        <Text style={[styles.caption, styles.totalCaption]}>unidades</Text>
       </View>
     </View>
   );
@@ -136,10 +151,15 @@ const styles = StyleSheet.create({
     backgroundColor: C.white,
     borderColor: C.blue,
   },
+  // Captions sit under the boxes, so every cell is pinned to the box height to keep +/= centered on them.
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: S.sm,
+  },
+  cell: {
+    height: H.circleButton,
+    justifyContent: 'center',
   },
   label: {
     width: FIELD_LABEL_WIDTH,
@@ -147,23 +167,35 @@ const styles = StyleSheet.create({
     color: C.ink2,
     textTransform: 'uppercase',
   },
+  inputCol: {
+    alignItems: 'center',
+    gap: S.xs,
+  },
   input: {
     width: 56,
   },
-  sep: {
+  caption: {
+    ...T.secondary,
+    color: C.ink2,
+  },
+  sepCell: {
     width: 22,
-    textAlign: 'center',
+    alignItems: 'center',
+  },
+  sep: {
     ...T.section,
     color: C.handle,
   },
-  eqSep: {
-    width: 22,
-    textAlign: 'center',
-    ...T.section,
-    color: C.handle,
+  totalCaption: {
+    paddingLeft: S.md,
+  },
+  totalCol: {
+    flex: 1,
+    gap: S.xs,
+    alignItems: 'flex-start',
   },
   totalWrap: {
-    flex: 1,
+    alignSelf: 'stretch',
     height: H.circleButton,
     borderRadius: R.field,
     alignItems: 'flex-start',
