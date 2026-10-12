@@ -4,7 +4,7 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   Animated,
   Easing,
@@ -22,7 +22,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight';
 import { useBarcodeCommit, type FeedbackKind } from '../hooks/useBarcodeCommit';
 import { getFrameRect, isWithinFrame } from '../lib/scanRegion';
-import { C, R, S, F, W } from '@/lib/theme';
+import { PrimaryButton } from '@/components/ui';
+import { C, H, R, S, T } from '@/lib/theme';
 
 const SCAN_OK_SOUND = require('@/assets/sounds/scan-ok.wav');
 const SCAN_ERROR_SOUND = require('@/assets/sounds/scan-error.wav');
@@ -201,10 +202,35 @@ export function BarcodeScannerModal({
     inputRange: [0, 1],
     outputRange: [6, FRAME_H - 6],
   });
-  const frameBorderColor = flash.interpolate({
+  // The flash on each read tints the frame for a moment; a warning keeps it tinted.
+  const restColor = feedback ? FEEDBACK_TONE[feedback.type].bg : C.green;
+  const cornerColor = flash.interpolate({
     inputRange: [0, 1],
-    outputRange: ['rgba(255,255,255,0.85)', C.entry],
+    outputRange: [restColor, C.white],
   });
+
+  const feedbackPill = feedback ? (
+    <View
+      style={[styles.feedback, { backgroundColor: FEEDBACK_TONE[feedback.type].bg }]}
+      accessibilityLiveRegion="polite"
+    >
+      <View style={[styles.feedbackIcon, { backgroundColor: FEEDBACK_TONE[feedback.type].iconBg }]}>
+        <Ionicons
+          name={FEEDBACK_TONE[feedback.type].icon}
+          size={18}
+          color={FEEDBACK_TONE[feedback.type].iconFg}
+        />
+      </View>
+      <Text style={[styles.feedbackText, { color: FEEDBACK_TONE[feedback.type].fg }]}>
+        {feedback.type === 'ok'
+          ? 'Agregado: '
+          : feedback.type === 'invalid'
+            ? invalidFeedbackLabel
+            : 'Ya escaneado: '}
+        <Text style={styles.feedbackCode}>{feedback.code}</Text>
+      </Text>
+    </View>
+  ) : null;
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -225,118 +251,105 @@ export function BarcodeScannerModal({
           />
         ) : (
           <View style={styles.permissionWrap}>
-            <Ionicons name="camera-outline" size={54} color="rgba(255,255,255,0.7)" />
+            <View style={styles.permissionIcon}>
+              <Ionicons name="camera-outline" size={30} color={C.navy} />
+            </View>
             <Text style={styles.permissionTitle}>Permiso de cámara</Text>
             <Text style={styles.permissionSub}>
               Necesitamos la cámara para escanear los códigos de los dispensers.
             </Text>
             {permission && !permission.granted && (
-              <TouchableOpacity style={styles.permissionBtn} onPress={requestPermission}>
-                <Text style={styles.permissionBtnText}>Permitir cámara</Text>
-              </TouchableOpacity>
+              <View style={styles.permissionBtn}>
+                <PrimaryButton title="Permitir cámara" icon="camera-outline" onPress={requestPermission} variant="soft" />
+              </View>
             )}
           </View>
         )}
 
-        {/* Oscurecido de bordes para enfocar el marco */}
-        {permission?.granted && <View pointerEvents="none" style={styles.scrim} />}
+        {/* Darkens everything outside the frame. The frame is exactly centered,
+            which is where getFrameRect looks for codes. */}
+        {permission?.granted && (
+          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+            <View style={styles.scrim} />
+            <View style={styles.scrimRow}>
+              <View style={styles.scrim} />
+              <View style={styles.hole} />
+              <View style={styles.scrim} />
+            </View>
+            <View style={styles.scrim} />
+          </View>
+        )}
 
-        {/* Top bar: contador + linterna + cerrar */}
-        <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
-          <View style={styles.counter}>
-            <Ionicons name="cube" size={16} color="#fff" />
-            <Text style={styles.counterText}>{count}</Text>
+        {/* Top bar: counter + torch + close */}
+        <View style={[styles.topBar, { paddingTop: insets.top + S.sm }]}>
+          <View style={styles.counter} accessibilityLabel={`${count} escaneados`}>
+            <View style={styles.counterBadge}>
+              <Text style={styles.counterText}>{count}</Text>
+            </View>
             <Text style={styles.counterLabel}>escaneados</Text>
           </View>
           <View style={styles.topActions}>
             {permission?.granted && (
-              <TouchableOpacity
+              <Pressable
                 style={[styles.iconBtn, torch && styles.iconBtnActive]}
                 onPress={() => setTorch((t) => !t)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                hitSlop={S.sm}
                 accessibilityRole="button"
                 accessibilityLabel={torch ? 'Apagar linterna' : 'Encender linterna'}
               >
-                <Ionicons name={torch ? 'flashlight' : 'flashlight-outline'} size={20} color="#fff" />
-              </TouchableOpacity>
+                <Ionicons name={torch ? 'flashlight' : 'flashlight-outline'} size={H.icon - 2} color={C.navy} />
+              </Pressable>
             )}
-            <TouchableOpacity
+            <Pressable
               style={styles.iconBtn}
               onPress={onClose}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              hitSlop={S.sm}
               accessibilityRole="button"
               accessibilityLabel="Cerrar escáner"
             >
-              <Ionicons name="close" size={22} color="#fff" />
-            </TouchableOpacity>
+              <Ionicons name="close" size={H.icon} color={C.navy} />
+            </Pressable>
           </View>
         </View>
 
-        {/* Marco con esquinas + línea animada */}
+        {/* Frame with corners + animated line; the result pill and the hint hang below it */}
         {permission?.granted && (
           <View pointerEvents="none" style={styles.frameWrap}>
-            <Animated.View style={[styles.frame, { borderColor: frameBorderColor }]}>
-              <View style={[styles.corner, styles.cornerTL]} />
-              <View style={[styles.corner, styles.cornerTR]} />
-              <View style={[styles.corner, styles.cornerBL]} />
-              <View style={[styles.corner, styles.cornerBR]} />
-              <Animated.View
-                style={[styles.scanLine, { transform: [{ translateY: lineTranslate }] }]}
-              />
-            </Animated.View>
-            <Text style={styles.hint}>Apuntá al código de barras del dispenser</Text>
+            <View style={styles.frame}>
+              <Animated.View style={[styles.corner, styles.cornerTL, { borderColor: cornerColor }]} />
+              <Animated.View style={[styles.corner, styles.cornerTR, { borderColor: cornerColor }]} />
+              <Animated.View style={[styles.corner, styles.cornerBL, { borderColor: cornerColor }]} />
+              <Animated.View style={[styles.corner, styles.cornerBR, { borderColor: cornerColor }]} />
+              {!feedback || feedback.type === 'ok' ? (
+                <Animated.View
+                  style={[styles.scanLine, { transform: [{ translateY: lineTranslate }] }]}
+                />
+              ) : null}
+
+              <View style={styles.belowFrame}>
+                {feedbackPill}
+                <Text style={styles.hint}>Apuntá al código de barras del dispenser</Text>
+              </View>
+            </View>
           </View>
         )}
 
-        {/* Feedback del último escaneo */}
-        {feedback && (
-          <View
-            style={[
-              styles.feedback,
-              { bottom: keyboardHeight + insets.bottom + 150 },
-              feedback.type === 'ok'
-                ? styles.feedbackOk
-                : feedback.type === 'invalid'
-                  ? styles.feedbackInvalid
-                  : styles.feedbackDup,
-            ]}
-          >
-            <Ionicons
-              name={
-                feedback.type === 'ok'
-                  ? 'checkmark-circle'
-                  : feedback.type === 'invalid'
-                    ? 'close-circle'
-                    : 'alert-circle'
-              }
-              size={18}
-              color="#fff"
-            />
-            <Text style={styles.feedbackText} numberOfLines={1}>
-              {feedback.type === 'ok'
-                ? 'Agregado: '
-                : feedback.type === 'invalid'
-                  ? invalidFeedbackLabel
-                  : 'Ya escaneado: '}
-              {feedback.code}
-            </Text>
-          </View>
-        )}
-
-        {/* Panel inferior: escaneo (recientes + botones) o carga manual */}
+        {/* Bottom panel: scanning (recent + buttons) or manual entry */}
         <View
           style={[
             styles.bottomBar,
             {
               bottom: keyboardHeight,
-              paddingBottom: keyboardHeight > 0 ? 14 : insets.bottom + 14,
+              paddingBottom: keyboardHeight > 0 ? S.md + 2 : insets.bottom + S.xxl - 4,
             },
           ]}
         >
+          {/* Without camera there is no frame to hang the result from, e.g. for codes typed by hand */}
+          {!permission?.granted && feedbackPill ? <View style={styles.feedbackStandalone}>{feedbackPill}</View> : null}
           {manualOpen ? (
             <>
               <View style={styles.manualPanel}>
-                <Ionicons name="create-outline" size={20} color={C.textMuted} />
+                <Ionicons name="create-outline" size={22} color={C.ink2} />
                 <TextInput
                   style={styles.manualInput}
                   value={manualValue}
@@ -349,25 +362,24 @@ export function BarcodeScannerModal({
                   returnKeyType="done"
                   onSubmitEditing={handleManualAdd}
                 />
-                <TouchableOpacity
+                <Pressable
                   style={[styles.manualAddBtn, !manualValue.trim() && styles.manualAddBtnOff]}
                   onPress={handleManualAdd}
                   disabled={!manualValue.trim()}
                   accessibilityRole="button"
                   accessibilityLabel="Agregar código"
                 >
-                  <Ionicons name="add" size={24} color="#fff" />
-                </TouchableOpacity>
+                  <Ionicons name="add" size={H.icon} color={C.white} />
+                </Pressable>
               </View>
-              <TouchableOpacity
-                style={styles.backToScanBtn}
+              <Pressable
+                style={styles.outlineBtn}
                 onPress={() => { setManualOpen(false); setManualValue(''); }}
-                activeOpacity={0.85}
                 accessibilityRole="button"
               >
-                <Ionicons name="barcode-outline" size={18} color="#fff" />
-                <Text style={styles.backToScanText}>Volver a escanear</Text>
-              </TouchableOpacity>
+                <Ionicons name="barcode-outline" size={20} color={C.white} />
+                <Text style={styles.outlineBtnText}>Volver a escanear</Text>
+              </Pressable>
             </>
           ) : (
             <>
@@ -376,9 +388,9 @@ export function BarcodeScannerModal({
                   {recent.map((r) => (
                     <View key={r.code} style={[styles.recentChip, r.invalid && styles.recentChipInvalid]}>
                       <Ionicons
-                        name={r.invalid ? 'close-circle' : 'checkmark'}
+                        name={r.invalid ? 'close' : 'checkmark'}
                         size={12}
-                        color={r.invalid ? '#fff' : C.entry}
+                        color={r.invalid ? C.white : C.greenDot}
                       />
                       <Text
                         style={[styles.recentChipText, r.invalid && styles.recentChipTextInvalid]}
@@ -390,21 +402,24 @@ export function BarcodeScannerModal({
                   ))}
                 </View>
               )}
-              <TouchableOpacity
-                style={styles.manualToggle}
+              <Pressable
+                style={styles.outlineBtn}
                 onPress={() => setManualOpen(true)}
-                activeOpacity={0.85}
                 accessibilityRole="button"
               >
-                <Ionicons name="create-outline" size={18} color="#fff" />
-                <Text style={styles.manualToggleText}>Sin código de barras · escribir a mano</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.doneBtn} onPress={onClose} activeOpacity={0.85}>
-                <Ionicons name="checkmark-done" size={20} color={C.text} />
+                <Ionicons name="create-outline" size={20} color={C.white} />
+                <Text style={styles.outlineBtnText}>Sin código de barras · escribir a mano</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.doneBtn, pressed && styles.pressed]}
+                onPress={onClose}
+                accessibilityRole="button"
+              >
+                <Ionicons name="checkmark" size={H.icon} color={C.navy} />
                 <Text style={styles.doneBtnText}>
                   Listo{count > 0 ? ` · ${count} dispenser${count !== 1 ? 's' : ''}` : ''}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             </>
           )}
         </View>
@@ -413,16 +428,25 @@ export function BarcodeScannerModal({
   );
 }
 
-const CORNER = 28;
-const CORNER_W = 3;
+const FEEDBACK_TONE: Record<
+  FeedbackKind,
+  { bg: string; fg: string; iconBg: string; iconFg: string; icon: keyof typeof Ionicons.glyphMap }
+> = {
+  ok: { bg: C.green, fg: C.navy, iconBg: C.navy, iconFg: C.green, icon: 'checkmark' },
+  dup: { bg: C.orange, fg: C.navy, iconBg: C.navy, iconFg: C.orange, icon: 'alert' },
+  invalid: { bg: C.red, fg: C.white, iconBg: C.white, iconFg: C.red, icon: 'close' },
+};
+
+const CORNER = 44;
+const CORNER_W = 5;
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#000' },
+  root: { flex: 1, backgroundColor: C.navy },
+  pressed: { opacity: 0.9 },
 
-  scrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.28)',
-  },
+  scrim: { flex: 1, backgroundColor: C.cameraScrim },
+  scrimRow: { height: FRAME_H, flexDirection: 'row' },
+  hole: { width: FRAME_W },
 
   permissionWrap: {
     ...StyleSheet.absoluteFillObject,
@@ -431,21 +455,17 @@ const styles = StyleSheet.create({
     padding: S.xxl,
     gap: S.md,
   },
-  permissionTitle: { color: '#fff', fontSize: F.lg, fontWeight: W.extra },
-  permissionSub: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: F.sm + 1,
-    textAlign: 'center',
-    lineHeight: 20,
+  permissionIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: C.white,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  permissionBtn: {
-    marginTop: S.sm,
-    backgroundColor: C.primary,
-    borderRadius: R.md,
-    paddingHorizontal: 22,
-    paddingVertical: 12,
-  },
-  permissionBtnText: { color: '#fff', fontSize: F.md, fontWeight: W.bold },
+  permissionTitle: { ...T.screenTitle, color: C.white },
+  permissionSub: { ...T.body, color: C.onNavyMuted, textAlign: 'center' },
+  permissionBtn: { alignSelf: 'stretch', marginTop: S.sm },
 
   topBar: {
     position: 'absolute',
@@ -455,30 +475,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingHorizontal: S.gutter,
+    paddingBottom: S.sm,
   },
   counter: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderRadius: R.full,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    gap: S.md - 2,
+    height: H.circleButton,
+    paddingLeft: S.sm + 2,
+    paddingRight: S.xl - 2,
+    borderRadius: H.circleButton / 2,
+    backgroundColor: C.white,
   },
-  counterText: { color: '#fff', fontSize: F.md, fontWeight: W.extra },
-  counterLabel: { color: 'rgba(255,255,255,0.75)', fontSize: F.sm, fontWeight: W.semibold },
-  topActions: { flexDirection: 'row', gap: 8 },
-  iconBtn: {
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderRadius: R.full,
-    width: 40,
-    height: 40,
+  counterBadge: {
+    minWidth: 30,
+    height: 30,
+    paddingHorizontal: S.xs + 2,
+    borderRadius: 15,
+    backgroundColor: C.green,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconBtnActive: { backgroundColor: C.warning },
+  counterText: { ...T.label, fontFamily: T.button.fontFamily, color: C.navy, fontVariant: ['tabular-nums'] },
+  counterLabel: { ...T.label, fontSize: T.body.fontSize, color: C.navy },
+  topActions: { flexDirection: 'row', gap: S.sm },
+  iconBtn: {
+    width: H.circleButton,
+    height: H.circleButton,
+    borderRadius: H.circleButton / 2,
+    backgroundColor: C.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconBtnActive: { backgroundColor: C.orange },
 
   frameWrap: {
     ...StyleSheet.absoluteFillObject,
@@ -488,145 +518,139 @@ const styles = StyleSheet.create({
   frame: {
     width: FRAME_W,
     height: FRAME_H,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.35)',
-    borderRadius: R.lg,
-    backgroundColor: 'transparent',
-    overflow: 'hidden',
   },
   corner: {
     position: 'absolute',
     width: CORNER,
     height: CORNER,
-    borderColor: '#fff',
   },
-  cornerTL: { top: -1, left: -1, borderTopWidth: CORNER_W, borderLeftWidth: CORNER_W, borderTopLeftRadius: R.lg },
-  cornerTR: { top: -1, right: -1, borderTopWidth: CORNER_W, borderRightWidth: CORNER_W, borderTopRightRadius: R.lg },
-  cornerBL: { bottom: -1, left: -1, borderBottomWidth: CORNER_W, borderLeftWidth: CORNER_W, borderBottomLeftRadius: R.lg },
-  cornerBR: { bottom: -1, right: -1, borderBottomWidth: CORNER_W, borderRightWidth: CORNER_W, borderBottomRightRadius: R.lg },
+  cornerTL: { top: -CORNER_W, left: -CORNER_W, borderTopWidth: CORNER_W, borderLeftWidth: CORNER_W, borderTopLeftRadius: R.block },
+  cornerTR: { top: -CORNER_W, right: -CORNER_W, borderTopWidth: CORNER_W, borderRightWidth: CORNER_W, borderTopRightRadius: R.block },
+  cornerBL: { bottom: -CORNER_W, left: -CORNER_W, borderBottomWidth: CORNER_W, borderLeftWidth: CORNER_W, borderBottomLeftRadius: R.block },
+  cornerBR: { bottom: -CORNER_W, right: -CORNER_W, borderBottomWidth: CORNER_W, borderRightWidth: CORNER_W, borderBottomRightRadius: R.block },
   scanLine: {
     position: 'absolute',
-    left: 8,
-    right: 8,
-    height: 2.5,
+    left: S.xl,
+    right: S.xl,
+    height: 3,
     borderRadius: 2,
-    backgroundColor: C.primaryGlow,
-    shadowColor: C.primaryGlow,
+    backgroundColor: C.green,
+    shadowColor: C.green,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.9,
-    shadowRadius: 6,
+    shadowRadius: 8,
   },
-  hint: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: F.sm + 1,
-    fontWeight: W.semibold,
-    marginTop: 18,
-    textAlign: 'center',
-    paddingHorizontal: 30,
+  // Hangs below the frame without moving it off center.
+  belowFrame: {
+    position: 'absolute',
+    top: FRAME_H + S.xl + CORNER_W,
+    left: -S.xxxl,
+    right: -S.xxxl,
+    alignItems: 'center',
+    gap: S.lg,
   },
+  hint: { ...T.label, fontSize: 17, lineHeight: 24, color: C.white, textAlign: 'center' },
 
   feedback: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    borderRadius: R.md,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    gap: S.md,
+    minHeight: H.circleButton,
+    maxWidth: '100%',
+    paddingVertical: S.xs,
+    paddingLeft: S.xs + 2,
+    paddingRight: S.xl,
+    borderRadius: H.circleButton / 2,
   },
-  feedbackOk: { backgroundColor: C.entry },
-  feedbackDup: { backgroundColor: C.warning },
-  feedbackInvalid: { backgroundColor: C.danger },
-  feedbackText: { flex: 1, color: '#fff', fontSize: F.sm + 1, fontWeight: W.bold },
+  feedbackIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  feedbackText: { ...T.label, flexShrink: 1 },
+  feedbackStandalone: { alignItems: 'center' },
+  feedbackCode: { fontFamily: T.button.fontFamily, fontVariant: ['tabular-nums'] },
 
   bottomBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    gap: 10,
+    paddingHorizontal: S.gutter,
+    paddingTop: S.md,
+    gap: S.md - 2,
   },
   recentRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: S.xs + 2,
     justifyContent: 'center',
   },
   recentChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    gap: S.xs,
+    backgroundColor: C.white,
     borderRadius: R.full,
-    paddingLeft: 8,
-    paddingRight: 12,
+    paddingLeft: S.sm,
+    paddingRight: S.md,
     paddingVertical: 5,
-    maxWidth: 150,
+    maxWidth: 160,
   },
-  recentChipText: { fontSize: F.xs + 1, fontWeight: W.bold, color: C.text },
-  recentChipInvalid: { backgroundColor: C.danger },
-  recentChipTextInvalid: { color: '#fff' },
+  recentChipText: { ...T.secondary, fontFamily: T.label.fontFamily, color: C.navy },
+  recentChipInvalid: { backgroundColor: C.red },
+  recentChipTextInvalid: { color: C.white },
+
+  outlineBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: S.md,
+    height: H.secondaryButton - 2,
+    borderRadius: (H.secondaryButton - 2) / 2,
+    borderWidth: 2,
+    borderColor: C.white,
+    paddingHorizontal: S.lg,
+  },
+  outlineBtnText: { ...T.label, fontSize: T.body.fontSize, color: C.white, flexShrink: 1 },
 
   doneBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#fff',
-    borderRadius: R.lg,
-    paddingVertical: 16,
+    gap: S.md - 2,
+    height: H.primaryButton,
+    borderRadius: H.primaryButton / 2,
+    backgroundColor: C.white,
   },
-  doneBtnText: { color: C.text, fontSize: F.md, fontWeight: W.extra },
+  doneBtnText: { ...T.button, color: C.navy },
 
-  // Toggle "escribir a mano"
-  manualToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderRadius: R.lg,
-    paddingVertical: 12,
-  },
-  manualToggleText: { color: '#fff', fontSize: F.sm + 1, fontWeight: W.bold },
-
-  // Panel de carga manual dentro del escáner
   manualPanel: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#fff',
-    borderRadius: R.lg,
-    paddingLeft: 14,
-    paddingRight: 6,
-    height: 56,
+    gap: S.md,
+    backgroundColor: C.white,
+    borderRadius: R.field,
+    paddingLeft: S.lg + 2,
+    paddingRight: S.sm,
+    height: H.field,
   },
   manualInput: {
     flex: 1,
-    fontSize: F.md,
-    fontWeight: W.semibold,
-    color: C.text,
+    fontFamily: T.label.fontFamily,
+    fontSize: T.body.fontSize,
+    color: C.navy,
     paddingVertical: 0,
   },
   manualAddBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: R.md,
-    backgroundColor: C.primary,
+    width: H.touch,
+    height: H.touch,
+    borderRadius: H.touch / 2,
+    backgroundColor: C.navy,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  manualAddBtnOff: { backgroundColor: C.borderStrong },
-  backToScanBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
-  },
-  backToScanText: { color: '#fff', fontSize: F.sm + 1, fontWeight: W.bold },
+  manualAddBtnOff: { opacity: 0.35 },
 });
