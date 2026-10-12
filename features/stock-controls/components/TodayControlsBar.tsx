@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { StockControl } from '../types';
 import { C, H, R, S, T } from '@/lib/theme';
+import { formatClockTime } from '@/lib/dateFormat';
 
 type Props = {
   controls: StockControl[];
@@ -25,11 +26,6 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string; ic
   ACCEPTED_BY_DRIVER: { label: 'Aceptado', color: C.greenDot, bg: C.greenSoft, icon: 'checkmark-circle' },
   REJECTED_BY_DRIVER: { label: 'Rechazado', color: C.redText, bg: C.redSoft, icon: 'close-circle' },
 };
-
-function formatTime(dateStr: string): string {
-  const d = new Date(dateStr);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
 
 /**
  * Barra compacta con el estado en vivo de los controles del día del
@@ -109,7 +105,7 @@ export function TodayControlsBar({ controls, pending, accepted }: Props) {
                     <View style={styles.rowLeft}>
                       <Text style={styles.rowRoute}>Reparto {item.routeCode}</Text>
                       <Text style={styles.rowMeta}>
-                        {isExit ? 'Salida' : 'Entrada'} · {formatTime(item.createdAt)} · {item.items.length} prod.
+                        {isExit ? 'Salida' : 'Entrada'} · {formatClockTime(item.createdAt)} · {item.items.length} prod.
                       </Text>
                     </View>
                     <View style={[styles.statusChip, { backgroundColor: meta.bg }]}>

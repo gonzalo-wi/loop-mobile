@@ -3,11 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { C, H, R, S, T } from '@/lib/theme';
 import type { Order } from '../types';
 import { ORDER_STATUS, OrderStatusStepper } from './OrderStatusStepper';
-
-function formatTime(dateStr: string): string {
-  const d = new Date(dateStr);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
+import { formatClockTime } from '@/lib/dateFormat';
 
 type OrderCardProps = {
   order: Order;
@@ -34,7 +30,7 @@ export function OrderCard({ order, onPress, showStepper }: OrderCardProps) {
         <View style={styles.texts}>
           <Text style={styles.route}>Reparto {order.routeCode}</Text>
           <Text style={styles.meta}>
-            {totalItems} producto{totalItems !== 1 ? 's' : ''} · {formatTime(order.createdAt)}
+            {totalItems} producto{totalItems !== 1 ? 's' : ''} · {formatClockTime(order.createdAt)}
           </Text>
         </View>
         <View style={[styles.chip, { backgroundColor: status.soft }]}>

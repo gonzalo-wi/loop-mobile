@@ -48,6 +48,7 @@ import {
   buildInitialFormValues,
   buildItems,
 } from '@/features/stock-controls/lib/editControlLogic';
+import { isoDateToDisplay } from '@/lib/dateFormat';
 
 const AGUAS_REFRESH_DELAY_MS = 2500;
 
@@ -312,8 +313,7 @@ export default function EditControlScreen() {
 
   const isEditable = control.status === 'CONTROLLED';
   const isExit = control.type === 'EXIT';
-  const [cy, cm, cd] = control.controlDate.split('-');
-  const dateFormatted = `${cd}/${cm}/${cy}`;
+  const dateFormatted = isoDateToDisplay(control.controlDate);
   const title = isExit ? 'Control de Salida' : 'Control de Entrada';
   const isCorrectable = isControlCorrectable(control, user?.role);
   const hasAguasInfo = !!control.aguasFormulario || control.aguasNroRemito != null;

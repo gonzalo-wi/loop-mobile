@@ -13,6 +13,7 @@ import { BLOCK_TONE, ColorBlock, EmptyState, ScreenHeader, SecondaryButton } fro
 import { getArrivalsProgress } from '@/features/stock-controls/lib/arrivalsProgress';
 import type { PendingArrivals, PendingRoute } from '@/features/stock-controls/types';
 import { C, R, S, T } from '@/lib/theme';
+import { isoDateToDisplay } from '@/lib/dateFormat';
 
 function getTodayDate(): string {
   const now = new Date();
@@ -105,7 +106,7 @@ export default function ArrivalsScreen() {
     }
   }, []);
 
-  const today = getTodayDate().split('-').reverse().join('/');
+  const today = isoDateToDisplay(getTodayDate());
   const progress = data ? getArrivalsProgress(data) : null;
 
   return (

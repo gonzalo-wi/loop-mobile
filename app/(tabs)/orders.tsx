@@ -25,6 +25,7 @@ import {
 import { OrderCard } from '@/features/driver/components/OrderCard';
 import type { Order } from '@/features/driver/types';
 import { C, H, R, S, T } from '@/lib/theme';
+import { isoDateToDisplay } from '@/lib/dateFormat';
 
 function getTodayDate(): string {
   const now = new Date();
@@ -82,7 +83,7 @@ export default function OrdersScreen() {
     load(true);
   }, [load]);
 
-  const today = getTodayDate().split('-').reverse().join('/');
+  const today = isoDateToDisplay(getTodayDate());
 
   // Filtro local para admin/picker
   const pendingOrders = orders.filter((o) => o.status === 'PENDING');

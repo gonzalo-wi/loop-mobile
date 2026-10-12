@@ -13,6 +13,7 @@ import { EmptyState, ScreenHeader, SecondaryButton, SegmentedControl } from '@/c
 import { MovementCard } from '@/features/dispensers/components/MovementCard';
 import type { DispenserMovement, DispenserMovementType } from '@/features/dispensers/types';
 import { C, S } from '@/lib/theme';
+import { isoDateToDisplay } from '@/lib/dateFormat';
 
 function getTodayDate(): string {
   const now = new Date();
@@ -70,7 +71,7 @@ export default function DispenserMovementsScreen() {
   const unloadMovements = movements.filter((m) => m.type === 'UNLOAD');
   const visible = filter === 'LOAD' ? loadMovements : unloadMovements;
 
-  const today = getTodayDate().split('-').reverse().join('/');
+  const today = isoDateToDisplay(getTodayDate());
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>

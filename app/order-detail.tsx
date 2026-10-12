@@ -15,16 +15,7 @@ import { BottomBar, EmptyState, PrimaryButton, ScreenHeader, SecondaryButton } f
 import { OrderStatusBlock } from '@/features/driver/components/OrderStatusBlock';
 import type { Order, OrderItem } from '@/features/driver/types';
 import { C, H, R, S, T } from '@/lib/theme';
-
-function formatDate(dateStr: string): string {
-  const [y, m, d] = dateStr.split('-');
-  return `${d}/${m}/${y}`;
-}
-
-function formatDateTime(dateStr: string): string {
-  const d = new Date(dateStr);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
+import { formatClockTime, isoDateToDisplay } from '@/lib/dateFormat';
 
 const ACTION: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap } | null> = {
   PENDING: { label: 'Empezar a preparar', icon: 'play-circle-outline' },
@@ -67,7 +58,7 @@ function AuditRow({
       <Text style={styles.auditText}>
         {verb} <Text style={styles.auditName}>{name}</Text>
       </Text>
-      <Text style={styles.auditTime}>{formatDateTime(at)}</Text>
+      <Text style={styles.auditTime}>{formatClockTime(at)}</Text>
     </View>
   );
 }
@@ -144,7 +135,7 @@ export default function OrderDetailScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      {header(`Reparto ${order.routeCode}`, `Pedido · ${formatDate(order.orderDate)}`)}
+      {header(`Reparto ${order.routeCode}`, `Pedido · ${isoDateToDisplay(order.orderDate)}`)}
 
       <ScrollView
         contentContainerStyle={[

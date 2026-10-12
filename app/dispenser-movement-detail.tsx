@@ -39,11 +39,7 @@ import { getSystemStatusBlocks } from '@/features/dispensers/lib/systemStatusBlo
 import { baggedAmong, toggleCode } from '@/features/dispensers/lib/bagged';
 import type { DispenserMovement } from '@/features/dispensers/types';
 import { C, H, R, S, T } from '@/lib/theme';
-
-function formatDate(dateStr: string): string {
-  const [y, m, d] = dateStr.split('-');
-  return `${d}/${m}/${y}`;
-}
+import { isoDateToDisplay } from '@/lib/dateFormat';
 
 export default function DispenserMovementDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -307,7 +303,7 @@ export default function DispenserMovementDetailScreen() {
         ) : (
           <View style={styles.pills}>
             <Pill label={mov.technician} icon="person-outline" />
-            <Pill label={formatDate(mov.movementDate)} icon="calendar-outline" />
+            <Pill label={isoDateToDisplay(mov.movementDate)} icon="calendar-outline" />
             {mov.registeredByUsername ? (
               <Pill label={`Registró: ${mov.registeredByUsername}`} icon="phone-portrait-outline" />
             ) : null}

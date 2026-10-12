@@ -27,6 +27,7 @@ import {
 } from '@/components/ui';
 import type { StockControl } from '@/features/stock-controls/types';
 import { C, H, R, S, T } from '@/lib/theme';
+import { isoDateToDisplay } from '@/lib/dateFormat';
 
 function InfoRow({
   icon, label, value, first,
@@ -175,8 +176,7 @@ export default function ApprovalDetailScreen() {
   const isExit = control.type === 'EXIT';
   const tone = isExit ? 'blue' : 'green';
   const colors = BLOCK_TONE[tone];
-  const [cy, cm, cd] = control.controlDate.split('-');
-  const dateFormatted = `${cd}/${cm}/${cy}`;
+  const dateFormatted = isoDateToDisplay(control.controlDate);
   const isApprovable = control.status === 'PENDING_DRIVER_APPROVAL';
   const typeTitle = isExit ? 'Control de Salida' : 'Control de Entrada';
 

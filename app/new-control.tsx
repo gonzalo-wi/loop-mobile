@@ -41,6 +41,7 @@ import type {
   StockControlType,
 } from '@/features/stock-controls/types';
 import { C, H, R, S, T } from '@/lib/theme';
+import { toLongDisplayDate } from '@/lib/dateFormat';
 
 // Primary button (60) + vertical padding of the bottom bar, so the last card isn't hidden.
 const BOTTOM_BAR_SPACE = H.primaryButton + S.md * 2 + S.lg;
@@ -94,13 +95,6 @@ function toDateString(date: Date): string {
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
-}
-
-function toDisplayDate(date: Date): string {
-  const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-  const d = String(date.getDate()).padStart(2, '0');
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  return `${days[date.getDay()]} ${d}/${m}/${date.getFullYear()}`;
 }
 
 // Header component defined outside to avoid FlatList remount issues
@@ -170,11 +164,11 @@ const FormHeader = React.memo(
           </Pressable>
 
           <Pill
-            label={toDisplayDate(controlDate)}
+            label={toLongDisplayDate(controlDate)}
             icon="calendar-outline"
             tone={pillTone}
             onPress={() => setShowDatePicker(true)}
-            accessibilityLabel={`${isExit ? 'Fecha de salida' : 'Fecha del control'}: ${toDisplayDate(controlDate)}`}
+            accessibilityLabel={`${isExit ? 'Fecha de salida' : 'Fecha del control'}: ${toLongDisplayDate(controlDate)}`}
           />
         </ColorBlock>
 

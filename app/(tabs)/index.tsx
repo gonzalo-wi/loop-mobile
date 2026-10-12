@@ -19,17 +19,13 @@ import { canAccessDispensers } from '@/features/dispensers/lib/access';
 import { AppLogoBadge, BLOCK_TONE, ColorBlock, EmptyState, Pill, SecondaryButton } from '@/components/ui';
 import type { StockControl } from '@/features/stock-controls/types';
 import { C, H, R, S, T } from '@/lib/theme';
+import { formatClockTime, isoDateToDisplay } from '@/lib/dateFormat';
 
 const DONE_STATUSES = new Set(['ACCEPTED_BY_DRIVER', 'SENT_TO_AGUAS']);
 
 function todayStr(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-function formatTime(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 function firstName(name?: string): string {
   return name?.trim().split(' ')[0] ?? '';
@@ -153,7 +149,6 @@ function SummaryTile({
 
 function PendingCard({ control, onPress }: { control: StockControl; onPress: () => void }) {
   const isExit = control.type === 'EXIT';
-  const [y, m, d] = control.controlDate.split('-');
   return (
     <Pressable
       onPress={onPress}
@@ -163,7 +158,7 @@ function PendingCard({ control, onPress }: { control: StockControl; onPress: () 
     >
       <View style={styles.pendTop}>
         <Pill label={isExit ? 'Salida' : 'Entrada'} icon={isExit ? 'arrow-up' : 'arrow-down'} tone={isExit ? 'blue' : 'green'} />
-        <Text style={styles.pendDate}>{`${d}/${m}/${y}`}</Text>
+        <Text style={styles.pendDate}>{isoDateToDisplay(control.controlDate)}</Text>
       </View>
       <View>
         <Text style={styles.pendBranch}>{control.branchName}</Text>
@@ -319,7 +314,7 @@ function DriverHome() {
                 <View style={styles.actMid}>
                   <Text style={styles.actTitle}>Control de {lastActivity.type === 'EXIT' ? 'salida' : 'entrada'}</Text>
                   <Text style={styles.actMeta}>
-                    {route.truckPlate ? `${route.truckPlate} · ` : ''}Hoy {formatTime(lastActivity.createdAt)}
+                    {route.truckPlate ? `${route.truckPlate} · ` : ''}Hoy {formatClockTime(lastActivity.createdAt)}
                   </Text>
                 </View>
                 {DONE_STATUSES.has(lastActivity.status) && (

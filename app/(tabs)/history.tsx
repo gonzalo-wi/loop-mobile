@@ -18,6 +18,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useRouteStore } from '@/store/routeStore';
 import type { StockControl } from '@/features/stock-controls/types';
 import { C, R, S, T } from '@/lib/theme';
+import { formatClockTime, isoDateToDisplay } from '@/lib/dateFormat';
 
 const TYPE_LABELS: Record<string, string> = {
   EXIT: 'Salida',
@@ -30,13 +31,6 @@ function getTodayDate(): string {
   const m = String(now.getMonth() + 1).padStart(2, '0');
   const d = String(now.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
-}
-
-function formatTime(dateStr: string): string {
-  const date = new Date(dateStr);
-  const h = String(date.getHours()).padStart(2, '0');
-  const min = String(date.getMinutes()).padStart(2, '0');
-  return `${h}:${min}`;
 }
 
 function ControlCard({
@@ -63,7 +57,7 @@ function ControlCard({
           tone={isExit ? 'blue' : 'green'}
         />
         <Text style={styles.cardRoute}>Reparto {control.routeCode}</Text>
-        <Text style={styles.cardTime}>{formatTime(control.createdAt)}</Text>
+        <Text style={styles.cardTime}>{formatClockTime(control.createdAt)}</Text>
       </View>
 
       <Text style={styles.cardBranch}>{control.branchName}</Text>
@@ -128,7 +122,7 @@ function ControllerHistory() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <ScreenHeader title="Historial" subtitle={`Hoy · ${getTodayDate().split('-').reverse().join('/')}`} />
+      <ScreenHeader title="Historial" subtitle={`Hoy · ${isoDateToDisplay(getTodayDate())}`} />
       <View style={styles.segment}>
         <SegmentedControl
           tone="onCream"

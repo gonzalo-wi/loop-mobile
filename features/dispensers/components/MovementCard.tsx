@@ -5,11 +5,7 @@ import { C, R, S, T } from '@/lib/theme';
 import { getExcludedSerials } from '../lib/movementOutcome';
 import { getMovementStatusCells } from '../lib/movementStatusCells';
 import type { DispenserMovement } from '../types';
-
-function formatTime(dateStr: string): string {
-  const d = new Date(dateStr);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
+import { formatClockTime } from '@/lib/dateFormat';
 
 type MovementCardProps = {
   mov: DispenserMovement;
@@ -45,7 +41,7 @@ export function MovementCard({ mov, onPress }: MovementCardProps) {
             {count} dispenser{count !== 1 ? 's' : ''}
           </Text>
           <Text style={styles.meta}>
-            {mov.technician} · {formatTime(mov.createdAt)}
+            {mov.technician} · {formatClockTime(mov.createdAt)}
           </Text>
         </View>
         <Ionicons name="chevron-forward" size={20} color={C.ink2} />
