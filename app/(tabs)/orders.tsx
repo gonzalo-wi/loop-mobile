@@ -2,21 +2,29 @@ import { useState, useCallback } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   FlatList,
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getOrders } from '@/features/driver/services/ordersApi';
 import { useRouteStore } from '@/store/routeStore';
 import { useAuthStore } from '@/store/authStore';
-import { HeroHeader } from '@/components/HeroHeader';
-import { OrderStatusStepper } from '@/features/driver/components/OrderStatusStepper';
-import type { Order, OrderStatus } from '@/features/driver/types';
-import { C, R, S, F, W, Shdw } from '@/lib/theme';
+import {
+  BottomBar,
+  EmptyState,
+  PrimaryButton,
+  ScreenHeader,
+  SecondaryButton,
+  SegmentedControl,
+} from '@/components/ui';
+import { OrderCard } from '@/features/driver/components/OrderCard';
+import type { Order } from '@/features/driver/types';
+import { C, H, R, S, T } from '@/lib/theme';
 
 function getTodayDate(): string {
   const now = new Date();
@@ -26,111 +34,13 @@ function getTodayDate(): string {
   return `${y}-${m}-${d}`;
 }
 
-function formatTime(dateStr: string): string {
-  const d = new Date(dateStr);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
-
-const STATUS_CHIP: Record<string, { label: string; color: string; bg: string }> = {
-  PENDING:     { label: 'Pendiente',      color: C.warning, bg: C.warningLight },
-  IN_PROGRESS: { label: 'En preparación', color: C.primary, bg: C.primaryLight },
-  COMPLETED:   { label: 'Completado',     color: C.entry,   bg: C.entryLight   },
-};
-
-// ─── Segmented filter (solo admin/picker) ────────────────────────────────────
-
 type OrderFilter = 'PENDING' | 'DONE';
-
-function SegmentedFilter({
-  value,
-  onChange,
-  pendingCount,
-  doneCount,
-}: {
-  value: OrderFilter;
-  onChange: (v: OrderFilter) => void;
-  pendingCount: number;
-  doneCount: number;
-}) {
-  const options: { key: OrderFilter; label: string; count: number; color: string }[] = [
-    { key: 'PENDING', label: 'Pendientes', count: pendingCount, color: C.warning },
-    { key: 'DONE',    label: 'Preparados', count: doneCount,    color: C.entry   },
-  ];
-
-  return (
-    <View style={filter.container}>
-      {options.map((opt) => {
-        const active = value === opt.key;
-        return (
-          <TouchableOpacity
-            key={opt.key}
-            style={[filter.pill, active && { backgroundColor: opt.color }]}
-            onPress={() => onChange(opt.key)}
-            activeOpacity={0.75}
-          >
-            <Text style={[filter.label, active && filter.labelActive]}>
-              {opt.label}
-            </Text>
-            <View style={[filter.badge, active ? filter.badgeActive : { backgroundColor: active ? 'rgba(255,255,255,0.25)' : C.border }]}>
-              <Text style={[filter.badgeText, active && filter.badgeTextActive]}>
-                {opt.count}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
-}
-
-// ─── Card ────────────────────────────────────────────────────────────────────
-
-function OrderCard({
-  order,
-  onPress,
-  showStepper,
-}: {
-  order: Order;
-  onPress: () => void;
-  showStepper: boolean;
-}) {
-  const totalItems = order.items.length;
-  const chip = STATUS_CHIP[order.status] ?? { label: order.status, color: C.textSub, bg: C.inputBg };
-
-  return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
-      <View style={styles.cardTop}>
-        <View style={styles.cartIcon}>
-          <Ionicons name="cart" size={18} color={C.primary} />
-        </View>
-        <View style={styles.cardTopText}>
-          <Text style={styles.cardRoute}>Reparto {order.routeCode}</Text>
-          <Text style={styles.cardMeta}>
-            {totalItems} producto{totalItems !== 1 ? 's' : ''} · {formatTime(order.createdAt)}
-          </Text>
-        </View>
-        <View style={[styles.statusChip, { backgroundColor: chip.bg }]}>
-          <Text style={[styles.statusChipText, { color: chip.color }]}>{chip.label}</Text>
-        </View>
-      </View>
-
-      {order.observations ? (
-        <Text style={styles.cardObs} numberOfLines={1}>{order.observations}</Text>
-      ) : null}
-
-      {showStepper && (
-        <View style={styles.stepperWrap}>
-          <OrderStatusStepper status={order.status} />
-        </View>
-      )}
-    </TouchableOpacity>
-  );
-}
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function OrdersScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { route } = useRouteStore();
   const { user } = useAuthStore();
   const isDriver = user?.role === 'REPARTIDOR';
@@ -181,65 +91,75 @@ export default function OrdersScreen() {
     ? orders
     : activeFilter === 'PENDING' ? pendingOrders : doneOrders;
 
+  const emptyTitle = isDriver ? 'Sin pedidos hoy' : 'Sin pedidos';
   const emptySubtext = isDriver
-    ? 'Creá un nuevo pedido con el botón de abajo'
+    ? 'Creá uno con el botón de abajo o pedí una sugerencia.'
     : activeFilter === 'PENDING'
       ? 'No hay pedidos pendientes por preparar'
       : 'Todavía no se preparó ningún pedido hoy';
 
   return (
-    <View style={styles.screen}>
-      <HeroHeader title="Pedidos" subtitle={`Hoy · ${today}`} />
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
+      <ScreenHeader title="Pedidos" subtitle={`Hoy · ${today}`} />
 
       {!isDriver && (
-        <SegmentedFilter
-          value={activeFilter}
-          onChange={setActiveFilter}
-          pendingCount={pendingOrders.length}
-          doneCount={doneOrders.length}
-        />
+        <View style={styles.segment}>
+          <SegmentedControl
+            tone="onCream"
+            value={activeFilter}
+            onChange={setActiveFilter}
+            options={[
+              { value: 'PENDING', label: 'Pendientes', activeColor: C.orange, badge: pendingOrders.length },
+              { value: 'DONE', label: 'Preparados', activeColor: C.greenDot, badge: doneOrders.length },
+            ]}
+          />
+        </View>
       )}
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={C.primary} />
+          <ActivityIndicator size="large" color={C.navy} />
         </View>
       ) : error ? (
         <View style={styles.centered}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity onPress={() => load()} style={styles.retryBtn}>
-            <Text style={styles.retryText}>Reintentar</Text>
-          </TouchableOpacity>
+          <EmptyState icon="cloud-offline-outline" title="No se pudieron cargar los pedidos" hint={error} />
+          <View style={styles.retryWrap}>
+            <SecondaryButton title="Reintentar" icon="refresh" onPress={() => load()} />
+          </View>
         </View>
       ) : isDriver && !route ? (
         <View style={styles.centered}>
-          <Ionicons name="warning-outline" size={40} color={C.warning} />
-          <Text style={styles.noRouteText}>Sin reparto asignado</Text>
+          <EmptyState icon="warning-outline" title="Sin reparto asignado" hint="Contactá al administrador." />
         </View>
       ) : (
         <FlatList
           data={visibleOrders}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={[styles.list, isDriver && styles.listWithFab]}
+          contentContainerStyle={[styles.list, isDriver && { paddingBottom: BOTTOM_BAR_SPACE }]}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.navy} />
           }
           ListHeaderComponent={
             isDriver ? (
-              <TouchableOpacity
-                style={styles.suggestCard}
-                onPress={() => router.push('/create-order?suggest=1')}
-                activeOpacity={0.9}
-              >
-                <View style={styles.suggestIc}>
-                  <Ionicons name="sparkles" size={20} color={C.primary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.suggestTt}>Sugerir pedido</Text>
-                  <Text style={styles.suggestDs}>Repetí lo del mismo día la semana pasada</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={C.textMuted} />
-              </TouchableOpacity>
+              <View style={styles.header}>
+                <Pressable
+                  style={({ pressed }) => [styles.suggest, pressed && styles.pressed]}
+                  onPress={() => router.push('/create-order?suggest=1')}
+                  accessibilityRole="button"
+                >
+                  <View style={styles.suggestIcon}>
+                    <Ionicons name="sparkles-outline" size={H.icon} color={C.white} />
+                  </View>
+                  <View style={styles.flex}>
+                    <Text style={styles.suggestTitle}>Sugerir pedido</Text>
+                    <Text style={styles.suggestHint}>Repetí lo del mismo día de la semana pasada</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={C.ink2} />
+                </Pressable>
+                {visibleOrders.length > 0 ? (
+                  <Text style={styles.sectionTitle} accessibilityRole="header">De hoy</Text>
+                ) : null}
+              </View>
             ) : null
           }
           renderItem={({ item }) => (
@@ -250,116 +170,53 @@ export default function OrdersScreen() {
             />
           )}
           ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <View style={styles.emptyIcon}>
-                <Ionicons name="cart-outline" size={40} color={C.textMuted} />
-              </View>
-              <Text style={styles.emptyTitle}>Sin pedidos</Text>
-              <Text style={styles.emptySub}>{emptySubtext}</Text>
-            </View>
+            <EmptyState icon="cart-outline" title={emptyTitle} hint={emptySubtext} style={styles.empty} />
           }
         />
       )}
 
       {isDriver && (
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => router.push('/create-order')}
-          activeOpacity={0.9}
-        >
-          <Ionicons name="add" size={24} color="#fff" />
-          <Text style={styles.fabText}>Nuevo Pedido</Text>
-        </TouchableOpacity>
+        <BottomBar aboveTabBar>
+          <View style={styles.flex}>
+            <PrimaryButton title="Nuevo pedido" icon="add" onPress={() => router.push('/create-order')} />
+          </View>
+        </BottomBar>
       )}
     </View>
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
+// Primary button + the bottom bar's vertical padding, so the last card isn't hidden.
+const BOTTOM_BAR_SPACE = H.primaryButton + S.md * 2;
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: C.bg },
-  list: { padding: 16, gap: 12, flexGrow: 1 },
-  listWithFab: { paddingBottom: 100 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  errorText: { color: C.danger, fontSize: F.base, textAlign: 'center', marginBottom: 14 },
-  retryBtn: { paddingHorizontal: 22, paddingVertical: 10, backgroundColor: C.primary, borderRadius: R.md },
-  retryText: { color: '#fff', fontSize: F.base, fontWeight: W.bold },
-  noRouteText: { fontSize: F.base, color: C.textMuted, marginTop: 12, textAlign: 'center' },
+  screen: { flex: 1, backgroundColor: C.cream },
+  flex: { flex: 1 },
+  pressed: { opacity: 0.85 },
+  segment: { paddingHorizontal: S.gutter, paddingBottom: S.md },
+  list: { paddingHorizontal: S.gutter, paddingBottom: S.lg, gap: S.md, flexGrow: 1 },
+  centered: { flex: 1, justifyContent: 'center', padding: S.gutter, gap: S.lg },
+  retryWrap: { alignSelf: 'center' },
+  empty: { flex: 1 },
 
-  suggestCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: C.surface, borderRadius: R.lg, padding: 14,
-    borderWidth: 1, borderColor: '#DBE4FF', ...Shdw.card,
-  },
-  suggestIc: {
-    width: 42, height: 42, borderRadius: R.md,
-    backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center',
-  },
-  suggestTt: { fontSize: F.md, fontWeight: W.extra, color: C.text },
-  suggestDs: { fontSize: F.sm, color: C.textMuted, fontWeight: W.medium, marginTop: 1 },
-
-  card: { backgroundColor: C.surface, borderRadius: R.lg, padding: 15, gap: 12, ...Shdw.card },
-  cardTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  cartIcon: {
-    width: 38, height: 38, borderRadius: R.sm,
-    backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center',
-  },
-  cardTopText: { flex: 1, gap: 2 },
-  cardRoute: { fontSize: F.md, fontWeight: W.extra, color: C.text },
-  cardMeta: { fontSize: F.sm, color: C.textMuted, fontWeight: W.medium },
-  cardObs: { fontSize: F.sm, color: C.textMuted, fontStyle: 'italic', marginTop: -4 },
-  statusChip: { borderRadius: R.full, paddingHorizontal: 10, paddingVertical: 4 },
-  statusChipText: { fontSize: F.xs + 1, fontWeight: W.bold },
-  stepperWrap: { borderTopWidth: 1, borderTopColor: C.border, paddingTop: 14 },
-
-  emptyState: { alignItems: 'center', paddingTop: 60 },
-  emptyIcon: {
-    width: 84, height: 84, borderRadius: R.full,
-    backgroundColor: C.inputBg, alignItems: 'center', justifyContent: 'center', marginBottom: 18,
-  },
-  emptyTitle: { fontSize: 17, fontWeight: W.extra, color: C.textSub },
-  emptySub: { fontSize: F.sm, color: C.textMuted, marginTop: 6, textAlign: 'center' },
-
-  fab: {
-    position: 'absolute', bottom: 24, right: 20, left: 20,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: C.primary, borderRadius: R.lg, paddingVertical: 16, ...Shdw.float,
-  },
-  fabText: { color: '#fff', fontSize: F.md, fontWeight: W.extra },
-});
-
-const filter = StyleSheet.create({
-  container: {
+  header: { gap: S.lg },
+  suggest: {
     flexDirection: 'row',
-    marginHorizontal: 16,
-    marginTop: 14,
-    marginBottom: 2,
-    backgroundColor: C.inputBg,
-    borderRadius: R.lg,
-    padding: 4,
-    gap: 2,
+    alignItems: 'center',
+    gap: S.md + 2,
+    padding: S.lg,
+    borderRadius: R.card,
+    backgroundColor: C.white,
   },
-  pill: {
-    flex: 1,
-    flexDirection: 'row',
+  suggestIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: C.blue,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 9,
-    borderRadius: R.md,
-    gap: 7,
   },
-  label: { fontSize: F.sm, fontWeight: W.semibold, color: C.textSub },
-  labelActive: { color: '#fff', fontWeight: W.extra },
-  badge: {
-    borderRadius: R.full,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    backgroundColor: C.border,
-    minWidth: 22,
-    alignItems: 'center',
-  },
-  badgeActive: { backgroundColor: 'rgba(255,255,255,0.25)' },
-  badgeText: { fontSize: F.xs, fontWeight: W.bold, color: C.textSub },
-  badgeTextActive: { color: '#fff' },
+  suggestTitle: { ...T.data, color: C.navy },
+  suggestHint: { ...T.secondary, fontFamily: T.body.fontFamily, fontSize: T.body.fontSize, color: C.ink2 },
+  sectionTitle: { ...T.section, color: C.navy, marginTop: S.xs },
 });

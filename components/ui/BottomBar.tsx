@@ -7,6 +7,8 @@ type BottomBarProps = {
   children: ReactNode;
   /** Extra space for a floating tab bar underneath, if the screen has one. */
   extraBottom?: number;
+  /** Inside a tab screen the scene already clears the tab bar and the safe area. */
+  aboveTabBar?: boolean;
 };
 
 /**
@@ -14,10 +16,10 @@ type BottomBarProps = {
  * cream gradient behind it; without a gradient dependency it uses solid cream,
  * which also keeps scrolled content from showing between the buttons.
  */
-export function BottomBar({ children, extraBottom = 0 }: BottomBarProps) {
+export function BottomBar({ children, extraBottom = 0, aboveTabBar = false }: BottomBarProps) {
   const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.bar, { paddingBottom: S.md + insets.bottom + extraBottom }]}>
+    <View style={[styles.bar, { paddingBottom: S.md + (aboveTabBar ? 0 : insets.bottom) + extraBottom }]}>
       {children}
     </View>
   );

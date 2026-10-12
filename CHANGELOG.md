@@ -8,6 +8,11 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
+- Pantalla "Carga/Descarga registrada" después de enviar dispensers, con el
+  estado de Aguas y Odoo que se actualiza solo, "Nueva carga" y "Ver
+  movimientos de hoy". Si falla el envío, panel con "Reintentar" (los
+  dispensers siguen cargados); si ya existe un movimiento para ese reparto y
+  fecha, panel con "Ver ese movimiento".
 - Dispensers embolsados en las descargas: cada serial escaneado se puede marcar
   como "Embolsado" (un dispenser nuevo que no se pudo entregar y vuelve sin
   usar) para que en planta no lo manden a reparación. La marca se ve en el
@@ -66,6 +71,8 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   reales del hook (RTL + jsdom por-archivo).
 
 ### Fixed
+- En ruta sin repartos del día mostraba "100% completado · Todos los repartos
+  llegaron"; ahora muestra un estado vacío.
 - Al escanear, los seriales conservan el punto `.` y el asterisco `*`: antes
   `sanitizeSerial` los borraba junto con el resto de caracteres especiales,
   pero algunos códigos de barras los incluyen y quedaban mutilados (no
