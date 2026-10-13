@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { BLOCK_TONE, ColorBlock, SystemTag, type BlockTone } from '@/components/ui';
-import { S, T } from '@/lib/theme';
+import { S, T, FIT_ONE_LINE } from '@/lib/theme';
 import type { StatusCellTone } from '../lib/movementStatusCells';
 import type { SystemStatusBlock as Block } from '../lib/systemStatusBlocks';
 
@@ -19,7 +19,9 @@ export function SystemStatusBlock({ block }: { block: Block }) {
     <ColorBlock tone={tone} style={styles.block}>
       <SystemTag system={block.system} label={block.tag} />
       <View style={styles.texts}>
-        <Text style={[styles.title, { color: colors.fg }]}>{block.title}</Text>
+        <Text style={[styles.title, { color: colors.fg }]} {...FIT_ONE_LINE}>
+          {block.title}
+        </Text>
         {block.detail ? <Text style={[styles.detail, { color: colors.fgSub }]}>{block.detail}</Text> : null}
       </View>
     </ColorBlock>
@@ -30,7 +32,7 @@ const styles = StyleSheet.create({
   block: {
     flex: 1,
     minHeight: 132,
-    justifyContent: 'space-between',
+    gap: S.lg,
     padding: S.lg,
   },
   texts: { gap: 2 },

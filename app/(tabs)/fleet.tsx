@@ -33,7 +33,7 @@ import {
   vehicleStatus,
 } from '@/features/fleet/lib/fleetStatus';
 import { ApiError } from '@/lib/api';
-import { C, H, R, S, T } from '@/lib/theme';
+import { C, H, R, S, T, FIT_ONE_LINE } from '@/lib/theme';
 
 const REFRESH_MS = 20000; // refresco "en vivo" (>10s para no saturar Powerfleet)
 
@@ -142,7 +142,7 @@ export default function FleetScreen() {
               <View style={styles.blockTop}>
                 <View style={styles.plate} accessibilityLabel={`Patente ${data.licensePlate}`}>
                   <Text style={styles.plateLabel}>PATENTE</Text>
-                  <Text style={styles.plateText}>{data.licensePlate}</Text>
+                  <Text style={styles.plateText} {...FIT_ONE_LINE}>{data.licensePlate}</Text>
                 </View>
                 <View style={styles.engine}>
                   <Ionicons name="power" size={18} color={C.navy} />
@@ -226,6 +226,7 @@ const styles = StyleSheet.create({
   block: { gap: S.sm, padding: S.xl },
   blockTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: S.md, marginBottom: S.sm },
   plate: {
+    flexShrink: 1,
     alignItems: 'center',
     paddingVertical: S.xs,
     paddingHorizontal: S.lg,

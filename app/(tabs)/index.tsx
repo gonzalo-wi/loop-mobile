@@ -18,7 +18,7 @@ import { getStockControls } from '@/features/stock-controls/services/stockContro
 import { canAccessDispensers } from '@/features/dispensers/lib/access';
 import { AppLogoBadge, BLOCK_TONE, ColorBlock, EmptyState, Pill, SecondaryButton } from '@/components/ui';
 import type { StockControl } from '@/features/stock-controls/types';
-import { C, H, R, S, T } from '@/lib/theme';
+import { C, H, R, S, T, FIT_ONE_LINE } from '@/lib/theme';
 import { formatClockTime, isoDateToDisplay } from '@/lib/dateFormat';
 
 const DONE_STATUSES = new Set(['ACCEPTED_BY_DRIVER', 'SENT_TO_AGUAS']);
@@ -59,7 +59,7 @@ function DirectionTile({
       </View>
       <View>
         <Text style={[home.tileKicker, { color: tone.fgSub }]}>Control de</Text>
-        <Text style={[home.tileWord, { color: tone.fg }]} numberOfLines={1} adjustsFontSizeToFit>
+        <Text style={[home.tileWord, { color: tone.fg }]} {...FIT_ONE_LINE}>
           {word}
         </Text>
         <Text style={[home.tileHint, { color: tone.fgSub }]}>
@@ -84,7 +84,7 @@ function DispensersTile({ onPress }: { onPress: () => void }) {
         ))}
       </View>
       <View style={home.dispensersTag}>
-        <Text style={home.dispensersTagText}>DISPENSERS</Text>
+        <Text style={home.dispensersTagText} {...FIT_ONE_LINE}>DISPENSERS</Text>
       </View>
       <View style={home.dispensersFoot}>
         <View style={home.dispensersText}>
@@ -141,8 +141,8 @@ function SummaryTile({
       <View style={[styles.tileIcon, { backgroundColor: bg }]}>
         <Ionicons name={icon} size={20} color={C.navy} />
       </View>
-      <Text style={styles.tileNum}>{value}</Text>
-      <Text style={styles.tileLabel}>{label}</Text>
+      <Text style={styles.tileNum} {...FIT_ONE_LINE}>{value}</Text>
+      <Text style={styles.tileLabel} {...FIT_ONE_LINE}>{label}</Text>
     </View>
   );
 }

@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { C, H, R, S, T } from '@/lib/theme';
+import { C, H, R, S, T, FIT_ONE_LINE } from '@/lib/theme';
 
 export type StatusTone = 'ok' | 'pending' | 'error' | 'neutral';
 
@@ -22,8 +22,11 @@ export function StatusCell({ system, status, tone }: StatusCellProps) {
   return (
     <View style={[styles.cell, { backgroundColor: t.bg }]}>
       <View style={[styles.dot, { backgroundColor: t.dot }]} />
-      <Text style={styles.system}>{system}</Text>
-      <Text style={[styles.status, tone === 'error' && styles.statusError]}>{status}</Text>
+      {/* One line each: with a large system font they shrink instead of breaking mid-word. */}
+      <Text style={styles.system} {...FIT_ONE_LINE}>{system}</Text>
+      <Text style={[styles.status, tone === 'error' && styles.statusError]} {...FIT_ONE_LINE}>
+        {status}
+      </Text>
     </View>
   );
 }
@@ -46,6 +49,7 @@ const styles = StyleSheet.create({
   system: {
     ...T.secondary,
     color: C.ink2,
+    flexShrink: 1,
   },
   status: {
     ...T.secondary,

@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusCell } from '@/components/ui';
-import { C, R, S, T } from '@/lib/theme';
+import { C, R, S, T, FIT_ONE_LINE } from '@/lib/theme';
 import { getExcludedSerials } from '../lib/movementOutcome';
 import { getMovementStatusCells } from '../lib/movementStatusCells';
 import type { DispenserMovement } from '../types';
@@ -34,10 +34,10 @@ export function MovementCard({ mov, onPress }: MovementCardProps) {
     >
       <View style={styles.top}>
         <View style={styles.route}>
-          <Text style={styles.routeText}>R{mov.routeCode}</Text>
+          <Text style={styles.routeText} {...FIT_ONE_LINE}>R{mov.routeCode}</Text>
         </View>
         <View style={styles.info}>
-          <Text style={styles.count}>
+          <Text style={styles.count} {...FIT_ONE_LINE}>
             {count} dispenser{count !== 1 ? 's' : ''}
           </Text>
           <Text style={styles.meta}>

@@ -43,6 +43,12 @@ const palette = {
   onNavyDeco: 'rgba(255,255,255,0.22)',
 };
 
+/**
+ * Text props for single words that must never break mid-word (status words,
+ * tags, plates): with a large system font they shrink to fit instead.
+ */
+export const FIT_ONE_LINE = { numberOfLines: 1, adjustsFontSizeToFit: true, minimumFontScale: 0.7 } as const;
+
 export const C = {
   ...palette,
 
