@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Linking,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView from 'react-native-maps';
@@ -30,6 +31,7 @@ import {
   formatSignal,
   isLocationStale,
   relativeShort,
+  truckMapUrls,
   vehicleStatus,
 } from '@/features/fleet/lib/fleetStatus';
 import { ApiError } from '@/lib/api';
@@ -85,10 +87,22 @@ export default function FleetScreen() {
     }, [plate, load]),
   );
 
-  function openInMaps() {
+  async function openInMaps() {
     if (!data) return;
-    const url = `https://www.google.com/maps/search/?api=1&query=${data.lat},${data.lng}`;
-    Linking.openURL(url).catch(() => setError('No se pudo abrir la app de mapas.'));
+    const urls = truckMapUrls(data.lat, data.lng, data.licensePlate);
+    try {
+      if (Platform.OS === 'android') {
+        try {
+          await Linking.openURL(urls.native);
+          return;
+        } catch {
+          // No app handles geo: links; the browser can still show the place.
+        }
+      }
+      await Linking.openURL(urls.web);
+    } catch {
+      setError('No se pudo abrir la app de mapas.');
+    }
   }
 
   const now = new Date();

@@ -58,3 +58,15 @@ export function fleetErrorMessage(status: number | undefined, message?: string):
   }
   return message || 'No se pudo obtener la ubicación.';
 }
+
+/**
+ * Links to show the truck in a maps app. On Android the geo: link opens the
+ * installed maps app straight on a labelled pin; the web link is the fallback.
+ */
+export function truckMapUrls(lat: number, lng: number, plate: string): { native: string; web: string } {
+  const coords = `${lat},${lng}`;
+  return {
+    native: `geo:${coords}?q=${coords}(${encodeURIComponent(`Camión ${plate}`)})`,
+    web: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coords)}`,
+  };
+}

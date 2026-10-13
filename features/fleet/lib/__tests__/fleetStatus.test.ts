@@ -3,6 +3,7 @@ import {
   formatSignal,
   isLocationStale,
   relativeShort,
+  truckMapUrls,
   vehicleStatus,
 } from '../fleetStatus';
 
@@ -73,5 +74,18 @@ describe('fleetErrorMessage', () => {
   it('falls back to the error message, then to a generic one', () => {
     expect(fleetErrorMessage(500, 'Timeout')).toBe('Timeout');
     expect(fleetErrorMessage(undefined)).toBe('No se pudo obtener la ubicación.');
+  });
+});
+
+describe('truckMapUrls', () => {
+  it('builds an Android geo link that drops a labelled pin on the truck', () => {
+    expect(truckMapUrls(-34.60372, -58.38159, 'AB123CD').native).toBe(
+      'geo:-34.60372,-58.38159?q=-34.60372,-58.38159(Cami%C3%B3n%20AB123CD)',
+    );
+  });
+  it('builds a web fallback with the coordinates as the query', () => {
+    expect(truckMapUrls(-34.60372, -58.38159, 'AB123CD').web).toBe(
+      'https://www.google.com/maps/search/?api=1&query=-34.60372%2C-58.38159',
+    );
   });
 });
