@@ -8,10 +8,6 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
-- Mapa real en "Mi camión" (repartidor), centrado en el camión; al tocarlo abre
-  la app de mapas. En los APK necesita la variable de build
-  `GOOGLE_MAPS_API_KEY` (EAS); sin ella la pantalla muestra solo la dirección y
-  "Abrir en el mapa".
 - Las cajas de cantidad del control de stock dicen qué son ("bultos ×N",
   "sueltas", "unidades").
 - Pantalla "Carga/Descarga registrada" después de enviar dispensers, con el

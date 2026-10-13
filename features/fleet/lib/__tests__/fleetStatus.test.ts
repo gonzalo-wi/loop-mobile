@@ -3,7 +3,7 @@ import {
   formatSignal,
   isLocationStale,
   relativeShort,
-  truckMapUrls,
+  truckMapUrl,
   vehicleStatus,
 } from '../fleetStatus';
 
@@ -77,15 +77,10 @@ describe('fleetErrorMessage', () => {
   });
 });
 
-describe('truckMapUrls', () => {
-  it('builds an Android geo link that drops a labelled pin on the truck', () => {
-    expect(truckMapUrls(-34.60372, -58.38159, 'AB123CD').native).toBe(
-      'geo:-34.60372,-58.38159?q=-34.60372,-58.38159(Cami%C3%B3n%20AB123CD)',
-    );
-  });
-  it('builds a web fallback with the coordinates as the query', () => {
-    expect(truckMapUrls(-34.60372, -58.38159, 'AB123CD').web).toBe(
-      'https://www.google.com/maps/search/?api=1&query=-34.60372%2C-58.38159',
+describe('truckMapUrl', () => {
+  it('opens Google Maps on the coordinates the backend sends', () => {
+    expect(truckMapUrl(-34.60372, -58.38159)).toBe(
+      'https://www.google.com/maps/search/?api=1&query=-34.60372,-58.38159',
     );
   });
 });
