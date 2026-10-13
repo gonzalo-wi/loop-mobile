@@ -81,6 +81,8 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   reales del hook (RTL + jsdom por-archivo).
 
 ### Fixed
+- Remito del repartidor: si no hay remito para hoy muestra "No tenés un remito
+  disponible para hoy." en vez del error técnico del servidor.
 - En ruta sin repartos del día mostraba "100% completado · Todos los repartos
   llegaron"; ahora muestra un estado vacío.
 - Al escanear, los seriales conservan el punto `.` y el asterisco `*`: antes

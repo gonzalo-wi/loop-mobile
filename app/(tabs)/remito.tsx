@@ -12,6 +12,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { ColorBlock, EmptyState, ScreenHeader } from '@/components/ui';
 import { useRouteStore } from '@/store/routeStore';
 import { downloadRemito, openRemitoPdf } from '@/features/remito/services/remitoApi';
+import { remitoErrorMessage } from '@/features/remito/lib/remitoErrorMessage';
+import { ApiError } from '@/lib/api';
 import { C, H, R, S, T } from '@/lib/theme';
 
 function todayStr(): string {
@@ -31,11 +33,21 @@ export default function RemitoScreen() {
     if (!routeId) return;
     setLoading(true);
     setError(null);
+    let uri: string;
     try {
-      const uri = await downloadRemito(routeId, todayStr());
+      uri = await downloadRemito(routeId, todayStr());
+    } catch (e) {
+      // Keep the backend detail in the logs; the driver gets a plain message.
+      console.warn('Remito download failed', e);
+      setError(remitoErrorMessage(e instanceof ApiError ? e.status : undefined));
+      setLoading(false);
+      return;
+    }
+    try {
       await openRemitoPdf(uri);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo obtener el remito.');
+      console.warn('Could not open the remito PDF', e);
+      setError('No se pudo abrir el PDF. Revisá que el teléfono tenga una app para ver PDF.');
     } finally {
       setLoading(false);
     }
