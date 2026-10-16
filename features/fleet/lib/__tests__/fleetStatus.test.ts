@@ -4,6 +4,7 @@ import {
   isLocationStale,
   relativeShort,
   truckMapUrl,
+  truckMapUrls,
   vehicleStatus,
 } from '../fleetStatus';
 
@@ -74,6 +75,27 @@ describe('fleetErrorMessage', () => {
   it('falls back to the error message, then to a generic one', () => {
     expect(fleetErrorMessage(500, 'Timeout')).toBe('Timeout');
     expect(fleetErrorMessage(undefined)).toBe('No se pudo obtener la ubicación.');
+  });
+});
+
+describe('truckMapUrls', () => {
+  it('en Android prueba primero geo: con un pin rotulado y deja la web como respaldo', () => {
+    expect(truckMapUrls(-34.60372, -58.38159, 'android', 'LRO548')).toEqual([
+      'geo:-34.60372,-58.38159?q=-34.60372,-58.38159(LRO548)',
+      'https://www.google.com/maps/search/?api=1&query=-34.60372,-58.38159',
+    ]);
+  });
+
+  it('codifica el rótulo para que espacios o símbolos no rompan el link', () => {
+    expect(truckMapUrls(-34.6, -58.3, 'android', 'AB 123 CD')[0]).toBe(
+      'geo:-34.6,-58.3?q=-34.6,-58.3(AB%20123%20CD)',
+    );
+  });
+
+  it('en iOS usa solo el link web', () => {
+    expect(truckMapUrls(-34.6, -58.3, 'ios', 'LRO548')).toEqual([
+      'https://www.google.com/maps/search/?api=1&query=-34.6,-58.3',
+    ]);
   });
 });
 

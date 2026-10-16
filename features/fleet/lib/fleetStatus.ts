@@ -63,3 +63,15 @@ export function fleetErrorMessage(status: number | undefined, message?: string):
 export function truckMapUrl(lat: number, lng: number): string {
   return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
 }
+
+/**
+ * Links to try in order. On Android a google.com link can be claimed by an app
+ * that doesn't understand it ("El vínculo no es compatible"); `geo:` goes to
+ * whatever maps app is installed, with a labelled pin. The web link stays as
+ * the fallback when no app handles `geo:`.
+ */
+export function truckMapUrls(lat: number, lng: number, platform: string, label: string): string[] {
+  const web = truckMapUrl(lat, lng);
+  if (platform !== 'android') return [web];
+  return [`geo:${lat},${lng}?q=${lat},${lng}(${encodeURIComponent(label)})`, web];
+}

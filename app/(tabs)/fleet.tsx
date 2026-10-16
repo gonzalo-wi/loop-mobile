@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Linking,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
@@ -28,7 +29,7 @@ import {
   formatSignal,
   isLocationStale,
   relativeShort,
-  truckMapUrl,
+  truckMapUrls,
   vehicleStatus,
 } from '@/features/fleet/lib/fleetStatus';
 import { ApiError } from '@/lib/api';
@@ -84,9 +85,18 @@ export default function FleetScreen() {
     }, [plate, load]),
   );
 
-  function openInMaps() {
+  async function openInMaps() {
     if (!data) return;
-    Linking.openURL(truckMapUrl(data.lat, data.lng)).catch(() => setError('No se pudo abrir la app de mapas.'));
+    const urls = truckMapUrls(data.lat, data.lng, Platform.OS, data.licensePlate);
+    for (const url of urls) {
+      try {
+        await Linking.openURL(url);
+        return;
+      } catch (e) {
+        console.warn(`Could not open map link ${url}`, e);
+      }
+    }
+    setError('No se pudo abrir la app de mapas.');
   }
 
   const now = new Date();
