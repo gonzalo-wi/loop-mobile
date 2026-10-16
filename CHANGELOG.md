@@ -8,6 +8,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
+- Borrador automático en los controles de salida y entrada (1.2.8): lo cargado se guarda en el celular mientras se escribe y se recupera al volver a la pantalla, aunque se haya salido o cerrado la app. Hay uno por usuario y tipo, solo vale en el mismo día, se puede descartar y se borra al guardar el control.
 - Las cajas de cantidad del control de stock dicen qué son ("bultos ×N",
   "sueltas", "unidades").
 - Pantalla "Carga/Descarga registrada" después de enviar dispensers, con el
@@ -51,6 +52,8 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   botones de ícono del escáner (linterna, cerrar, agregar a mano).
 
 ### Changed
+- Control de entrada (1.2.8): las cantidades van en orden Total, Llenos, Recambio y, en productos sin bultos, una al lado de la otra para que la tarjeta ocupe menos. Las etiquetas siguen el estilo LOOP, "Recambio" va completo y el producto cargado se marca con borde verde (entrada) o azul (salida).
+- La corrección de controles de entrada enviados a Aguas también está disponible para el rol ADMIN (requiere el backend actualizado).
 - Rediseño LOOP (rama `feat/loop-redesign`): paleta clara pensada
   para leer al sol (crema, marino y bloques de color pleno), tipografía Plus
   Jakarta Sans incluida en la app, formas más redondeadas y barra de pestañas
@@ -81,6 +84,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   reales del hook (RTL + jsdom por-archivo).
 
 ### Fixed
+- "Abrir en el mapa" en Mi camión (1.2.8): en Android abre la app de mapas con `geo:` en las coordenadas. Antes algunos celulares mostraban "El vínculo no es compatible" o buscaban la patente y dejaban el mapa en blanco.
 - Remito del repartidor: si no hay remito para hoy muestra "No tenés un remito
   disponible para hoy." en vez del error técnico del servidor.
 - En ruta sin repartos del día mostraba "100% completado · Todos los repartos
