@@ -77,7 +77,7 @@ function ReadOnlyItemList({ items }: { items: StockControlItem[] }) {
           <View style={styles.roItemQtys}>
             <Text style={styles.roQty}>Total <Text style={styles.roQtyVal}>{item.totalQuantity}</Text></Text>
             <Text style={styles.roQty}>Llenos <Text style={styles.roQtyVal}>{item.fullQuantity}</Text></Text>
-            <Text style={styles.roQty}>Recamb. <Text style={styles.roQtyVal}>{item.exchangeQuantity}</Text></Text>
+            <Text style={styles.roQty}>Recambio <Text style={styles.roQtyVal}>{item.exchangeQuantity}</Text></Text>
             {item.differenceQuantity != null && (
               <Text
                 style={[

@@ -196,6 +196,8 @@ export const T = {
   data: { fontSize: 16, lineHeight: 22, fontFamily: FONT_FAMILY.extra, letterSpacing: 0.16 },
   body: { fontSize: 15, lineHeight: 22, fontFamily: FONT_FAMILY.medium },
   label: { fontSize: 14, lineHeight: 20, fontFamily: FONT_FAMILY.bold },
+  // Field labels above an input (DESIGN.md "Etiqueta", lower end of 13–14).
+  fieldLabel: { fontSize: 13, lineHeight: 18, fontFamily: FONT_FAMILY.bold },
   secondary: { fontSize: 13, lineHeight: 18, fontFamily: FONT_FAMILY.semibold },
   systemTag: { fontSize: 11, lineHeight: 14, fontFamily: FONT_FAMILY.extra, letterSpacing: 0.66 },
 } as const;

@@ -132,7 +132,8 @@ export function BundleQuantityInput({ label, unitsPerBundle, value, onChange }: 
   );
 }
 
-export const FIELD_LABEL_WIDTH = 68;
+// Fits "Recambio" at the 13/700 field-label size.
+export const FIELD_LABEL_WIDTH = 76;
 
 const styles = StyleSheet.create({
   field: {
@@ -163,9 +164,8 @@ const styles = StyleSheet.create({
   },
   label: {
     width: FIELD_LABEL_WIDTH,
-    ...T.systemTag,
+    ...T.fieldLabel,
     color: C.ink2,
-    textTransform: 'uppercase',
   },
   inputCol: {
     alignItems: 'center',

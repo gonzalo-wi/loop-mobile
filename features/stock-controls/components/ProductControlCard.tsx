@@ -53,6 +53,7 @@ function SimpleInputColumn({
     <View style={styles.simpleColumn}>
       <Text style={styles.simpleColumnLabel}>{label}</Text>
       <FieldInput
+        style={styles.simpleColumnInput}
         keyboardType="numeric"
         value={value}
         onChangeText={onChangeText}
@@ -62,6 +63,10 @@ function SimpleInputColumn({
       />
     </View>
   );
+}
+
+function hasQuantities(values: ProductControlValues): boolean {
+  return values.full.totalUnits > 0 || values.total.totalUnits > 0 || values.exchanges > 0;
 }
 
 export const ProductControlCard = memo(
@@ -92,10 +97,14 @@ export const ProductControlCard = memo(
       initialValues.exchanges > 0 ||
       !!initialValues.observations;
     const [expanded, setExpanded] = useState(hasInitialData);
+    // Kept in state (not derived from the ref) so bundle inputs, which don't
+    // touch this card's state, still repaint the loaded border.
+    const [filled, setFilled] = useState(() => hasQuantities(initialValues));
 
     function notifyChange(patch: Partial<ProductControlValues>) {
       const next = { ...latestValues.current, ...patch };
       latestValues.current = next;
+      setFilled(hasQuantities(next));
       onChange(product.id, next);
     }
 
@@ -131,15 +140,13 @@ export const ProductControlCard = memo(
     }
 
     // Direction color rule: exit = blue, entry = green.
-    const accent = isExit ? C.blue : C.greenDot;
+    const accent = isExit ? C.blue : C.green;
 
     // Resumen para la cabecera cuando está cerrado.
     const cur = latestValues.current;
-    const filled =
-      cur.full.totalUnits > 0 || cur.total.totalUnits > 0 || cur.exchanges > 0;
 
     return (
-      <View style={styles.card}>
+      <View style={[styles.card, filled && { borderColor: accent }]}>
         <TouchableOpacity
           style={styles.header}
           onPress={() => setExpanded((e) => !e)}
@@ -156,7 +163,7 @@ export const ProductControlCard = memo(
               <Text style={styles.summary} numberOfLines={1}>
                 {isExit
                   ? `Total ${cur.total.totalUnits}`
-                  : `Total ${cur.total.totalUnits} · Llenos ${cur.full.totalUnits}${cur.exchanges > 0 ? ` · Recamb ${cur.exchanges}` : ''}`}
+                  : `Total ${cur.total.totalUnits} · Llenos ${cur.full.totalUnits}${cur.exchanges > 0 ? ` · Recambio ${cur.exchanges}` : ''}`}
               </Text>
             )}
           </View>
@@ -167,7 +174,6 @@ export const ProductControlCard = memo(
                 <Text style={styles.packBadgeText}>×{product.packQuantity}</Text>
               </View>
             )}
-            {filled && <View style={[styles.filledDot, { backgroundColor: accent }]} />}
             {expanded && (
               <TouchableOpacity
                 style={styles.obsBtn}
@@ -209,7 +215,7 @@ export const ProductControlCard = memo(
                     onChange={handleFullChange}
                   />
                   <SimpleInputRow
-                    label="Recamb."
+                    label="Recambio"
                     value={exchangesStr}
                     onChangeText={handleExchangesChange}
                   />
@@ -222,7 +228,7 @@ export const ProductControlCard = memo(
               {!isExit && (
                 <>
                   <SimpleInputColumn label="Llenos" value={fullStr} onChangeText={handleFullUnitsChange} />
-                  <SimpleInputColumn label="Recamb." value={exchangesStr} onChangeText={handleExchangesChange} />
+                  <SimpleInputColumn label="Recambio" value={exchangesStr} onChangeText={handleExchangesChange} />
                 </>
               )}
             </View>
@@ -257,6 +263,9 @@ const styles = StyleSheet.create({
     marginBottom: S.sm,
     borderRadius: R.card,
     overflow: 'hidden',
+    // Constant width so the loaded border doesn't shift the layout.
+    borderWidth: 3,
+    borderColor: 'transparent',
   },
   header: {
     flexDirection: 'row',
@@ -280,11 +289,6 @@ const styles = StyleSheet.create({
     color: C.ink2,
     fontVariant: ['tabular-nums'],
     marginTop: 2,
-  },
-  filledDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
   },
   headerRight: {
     flexDirection: 'row',
@@ -329,9 +333,8 @@ const styles = StyleSheet.create({
   },
   simpleLabel: {
     width: FIELD_LABEL_WIDTH,
-    ...T.systemTag,
+    ...T.fieldLabel,
     color: C.ink2,
-    textTransform: 'uppercase',
   },
   simpleInput: {
     width: 80,
@@ -343,13 +346,14 @@ const styles = StyleSheet.create({
   },
   simpleColumn: {
     flex: 1,
-    maxWidth: 120,
     gap: S.xs,
   },
   simpleColumnLabel: {
-    ...T.systemTag,
+    ...T.fieldLabel,
     color: C.ink2,
-    textTransform: 'uppercase',
+  },
+  simpleColumnInput: {
+    height: H.field,
   },
   obsInput: {
     ...T.body,
