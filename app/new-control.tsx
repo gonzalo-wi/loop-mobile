@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,8 @@ import { RouteSearchModal } from '@/features/stock-controls/components/RouteSear
 import { ProductControlCard } from '@/features/stock-controls/components/ProductControlCard';
 import { TodayControlsBar } from '@/features/stock-controls/components/TodayControlsBar';
 import { useTodayControls } from '@/features/stock-controls/hooks/useTodayControls';
+import { useControlDraft } from '@/features/stock-controls/hooks/useControlDraft';
+import { parseLocalDate } from '@/features/stock-controls/lib/controlDraft';
 import {
   BottomBar,
   ColorBlock,
@@ -32,6 +34,7 @@ import {
   ScreenHeader,
   SecondaryButton,
   StatusOverlay,
+  Toast,
   type OverlayStatus,
 } from '@/components/ui';
 import type {
@@ -41,7 +44,7 @@ import type {
   StockControlType,
 } from '@/features/stock-controls/types';
 import { C, H, R, S, T } from '@/lib/theme';
-import { toLongDisplayDate } from '@/lib/dateFormat';
+import { formatClockTime, toLongDisplayDate } from '@/lib/dateFormat';
 
 // Primary button (60) + vertical padding of the bottom bar, so the last card isn't hidden.
 const BOTTOM_BAR_SPACE = H.primaryButton + S.md * 2 + S.lg;
@@ -110,6 +113,8 @@ type FormHeaderProps = {
   onControlDateChange: (date: Date) => void;
   productSearch: string;
   onProductSearchChange: (v: string) => void;
+  draftSavedAt: string | null;
+  onDiscardDraft: () => void;
 };
 
 const FormHeader = React.memo(
@@ -125,6 +130,8 @@ const FormHeader = React.memo(
     onControlDateChange,
     productSearch,
     onProductSearchChange,
+    draftSavedAt,
+    onDiscardDraft,
   }: FormHeaderProps) => {
     const isExit = controlType === 'EXIT';
     const pillTone = isExit ? 'onBlue' : 'onGreen';
@@ -205,6 +212,23 @@ const FormHeader = React.memo(
           accessibilityLabel="Observaciones generales"
         />
 
+        {draftSavedAt && (
+          <View style={styles.draftRow}>
+            <Ionicons name="save-outline" size={18} color={C.ink2} />
+            <Text style={styles.draftText}>
+              Borrador guardado a las {formatClockTime(draftSavedAt)}
+            </Text>
+            <Pressable
+              style={styles.draftDiscard}
+              onPress={onDiscardDraft}
+              accessibilityRole="button"
+              accessibilityLabel="Descartar borrador"
+            >
+              <Text style={styles.draftDiscardText}>Descartar</Text>
+            </Pressable>
+          </View>
+        )}
+
         <Text style={styles.productsTitle} accessibilityRole="header">
           Productos
         </Text>
@@ -260,6 +284,10 @@ export default function NewControlScreen() {
   const [productSearch, setProductSearch] = useState('');
 
   const [formValues, setFormValues] = useState<Record<string, ProductControlValues>>({});
+  // The form isn't saved as a draft until the previous draft (if any) was restored,
+  // otherwise the empty form would overwrite it.
+  const [draftReady, setDraftReady] = useState(false);
+  const [restoredAt, setRestoredAt] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   // Se incrementa al guardar para re-montar los ProductControlCard y limpiar sus inputs.
   const [formKey, setFormKey] = useState(0);
@@ -283,9 +311,52 @@ export default function NewControlScreen() {
     setFormKey((k) => k + 1);
   }
 
+  const draftForm = useMemo(
+    () =>
+      draftReady
+        ? { route: selectedRoute, truckOrdered, observations, controlDate, formValues }
+        : null,
+    [draftReady, selectedRoute, truckOrdered, observations, controlDate, formValues],
+  );
+  const draft = useControlDraft({ userId: user?.id, type: controlType, form: draftForm });
+
   useEffect(() => {
     loadProducts();
   }, []);
+
+  async function restoreDraft(initial: Record<string, ProductControlValues>) {
+    const saved = await draft.load();
+    if (saved) {
+      const restored = { ...initial };
+      // Products deactivated since the draft was saved are left out.
+      Object.keys(initial).forEach((id) => {
+        if (saved.formValues[id]) restored[id] = saved.formValues[id];
+      });
+      setFormValues(restored);
+      setSelectedRoute(saved.route);
+      setTruckOrdered(saved.truckOrdered);
+      setObservations(saved.observations);
+      setControlDate(parseLocalDate(saved.controlDate));
+      setFormKey((k) => k + 1);
+      setRestoredAt(saved.savedAt);
+    }
+    setDraftReady(true);
+  }
+
+  function handleDiscardDraft() {
+    Alert.alert('¿Descartar el borrador?', 'Se borran el reparto y las cantidades que cargaste.', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Descartar',
+        style: 'destructive',
+        onPress: async () => {
+          await draft.discard();
+          setRestoredAt(null);
+          resetForm();
+        },
+      },
+    ]);
+  }
 
   async function loadProducts() {
     setProductsLoading(true);
@@ -298,6 +369,7 @@ export default function NewControlScreen() {
         initial[p.id] = EMPTY_PRODUCT_VALUES;
       });
       setFormValues(initial);
+      if (!draftReady) await restoreDraft(initial);
     } catch (e) {
       setProductsError(e instanceof Error ? e.message : 'Error al cargar productos');
     } finally {
@@ -350,6 +422,7 @@ export default function NewControlScreen() {
       });
 
       today.reload();
+      await draft.discard();
       setOverlay({
         visible: true,
         status: 'success',
@@ -447,6 +520,8 @@ export default function NewControlScreen() {
               onControlDateChange={setControlDate}
               productSearch={productSearch}
               onProductSearchChange={setProductSearch}
+              draftSavedAt={draft.savedAt}
+              onDiscardDraft={handleDiscardDraft}
             />
           }
           ListEmptyComponent={
@@ -482,6 +557,13 @@ export default function NewControlScreen() {
           onClose={handleCloseRouteModal}
         />
 
+        <Toast
+          visible={restoredAt !== null}
+          message={restoredAt ? `Retomaste el control que dejaste a las ${formatClockTime(restoredAt)}` : ''}
+          onHide={() => setRestoredAt(null)}
+          bottomOffset={listPaddingBottom}
+        />
+
         <StatusOverlay
           visible={overlay.visible}
           status={overlay.status}
@@ -496,6 +578,15 @@ export default function NewControlScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.cream },
+  draftRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: S.sm,
+    marginTop: S.md,
+  },
+  draftText: { ...T.secondary, color: C.ink2, flex: 1 },
+  draftDiscard: { minHeight: H.touch, justifyContent: 'center', paddingHorizontal: S.sm },
+  draftDiscardText: { ...T.label, color: C.redText },
   flex: { flex: 1 },
   flatList: { flex: 1 },
   list: { paddingBottom: S.xxl },
