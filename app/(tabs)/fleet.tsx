@@ -87,7 +87,7 @@ export default function FleetScreen() {
 
   async function openInMaps() {
     if (!data) return;
-    const urls = truckMapUrls(data.lat, data.lng, Platform.OS, data.licensePlate);
+    const urls = truckMapUrls(data.lat, data.lng, Platform.OS);
     for (const url of urls) {
       try {
         await Linking.openURL(url);

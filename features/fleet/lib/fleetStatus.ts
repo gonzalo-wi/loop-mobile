@@ -67,11 +67,12 @@ export function truckMapUrl(lat: number, lng: number): string {
 /**
  * Links to try in order. On Android a google.com link can be claimed by an app
  * that doesn't understand it ("El vínculo no es compatible"); `geo:` goes to
- * whatever maps app is installed, with a labelled pin. The web link stays as
- * the fallback when no app handles `geo:`.
+ * whatever maps app is installed. No pin label: Google Maps searched the label
+ * text instead of the coordinates and showed a blank map. The web link stays
+ * as the fallback when no app handles `geo:`.
  */
-export function truckMapUrls(lat: number, lng: number, platform: string, label: string): string[] {
+export function truckMapUrls(lat: number, lng: number, platform: string): string[] {
   const web = truckMapUrl(lat, lng);
   if (platform !== 'android') return [web];
-  return [`geo:${lat},${lng}?q=${lat},${lng}(${encodeURIComponent(label)})`, web];
+  return [`geo:0,0?q=${lat},${lng}`, web];
 }

@@ -79,21 +79,16 @@ describe('fleetErrorMessage', () => {
 });
 
 describe('truckMapUrls', () => {
-  it('en Android prueba primero geo: con un pin rotulado y deja la web como respaldo', () => {
-    expect(truckMapUrls(-34.60372, -58.38159, 'android', 'LRO548')).toEqual([
-      'geo:-34.60372,-58.38159?q=-34.60372,-58.38159(LRO548)',
+  it('en Android prueba primero geo: con solo coordenadas y deja la web como respaldo', () => {
+    // Sin rótulo: Google Maps buscaba el texto del rótulo (la patente) y dejaba el mapa en blanco.
+    expect(truckMapUrls(-34.60372, -58.38159, 'android')).toEqual([
+      'geo:0,0?q=-34.60372,-58.38159',
       'https://www.google.com/maps/search/?api=1&query=-34.60372,-58.38159',
     ]);
   });
 
-  it('codifica el rótulo para que espacios o símbolos no rompan el link', () => {
-    expect(truckMapUrls(-34.6, -58.3, 'android', 'AB 123 CD')[0]).toBe(
-      'geo:-34.6,-58.3?q=-34.6,-58.3(AB%20123%20CD)',
-    );
-  });
-
   it('en iOS usa solo el link web', () => {
-    expect(truckMapUrls(-34.6, -58.3, 'ios', 'LRO548')).toEqual([
+    expect(truckMapUrls(-34.6, -58.3, 'ios')).toEqual([
       'https://www.google.com/maps/search/?api=1&query=-34.6,-58.3',
     ]);
   });
