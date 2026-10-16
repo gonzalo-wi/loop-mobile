@@ -117,7 +117,7 @@ export default function EditControlScreen() {
   const [saving, setSaving] = useState(false);
   const [productSearch, setProductSearch] = useState('');
 
-  // Corrección (SUPERVISOR, controles ENTRY enviados/errados a Aguas)
+  // Corrección (SUPERVISOR/ADMIN, controles ENTRY enviados/errados a Aguas)
   const [correcting, setCorrecting] = useState(false);
   const [startingCorrection, setStartingCorrection] = useState(false);
   const [reason, setReason] = useState('');
@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
   },
   reasonInput: { borderWidth: 3, borderColor: C.orange },
 
-  // Correct control (SUPERVISOR): orange is LOOP's attention color — the edit is audited
+  // Correct control (SUPERVISOR/ADMIN): orange is LOOP's attention color — the edit is audited
   // and replaces what was already sent to Aguas.
   correctionModeBar: {
     flexDirection: 'row',

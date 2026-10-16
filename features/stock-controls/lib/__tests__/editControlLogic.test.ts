@@ -56,7 +56,13 @@ describe('isControlCorrectable', () => {
     ).toBe(false);
   });
 
-  it('es false cuando el usuario no es SUPERVISOR', () => {
+  it('es true cuando type=ENTRY, status=SENT_TO_AGUAS y role=ADMIN', () => {
+    expect(
+      isControlCorrectable(buildControlBase({ type: 'ENTRY', status: 'SENT_TO_AGUAS' }), 'ADMIN'),
+    ).toBe(true);
+  });
+
+  it('es false cuando el usuario no es SUPERVISOR ni ADMIN', () => {
     expect(
       isControlCorrectable(buildControlBase({ type: 'ENTRY', status: 'SENT_TO_AGUAS' }), 'CONTROLLER'),
     ).toBe(false);

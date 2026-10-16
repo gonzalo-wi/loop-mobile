@@ -16,7 +16,7 @@ export const EMPTY_PRODUCT_VALUES: ProductControlValues = {
 
 /**
  * Determina si un control puede corregirse: solo controles ENTRY ya
- * enviados (o con error) a Aguas, y solo para usuarios SUPERVISOR.
+ * enviados (o con error) a Aguas, y solo para usuarios SUPERVISOR o ADMIN.
  */
 export function isControlCorrectable(
   control: Pick<StockControl, 'type' | 'status'>,
@@ -25,7 +25,7 @@ export function isControlCorrectable(
   return (
     control.type === 'ENTRY' &&
     (control.status === 'SENT_TO_AGUAS' || control.status === 'AGUAS_ERROR') &&
-    userRole === 'SUPERVISOR'
+    (userRole === 'SUPERVISOR' || userRole === 'ADMIN')
   );
 }
 
