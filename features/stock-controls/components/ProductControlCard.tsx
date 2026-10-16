@@ -38,6 +38,32 @@ function SimpleInputRow({
   );
 }
 
+// Label above the box so the three quantities fit side by side and the
+// expanded card stays short (operators scroll through dozens of products).
+function SimpleInputColumn({
+  label,
+  value,
+  onChangeText,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (text: string) => void;
+}) {
+  return (
+    <View style={styles.simpleColumn}>
+      <Text style={styles.simpleColumnLabel}>{label}</Text>
+      <FieldInput
+        keyboardType="numeric"
+        value={value}
+        onChangeText={onChangeText}
+        placeholder="0"
+        selectTextOnFocus
+        accessibilityLabel={label}
+      />
+    </View>
+  );
+}
+
 export const ProductControlCard = memo(
   ({ product, initialValues, onChange, controlType }: Props) => {
     const hasBundles = product.packQuantity > 1;
@@ -166,37 +192,40 @@ export const ProductControlCard = memo(
 
         <View style={[styles.body, !expanded && styles.bodyHidden]}>
           {hasBundles ? (
+            // Bultos + sueltas need a full row each, so bundle products stay stacked.
             <>
-              {!isExit && (
-                <BundleQuantityInput
-                  label="Llenos"
-                  unitsPerBundle={product.packQuantity}
-                  value={initialValues.full}
-                  onChange={handleFullChange}
-                />
-              )}
               <BundleQuantityInput
                 label="Total"
                 unitsPerBundle={product.packQuantity}
                 value={initialValues.total}
                 onChange={handleTotalChange}
               />
+              {!isExit && (
+                <>
+                  <BundleQuantityInput
+                    label="Llenos"
+                    unitsPerBundle={product.packQuantity}
+                    value={initialValues.full}
+                    onChange={handleFullChange}
+                  />
+                  <SimpleInputRow
+                    label="Recamb."
+                    value={exchangesStr}
+                    onChangeText={handleExchangesChange}
+                  />
+                </>
+              )}
             </>
           ) : (
-            <>
+            <View style={styles.simpleColumns}>
+              <SimpleInputColumn label="Total" value={totalStr} onChangeText={handleTotalUnitsChange} />
               {!isExit && (
-                <SimpleInputRow label="Llenos" value={fullStr} onChangeText={handleFullUnitsChange} />
+                <>
+                  <SimpleInputColumn label="Llenos" value={fullStr} onChangeText={handleFullUnitsChange} />
+                  <SimpleInputColumn label="Recamb." value={exchangesStr} onChangeText={handleExchangesChange} />
+                </>
               )}
-              <SimpleInputRow label="Total" value={totalStr} onChangeText={handleTotalUnitsChange} />
-            </>
-          )}
-
-          {!isExit && (
-            <SimpleInputRow
-              label="Recamb."
-              value={exchangesStr}
-              onChangeText={handleExchangesChange}
-            />
+            </View>
           )}
 
           {showObs && (
@@ -306,6 +335,21 @@ const styles = StyleSheet.create({
   },
   simpleInput: {
     width: 80,
+  },
+  simpleColumns: {
+    flexDirection: 'row',
+    gap: S.sm,
+    marginBottom: S.sm,
+  },
+  simpleColumn: {
+    flex: 1,
+    maxWidth: 120,
+    gap: S.xs,
+  },
+  simpleColumnLabel: {
+    ...T.systemTag,
+    color: C.ink2,
+    textTransform: 'uppercase',
   },
   obsInput: {
     ...T.body,
