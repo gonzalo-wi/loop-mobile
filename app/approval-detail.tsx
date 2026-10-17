@@ -11,6 +11,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getStockControl, approveStockControl } from '@/features/stock-controls/services/stockControlApi';
+import { getProducts } from '@/features/stock-controls/services/productsApi';
+import { formatBundleSplit } from '@/features/stock-controls/lib/bundleFormat';
 import { useRouteStore } from '@/store/routeStore';
 import {
   BLOCK_TONE,
@@ -41,10 +43,10 @@ function InfoRow({
   );
 }
 
-function QtyBox({ label, value, color = C.navy }: { label: string; value: number; color?: string }) {
+function QtyBox({ label, value, color = C.navy }: { label: string; value: number | string; color?: string }) {
   return (
     <View style={styles.qty} accessibilityLabel={`${label}: ${value}`}>
-      <Text style={[styles.qtyNum, { color }]}>{value}</Text>
+      <Text style={[styles.qtyNum, { color }]} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
       <Text style={styles.qtyLabel} numberOfLines={1}>{label}</Text>
     </View>
   );
@@ -57,6 +59,7 @@ export default function ApprovalDetailScreen() {
   const { setPendingCount, pendingCount } = useRouteStore();
 
   const [control, setControl] = useState<StockControl | null>(null);
+  const [packByProduct, setPackByProduct] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
@@ -71,7 +74,8 @@ export default function ApprovalDetailScreen() {
   useEffect(() => {
     async function load() {
       try {
-        const ctrl = await getStockControl(id);
+        const [ctrl, products] = await Promise.all([getStockControl(id), getProducts()]);
+        setPackByProduct(new Map(products.map((p) => [p.id, p.packQuantity])));
         setControl(ctrl);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Error al cargar el control');
@@ -226,29 +230,35 @@ export default function ApprovalDetailScreen() {
           </View>
         </View>
 
-        {control.items.map((item) => (
-          <View key={item.id} style={styles.item}>
-            <View style={styles.itemHeader}>
-              <Text style={styles.itemName}>{item.productName}</Text>
-              <Text style={styles.itemCode}>{item.productCode}</Text>
+        {control.items.map((item) => {
+          const pack = packByProduct.get(item.productId);
+          const hasBundles = pack != null && pack > 1;
+          return (
+            <View key={item.id} style={styles.item}>
+              <View style={styles.itemHeader}>
+                <Text style={styles.itemName}>{item.productName}</Text>
+                <Text style={styles.itemCode}>
+                  {hasBundles ? `${item.productCode} · bultos ×${pack} + sueltas` : item.productCode}
+                </Text>
+              </View>
+              <View style={styles.itemQtys}>
+                <QtyBox label="Total" value={formatBundleSplit(item.totalQuantity, pack)} />
+                <QtyBox label="Llenos" value={formatBundleSplit(item.fullQuantity, pack)} />
+                <QtyBox label="Recambios" value={item.exchangeQuantity} />
+                {item.differenceQuantity != null && (
+                  <QtyBox
+                    label="Diferencia"
+                    value={item.differenceQuantity}
+                    color={item.differenceQuantity !== 0 ? C.redText : C.greenDot}
+                  />
+                )}
+              </View>
+              {item.observations ? (
+                <Text style={styles.itemObs}>{item.observations}</Text>
+              ) : null}
             </View>
-            <View style={styles.itemQtys}>
-              <QtyBox label="Total" value={item.totalQuantity} />
-              <QtyBox label="Llenos" value={item.fullQuantity} />
-              <QtyBox label="Recambios" value={item.exchangeQuantity} />
-              {item.differenceQuantity != null && (
-                <QtyBox
-                  label="Diferencia"
-                  value={item.differenceQuantity}
-                  color={item.differenceQuantity !== 0 ? C.redText : C.greenDot}
-                />
-              )}
-            </View>
-            {item.observations ? (
-              <Text style={styles.itemObs}>{item.observations}</Text>
-            ) : null}
-          </View>
-        ))}
+          );
+        })}
       </ScrollView>
 
       {isApprovable && (
