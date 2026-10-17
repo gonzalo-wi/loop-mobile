@@ -52,6 +52,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   botones de ícono del escáner (linterna, cerrar, agregar a mano).
 
 ### Changed
+- La aprobación del control por el repartidor muestra Total y Llenos en bultos + sueltas, como al cargar el control (15 sodas de a 6 → "2 + 3"). Recambios y Diferencia siguen en unidades.
 - Control de entrada (1.2.8): las cantidades van en orden Total, Llenos, Recambio y, en productos sin bultos, una al lado de la otra para que la tarjeta ocupe menos. Las etiquetas siguen el estilo LOOP, "Recambio" va completo y el producto cargado se marca con borde verde (entrada) o azul (salida).
 - La corrección de controles de entrada enviados a Aguas también está disponible para el rol ADMIN (requiere el backend actualizado).
 - Rediseño LOOP (rama `feat/loop-redesign`): paleta clara pensada
