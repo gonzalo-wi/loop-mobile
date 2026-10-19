@@ -1,8 +1,8 @@
 /**
- * Warehouse operators (controller, picker, loader) are often the same person switching
- * tasks day to day, so all of them can load/unload dispensers.
+ * Warehouse operators (CONTROLADOR) switch between controlling, picking and loading day to day,
+ * so they load/unload dispensers too.
  */
-const DISPENSER_ROLES: readonly string[] = ['ADMIN', 'CONTROLADOR', 'PICKER', 'CARGADOR_DISPENSERS'];
+const DISPENSER_ROLES: readonly string[] = ['ADMIN', 'CONTROLADOR'];
 
 export function canAccessDispensers(role: string | undefined): boolean {
   return role !== undefined && DISPENSER_ROLES.includes(role);

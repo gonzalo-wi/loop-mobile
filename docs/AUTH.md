@@ -64,10 +64,10 @@ Content-Type: application/json
 |----------------------|------------------------------------|
 | `ADMIN`              | Administrador del sistema          |
 | `SUPERVISOR`         | Supervisión y reportes             |
-| `CONTROLADOR`        | Crea controles de stock            |
+| `CONTROLADOR`        | Operario de planta: controles de stock, pedidos descartables y movimientos de dispensers |
 | `REPARTIDOR`         | Aprueba o rechaza controles        |
-| `PICKER`             | Gestión de pedidos descartables    |
-| `CARGADOR_DISPENSERS`| Movimientos de dispensers          |
+
+> `PICKER` y `CARGADOR_DISPENSERS` ya no existen: se unificaron en `CONTROLADOR`.
 
 ---
 

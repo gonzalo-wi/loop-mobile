@@ -104,7 +104,7 @@ components/
 La UI cambia según `user.role` (de `authStore`):
 
 - **`REPARTIDOR`** (repartidor / driver).
-- Roles de control/oficina: **`ADMIN`**, **`CARGADOR_DISPENSERS`**, etc. (todo lo que no sea `REPARTIDOR` cae en la rama "controlador").
+- Roles de control/oficina: **`ADMIN`**, **`CONTROLADOR`**, etc. (todo lo que no sea `REPARTIDOR` cae en la rama "controlador").
 
 Tabs visibles (`app/(tabs)/_layout.tsx`):
 
