@@ -54,6 +54,11 @@ export async function approveStockControl(id: string): Promise<void> {
   await api.post(`/stock-controls/${id}/approve`);
 }
 
+export async function rejectStockControl(id: string, reason: string): Promise<StockControl> {
+  const response = await api.post<SingleResponse>(`/stock-controls/${id}/reject`, { reason });
+  return response.data.data;
+}
+
 export async function correctStockControl(
   id: string,
   payload: CorrectControlPayload

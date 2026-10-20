@@ -10,7 +10,12 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getStockControl, approveStockControl } from '@/features/stock-controls/services/stockControlApi';
+import {
+  getStockControl,
+  approveStockControl,
+  rejectStockControl,
+} from '@/features/stock-controls/services/stockControlApi';
+import { validateRejectionReason } from '@/features/stock-controls/lib/editControlLogic';
 import { getProducts } from '@/features/stock-controls/services/productsApi';
 import { formatBundleSplit } from '@/features/stock-controls/lib/bundleFormat';
 import { useRouteStore } from '@/store/routeStore';
@@ -24,6 +29,7 @@ import {
   ScreenHeader,
   SecondaryButton,
   StatusOverlay,
+  TextEntrySheet,
   type OverlayStatus,
   type OverlayAction,
 } from '@/components/ui';
@@ -63,6 +69,9 @@ export default function ApprovalDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [rejectSheetOpen, setRejectSheetOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
   const [overlay, setOverlay] = useState<{
     visible: boolean;
     status: OverlayStatus;
@@ -128,6 +137,46 @@ export default function ApprovalDetailScreen() {
         message: e instanceof Error ? e.message : 'Intentá de nuevo',
       });
     }
+  }
+
+  async function doReject() {
+    if (!control || validateRejectionReason(rejectReason)) return;
+    setRejectSheetOpen(false);
+    setRejecting(true);
+    setOverlay({ visible: true, status: 'loading', title: 'Registrando rechazo...' });
+    try {
+      setControl(await rejectStockControl(control.id, rejectReason.trim()));
+      setPendingCount(Math.max(0, pendingCount - 1));
+      setOverlay({
+        visible: true,
+        status: 'success',
+        title: 'Control rechazado',
+        message: 'El controlador lo va a ver como rechazado, con tu motivo. Cuando lo corrija, te va a volver a aparecer acá.',
+        actions: [
+          {
+            label: 'Volver al inicio',
+            variant: 'primary',
+            onPress: () => {
+              setOverlay((o) => ({ ...o, visible: false }));
+              router.back();
+            },
+          },
+        ],
+      });
+    } catch (e) {
+      setRejecting(false);
+      setOverlay({
+        visible: true,
+        status: 'error',
+        title: 'No se pudo rechazar',
+        message: e instanceof Error ? e.message : 'Intentá de nuevo',
+      });
+    }
+  }
+
+  function handleReject() {
+    setRejectReason('');
+    setRejectSheetOpen(true);
   }
 
   function handleApprove() {
@@ -263,16 +312,42 @@ export default function ApprovalDetailScreen() {
 
       {isApprovable && (
         <BottomBar>
+          <View style={styles.secondaryAction}>
+            <SecondaryButton
+              title="Rechazar"
+              icon="close-circle-outline"
+              tone="destructive"
+              onPress={handleReject}
+              loading={rejecting}
+              disabled={approving}
+            />
+          </View>
           <View style={styles.flex}>
             <PrimaryButton
               title="Aprobar control"
               icon="checkmark-circle-outline"
               onPress={handleApprove}
               loading={approving}
+              disabled={rejecting}
             />
           </View>
         </BottomBar>
       )}
+
+      <TextEntrySheet
+        visible={rejectSheetOpen}
+        onClose={() => setRejectSheetOpen(false)}
+        title="Rechazar control"
+        label="Motivo del rechazo"
+        placeholder="Ej: faltan 2 bidones de 20L"
+        fieldIcon="chatbox-ellipses-outline"
+        value={rejectReason}
+        onChangeText={setRejectReason}
+        onSubmit={doReject}
+        submitLabel="Rechazar control"
+        submitIcon="close-circle-outline"
+        canSubmit={validateRejectionReason(rejectReason) === null}
+      />
 
       <StatusOverlay
         visible={overlay.visible}
@@ -283,6 +358,7 @@ export default function ApprovalDetailScreen() {
         onDismiss={() => {
           setOverlay((o) => ({ ...o, visible: false }));
           setApproving(false);
+          setRejecting(false);
         }}
       />
     </View>
@@ -295,6 +371,7 @@ const BOTTOM_BAR_SPACE = H.primaryButton + S.md * 2 + S.lg;
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.cream },
   flex: { flex: 1 },
+  secondaryAction: { flex: 0.75 },
   scroll: { paddingHorizontal: S.gutter, gap: S.md },
   centered: { flex: 1, justifyContent: 'center', padding: S.gutter, gap: S.lg },
   retryWrap: { alignSelf: 'center' },

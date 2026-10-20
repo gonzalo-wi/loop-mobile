@@ -44,6 +44,7 @@ import {
   REASON_MAX_LENGTH,
   EMPTY_PRODUCT_VALUES,
   isControlCorrectable,
+  isControlEditable,
   validateCorrectionReason,
   buildInitialFormValues,
   buildItems,
@@ -147,7 +148,7 @@ export default function EditControlScreen() {
         setObservations(ctrl.observations ?? '');
         setTruckOrdered(ctrl.truckOrdered);
 
-        if (ctrl.status === 'CONTROLLED') {
+        if (isControlEditable(ctrl)) {
           await loadProductsAndForm(ctrl);
         }
       } catch (e) {
@@ -177,13 +178,15 @@ export default function EditControlScreen() {
 
     setSaving(true);
     try {
-      await updateStockControl(control.id, {
+      const saved = await updateStockControl(control.id, {
         observations: observations.trim() || undefined,
         items,
       });
-      Alert.alert('Guardado', 'El control fue actualizado', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      // Uses the server's status: the driver may have rejected it after this screen loaded.
+      const [title, message] = saved.status === 'PENDING_DRIVER_APPROVAL'
+        ? ['Enviado al repartidor', 'El repartidor ve esta versión del control para aceptarla']
+        : ['Guardado', 'El control fue actualizado'];
+      Alert.alert(title, message, [{ text: 'OK', onPress: () => router.back() }]);
     } catch (e) {
       Alert.alert('Error al guardar', e instanceof Error ? e.message : 'Intentá de nuevo');
     } finally {
@@ -308,7 +311,9 @@ export default function EditControlScreen() {
     );
   }
 
-  const isEditable = control.status === 'CONTROLLED';
+  const isEditable = isControlEditable(control);
+  const isRejected = control.status === 'REJECTED_BY_DRIVER';
+  const isWaitingDriver = control.status === 'PENDING_DRIVER_APPROVAL';
   const isExit = control.type === 'EXIT';
   const dateFormatted = isoDateToDisplay(control.controlDate);
   const title = isExit ? 'Control de Salida' : 'Control de Entrada';
@@ -410,6 +415,31 @@ export default function EditControlScreen() {
   const EditHeader = (
     <View style={styles.headerContent}>
       {summaryBlock}
+
+      {isRejected && !correcting && (
+        <View style={styles.rejectedBanner}>
+          <Ionicons name="close-circle-outline" size={H.iconInPill} color={C.redText} />
+          <View style={styles.flex}>
+            <Text style={styles.rejectedBannerTitle}>El repartidor rechazó el control</Text>
+            {control.driverRejectionReason ? (
+              <Text style={styles.correctionBannerText}>Motivo: {control.driverRejectionReason}</Text>
+            ) : null}
+            <Text style={styles.correctionBannerText}>
+              Corregilo y guardá: le vuelve a llegar para que lo acepte.
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {isWaitingDriver && !correcting && (
+        <View style={styles.correctionBanner}>
+          <Ionicons name="time-outline" size={H.iconInPill} color={C.orangeText} />
+          <Text style={styles.correctionBannerText}>
+            Esperando la conformidad del repartidor. Todavía no se mandó a Aguas: si guardás cambios,
+            el repartidor ve la versión nueva al abrir el control.
+          </Text>
+        </View>
+      )}
 
       {correcting && (
         <View style={styles.correctionModeBar}>
@@ -547,7 +577,11 @@ export default function EditControlScreen() {
             </>
           ) : (
             <View style={styles.flex}>
-              <PrimaryButton title="Guardar Cambios" onPress={handleSave} loading={saving} />
+              <PrimaryButton
+                title={isRejected ? 'Corregir y reenviar al repartidor' : 'Guardar Cambios'}
+                onPress={handleSave}
+                loading={saving}
+              />
             </View>
           )}
         </BottomBar>
@@ -611,6 +645,15 @@ const styles = StyleSheet.create({
     padding: S.lg,
   },
   correctionBannerText: { ...T.secondary, flex: 1, color: C.navy },
+  rejectedBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: S.sm,
+    backgroundColor: C.redSoft,
+    borderRadius: R.card,
+    padding: S.lg,
+  },
+  rejectedBannerTitle: { ...T.label, color: C.redText },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',

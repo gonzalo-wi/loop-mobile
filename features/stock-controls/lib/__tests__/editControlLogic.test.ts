@@ -1,6 +1,8 @@
 import {
   isControlCorrectable,
+  isControlEditable,
   validateCorrectionReason,
+  validateRejectionReason,
   buildInitialFormValues,
   buildItems,
 } from '../editControlLogic';
@@ -280,5 +282,36 @@ describe('buildInitialFormValues', () => {
     const item = buildItem({ observations: null });
     const result = buildInitialFormValues([productWithoutPack], [item]);
     expect(result[productWithoutPack.id].observations).toBe('');
+  });
+});
+
+describe('isControlEditable', () => {
+  it.each(['CONTROLLED', 'PENDING_DRIVER_APPROVAL', 'REJECTED_BY_DRIVER'] as const)(
+    'es true antes de que el repartidor acepte (%s)',
+    (status) => {
+      expect(isControlEditable({ status })).toBe(true);
+    },
+  );
+
+  it.each(['ACCEPTED_BY_DRIVER', 'SENT_TO_AGUAS', 'AGUAS_ERROR', 'CANCELLED'] as const)(
+    'es false una vez aceptado o enviado (%s)',
+    (status) => {
+      expect(isControlEditable({ status })).toBe(false);
+    },
+  );
+});
+
+describe('validateRejectionReason', () => {
+  it('pide el motivo cuando está vacío o solo tiene espacios', () => {
+    expect(validateRejectionReason('')).toBe('Ingresá el motivo del rechazo');
+    expect(validateRejectionReason('   ')).toBe('Ingresá el motivo del rechazo');
+  });
+
+  it('rechaza un motivo de más de 500 caracteres (tras trim)', () => {
+    expect(validateRejectionReason('a'.repeat(501))).toBe('Máximo 500 caracteres');
+  });
+
+  it('acepta un motivo válido', () => {
+    expect(validateRejectionReason('  Faltan 2 bidones  ')).toBeNull();
   });
 });

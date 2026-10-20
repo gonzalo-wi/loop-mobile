@@ -1,4 +1,4 @@
-import { correctStockControl } from '../stockControlApi';
+import { correctStockControl, rejectStockControl } from '../stockControlApi';
 import type { CorrectControlPayload, StockControl } from '../../types';
 
 jest.mock('@/lib/api', () => ({
@@ -89,5 +89,20 @@ describe('correctStockControl', () => {
     await expect(
       correctStockControl('ctrl-1', { reason: 'motivo', items: [] }),
     ).rejects.toThrow('El control no puede corregirse en su estado actual');
+  });
+});
+
+describe('rejectStockControl', () => {
+  it('hace POST a /stock-controls/{id}/reject con el motivo y devuelve el control rechazado', async () => {
+    const rejected = buildStockControl({
+      status: 'REJECTED_BY_DRIVER',
+      driverRejectionReason: 'Faltan 2 bidones',
+    });
+    api.post.mockResolvedValueOnce({ data: { data: rejected, message: 'ok' } });
+
+    const result = await rejectStockControl('ctrl-1', 'Faltan 2 bidones');
+
+    expect(api.post).toHaveBeenCalledWith('/stock-controls/ctrl-1/reject', { reason: 'Faltan 2 bidones' });
+    expect(result).toEqual(rejected);
   });
 });

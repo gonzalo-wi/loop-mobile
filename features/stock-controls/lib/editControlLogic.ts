@@ -29,12 +29,28 @@ export function isControlCorrectable(
   );
 }
 
-/** Motivo de corrección inválido: vacío o por encima del máximo permitido. */
-export function validateCorrectionReason(reason: string): string | null {
+// Hasta que el repartidor acepta, el control vive solo en Loop y el controlador puede cambiarlo.
+const EDITABLE_STATUSES = new Set<string>(['CONTROLLED', 'PENDING_DRIVER_APPROVAL', 'REJECTED_BY_DRIVER']);
+
+export function isControlEditable(control: Pick<StockControl, 'status'>): boolean {
+  return EDITABLE_STATUSES.has(control.status);
+}
+
+function validateReason(reason: string, missingMessage: string): string | null {
   const trimmed = reason.trim();
-  if (!trimmed) return 'Ingresá el motivo de la corrección';
+  if (!trimmed) return missingMessage;
   if (trimmed.length > REASON_MAX_LENGTH) return `Máximo ${REASON_MAX_LENGTH} caracteres`;
   return null;
+}
+
+/** Motivo de corrección inválido: vacío o por encima del máximo permitido. */
+export function validateCorrectionReason(reason: string): string | null {
+  return validateReason(reason, 'Ingresá el motivo de la corrección');
+}
+
+/** Motivo de rechazo del repartidor inválido: vacío o por encima del máximo permitido. */
+export function validateRejectionReason(reason: string): string | null {
+  return validateReason(reason, 'Ingresá el motivo del rechazo');
 }
 
 export function buildInitialFormValues(
