@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=390, initial-scale=1">
+<title>LOOP · 27 · Repartidor · Mi camión</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+button,input{font-family:inherit}
+.i{width:24px;height:24px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+</style>
+<style>html{background:#D9D6CC}body{display:flex;justify-content:center}</style>
+</head>
+<body>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; display: flex; flex-direction: column; background: #F2F0EA; font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif; color: #121C4E">
+
+<header style="flex: none; display: flex; align-items: center; gap: 12px; padding: 56px 16px 0 20px">
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+<h1 style="margin: 0; font-size: 32px; line-height: 38px; font-weight: 800; letter-spacing: -0.03em">Mi camión</h1>
+<span style="font-size: 14px; line-height: 20px; font-weight: 600; color: #4D5578">Actualizado hace unos segundos</span>
+</div>
+<button type="button" aria-label="Actualizar" style="flex: none; display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; padding: 0; border: 0; border-radius: 50%; background: #FFFFFF; color: #121C4E; cursor: pointer">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="width: 22px; height: 22px"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v4.5h-4.5"></path></svg>
+</button>
+</header>
+
+<main style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 20px 16px 112px">
+
+<section role="status" style="flex: none; display: flex; flex-direction: column; align-items: flex-start; padding: 18px; border-radius: 32px; background: #F08A00; color: #121C4E">
+<div style="align-self: stretch; display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<span style="display: flex; flex-direction: column; align-items: center; padding: 4px 14px 6px; border-radius: 10px; background: #FFFFFF; border: 2px solid #121C4E">
+<span style="font-size: 9px; line-height: 12px; font-weight: 800; letter-spacing: 0.14em; color: #4D5578">PATENTE</span>
+<span style="font-size: 20px; line-height: 24px; font-weight: 800; letter-spacing: 0.08em">LRO548</span>
+</span>
+<span style="display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 16px; background: rgba(18,28,78,0.16); font-size: 13px; font-weight: 800">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="width: 16px; height: 16px; stroke-width: 2.5"><path d="M12 3v8M6.5 6.5a8 8 0 1 0 11 0"></path></svg>
+<span>Motor apagado</span>
+</span>
+</div>
+<h2 style="margin: 16px 0 0; font-size: 24px; line-height: 30px; font-weight: 800; letter-spacing: -0.02em">Ubicación desactualizada</h2>
+<p style="margin: 2px 0 0; font-size: 14px; line-height: 20px; font-weight: 700">Último reporte del GPS: hoy, 15:34</p>
+</section>
+
+<section style="flex: none; display: flex; flex-direction: column; border-radius: 28px; background: #FFFFFF; overflow: hidden">
+<div aria-label="Mapa con la ubicación del camión" role="img" style="position: relative; height: 150px; background: #E7EBF3; overflow: hidden">
+<span aria-hidden="true" style="position: absolute; top: 0; bottom: 0; left: 70px; width: 16px; background: #FFFFFF"></span>
+<span aria-hidden="true" style="position: absolute; top: 0; bottom: 0; left: 250px; width: 16px; background: #FFFFFF"></span>
+<span aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 52px; height: 16px; background: #FFFFFF"></span>
+<span aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 118px; height: 12px; background: #FFFFFF"></span>
+<span aria-hidden="true" style="position: absolute; left: 50%; top: 34px; margin-left: -26px; display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 50%; background: #121C4E; color: #FFFFFF; border: 4px solid #FFFFFF; box-shadow: 0 8px 18px -8px rgba(18,28,78,0.6)">
+<svg class="i" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M2.5 6h11v10h-11zM13.5 9.5h4l3 3.5v3h-7"></path><circle cx="7" cy="17.5" r="2"></circle><circle cx="17" cy="17.5" r="2"></circle></svg>
+</span>
+<button type="button" aria-label="Ampliar mapa" style="position: absolute; top: 10px; right: 10px; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: #FFFFFF; color: #121C4E; cursor: pointer">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="width: 18px; height: 18px"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg>
+</button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 14px 16px 16px">
+<div style="display: flex; align-items: flex-start; gap: 10px">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="width: 20px; height: 20px; margin-top: 1px; color: #2456E6"><path d="M12 21s7-6.2 7-11.5a7 7 0 0 0-14 0C5 14.8 12 21 12 21z"></path><circle cx="12" cy="9.5" r="2.5"></circle></svg>
+<span style="flex: 1; min-width: 0; font-size: 15px; line-height: 20px; font-weight: 800">Pueyrredón, J. M. (229) (3201-3300)</span>
+</div>
+<button type="button" style="display: flex; align-items: center; justify-content: center; gap: 10px; height: 56px; padding: 0; border: 0; border-radius: 28px; background: #121C4E; color: #FFFFFF; font-size: 16px; font-weight: 800; cursor: pointer">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="width: 20px; height: 20px"><path d="M3 11l18-8-8 18-2-8-8-2z"></path></svg>
+<span>Abrir en el mapa</span>
+</button>
+</div>
+</section>
+
+<dl style="flex: none; display: flex; flex-direction: column; margin: 0; padding: 4px 18px; border-radius: 28px; background: #FFFFFF">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 50px; border-bottom: 1px solid #ECE9E0">
+<dt style="font-size: 14px; font-weight: 600; color: #4D5578">Conductor</dt>
+<dd style="margin: 0; font-size: 15px; font-weight: 800">Reparto 1</dd>
+</div>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 50px">
+<dt style="font-size: 14px; font-weight: 600; color: #4D5578">Coordenadas</dt>
+<dd style="margin: 0; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums">-34.63252, -58.53268</dd>
+</div>
+</dl>
+
+</main>
+
+<nav aria-label="Principal" style="position: absolute; left: 12px; right: 12px; bottom: 20px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; height: 72px; padding: 8px 6px; border-radius: 28px; background: #FFFFFF; box-shadow: 0 14px 32px -14px rgba(18,28,78,0.4)">
+<a href="21-repartidor-inicio.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 20px; color: #4D5578; font-size: 12px; line-height: 16px; font-weight: 700; white-space: nowrap">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="width: 22px; height: 22px"><path d="M4 10.5L12 4l8 6.5V19a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19v-8.5z"></path><path d="M9.5 20.5v-6h5v6"></path></svg>
+<span>Inicio</span>
+</a>
+<a href="24-repartidor-pedidos.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 20px; color: #4D5578; font-size: 12px; line-height: 16px; font-weight: 700; white-space: nowrap">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="width: 22px; height: 22px"><path d="M3 4h2.5l2.2 10.5h10.6L20.5 7H6.6"></path><circle cx="9" cy="19" r="1.5"></circle><circle cx="17" cy="19" r="1.5"></circle></svg>
+<span>Pedidos</span>
+</a>
+<a href="26-repartidor-remito.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 20px; color: #4D5578; font-size: 12px; line-height: 16px; font-weight: 700; white-space: nowrap">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="width: 22px; height: 22px"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path></svg>
+<span>Remito</span>
+</a>
+<a href="27-repartidor-mi-camion.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 20px; background: #121C4E; color: #FFFFFF; font-size: 12px; line-height: 16px; font-weight: 700; white-space: nowrap">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="width: 22px; height: 22px"><path d="M2.5 6h11v10h-11zM13.5 9.5h4l3 3.5v3h-7"></path><circle cx="7" cy="17.5" r="2"></circle><circle cx="17" cy="17.5" r="2"></circle></svg>
+<span>Mi camión</span>
+</a>
+<a href="20-historial-sin-controles.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 20px; color: #4D5578; font-size: 12px; line-height: 16px; font-weight: 700; white-space: nowrap">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="width: 22px; height: 22px"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path></svg>
+<span>Historial</span>
+</a>
+</nav>
+</div>
+</body>
+</html>

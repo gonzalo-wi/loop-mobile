@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=390, initial-scale=1">
+<title>LOOP · 04 · Escáner</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+button,input{font-family:inherit}
+.i{width:24px;height:24px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+@keyframes loop-scan{from{top:14%}to{top:86%}}
+</style>
+<style>html{background:#D9D6CC}body{display:flex;justify-content:center}</style>
+</head>
+<body>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; display: flex; flex-direction: column; background: #2A3048; font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif; color: #FFFFFF">
+
+<header style="position: relative; z-index: 2; flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 52px 16px 0">
+<div role="status" style="display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 18px 0 10px; border-radius: 24px; background: #FFFFFF; color: #121C4E; font-size: 15px; font-weight: 800">
+<span style="display: flex; align-items: center; justify-content: center; min-width: 30px; height: 30px; padding: 0 8px; border-radius: 15px; background: #8FD45A; font-variant-numeric: tabular-nums">3</span>
+<span>escaneados</span>
+</div>
+<div style="display: flex; align-items: center; gap: 8px">
+<button type="button" aria-label="Encender linterna" style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; padding: 0; border: 0; border-radius: 50%; background: #FFFFFF; color: #121C4E; cursor: pointer">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="width: 22px; height: 22px"><path d="M8 3h8v4l-2 3v10a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V10L8 7V3zM8 7h8M12 13v2"></path></svg>
+</button>
+<a href="03-dispensers-vacio.html" aria-label="Cerrar escáner" style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%; background: #FFFFFF; color: #121C4E">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="width: 22px; height: 22px"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</a>
+</div>
+</header>
+
+<div style="position: relative; z-index: 2; flex: none; margin-top: 28px; text-align: center; font-size: 11px; line-height: 16px; font-weight: 700; letter-spacing: 0.16em; color: #A9B1CF">VISTA DE CÁMARA</div>
+
+<main style="flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 0 24px 24px">
+
+<div style="position: relative; z-index: 1; flex: none; width: 310px; height: 200px; border-radius: 32px; box-shadow: 0 0 0 2000px rgba(4,6,16,0.6)">
+<span aria-hidden="true" style="position: absolute; top: -3px; left: -3px; width: 48px; height: 48px; border-top: 5px solid #8FD45A; border-left: 5px solid #8FD45A; border-top-left-radius: 32px"></span>
+<span aria-hidden="true" style="position: absolute; top: -3px; right: -3px; width: 48px; height: 48px; border-top: 5px solid #8FD45A; border-right: 5px solid #8FD45A; border-top-right-radius: 32px"></span>
+<span aria-hidden="true" style="position: absolute; bottom: -3px; left: -3px; width: 48px; height: 48px; border-bottom: 5px solid #8FD45A; border-left: 5px solid #8FD45A; border-bottom-left-radius: 32px"></span>
+<span aria-hidden="true" style="position: absolute; bottom: -3px; right: -3px; width: 48px; height: 48px; border-bottom: 5px solid #8FD45A; border-right: 5px solid #8FD45A; border-bottom-right-radius: 32px"></span>
+<span aria-hidden="true" style="position: absolute; left: 22px; right: 22px; top: 50%; height: 3px; border-radius: 2px; background: #8FD45A; box-shadow: 0 0 16px 2px rgba(143,212,90,0.8); animation: loop-scan 2.2s ease-in-out infinite alternate"></span>
+</div>
+
+<div role="status" style="position: relative; z-index: 2; flex: none; display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 18px 0 8px; border-radius: 24px; background: #8FD45A; color: #121C4E">
+<span style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: #121C4E; color: #8FD45A">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="width: 18px; height: 18px; stroke-width: 2.75"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+</span>
+<span style="font-size: 15px; font-weight: 800; letter-spacing: 0.01em; font-variant-numeric: tabular-nums">1999500</span>
+<span style="font-size: 14px; font-weight: 600; color: #1F2B4F">agregado</span>
+</div>
+
+<p style="position: relative; z-index: 2; margin: 0; font-size: 17px; line-height: 24px; font-weight: 700; text-align: center; color: #FFFFFF; text-wrap: balance">Apuntá al código de barras del dispenser</p>
+
+</main>
+
+<footer style="position: relative; z-index: 2; flex: none; display: flex; flex-direction: column; gap: 10px; padding: 0 16px 24px">
+<button type="button" style="display: flex; align-items: center; justify-content: center; gap: 10px; height: 52px; padding: 0 16px; border-radius: 26px; background: transparent; border: 2px solid #FFFFFF; color: #FFFFFF; font-size: 15px; font-weight: 700; cursor: pointer">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="width: 20px; height: 20px"><path d="M4 20h4l10-10-4-4L4 16v4zM13 7l4 4"></path></svg>
+<span>Sin código de barras · escribir a mano</span>
+</button>
+<a href="05-dispensers-con-equipos.html" style="display: flex; align-items: center; justify-content: center; gap: 10px; height: 60px; border-radius: 30px; background: #FFFFFF; color: #121C4E; font-size: 17px; font-weight: 800">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="stroke-width: 2.5"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+<span>Listo</span>
+</a>
+</footer>
+
+</div>
+</body>
+</html>

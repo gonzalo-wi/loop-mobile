@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=390, initial-scale=1">
+<title>LOOP · 23 · Repartidor · Nuevo pedido</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+button,input{font-family:inherit}
+input::placeholder{color:#4D5578;opacity:1}
+.n:focus{outline:none;background:#FFFFFF !important;box-shadow:0 0 0 3px #2456E6}
+.i{width:24px;height:24px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+</style>
+<style>html{background:#D9D6CC}body{display:flex;justify-content:center}</style>
+</head>
+<body>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; display: flex; flex-direction: column; background: #F2F0EA; font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif; color: #121C4E">
+
+<header style="flex: none; display: flex; align-items: center; gap: 12px; padding: 52px 16px 12px">
+<a href="22-repartidor-pedidos-vacio.html" aria-label="Volver a Pedidos" style="flex: none; display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%; background: #FFFFFF; color: #121C4E">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+</a>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+<h1 style="margin: 0; font-size: 22px; line-height: 28px; font-weight: 800; letter-spacing: -0.02em">Nuevo pedido</h1>
+<span style="font-size: 13px; line-height: 18px; font-weight: 600; color: #4D5578">Reparto 1 · Ciudadela</span>
+</div>
+</header>
+
+<main style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px 16px 112px">
+
+<h2 style="flex: none; margin: 0 4px 2px; font-size: 13px; line-height: 18px; font-weight: 800; color: #4D5578">Productos · tocá un casillero y escribí la cantidad</h2>
+
+<section style="flex: none; display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 26px; background: #FFFFFF; box-shadow: inset 0 0 0 2px #2456E6">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+<h3 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 800">Agua 0.5L C/G</h3>
+<span style="font-size: 13px; font-weight: 600; color: #4D5578">A 0.5L C/G</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="p1b" style="padding-left: 4px; font-size: 12px; line-height: 16px; font-weight: 700; color: #4D5578">Bultos · 12 u</label>
+<input id="p1b" class="n" type="text" inputmode="numeric" pattern="[0-9]*" value="10" placeholder="0" style="width: 100%; height: 56px; padding: 0 16px; border: 0; border-radius: 20px; background: #FFFFFF; box-shadow: 0 0 0 3px #2456E6; text-align: center; font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; color: #121C4E">
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="p1u" style="padding-left: 4px; font-size: 12px; line-height: 16px; font-weight: 700; color: #4D5578">Unidades</label>
+<input id="p1u" class="n" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" style="width: 100%; height: 56px; padding: 0 16px; border: 0; border-radius: 20px; background: #F2F0EA; text-align: center; font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; color: #121C4E">
+</div>
+</div>
+</section>
+
+<section style="flex: none; display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 26px; background: #FFFFFF; box-shadow: inset 0 0 0 2px #2456E6">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+<h3 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 800">Agua 0.5L S/G</h3>
+<span style="font-size: 13px; font-weight: 600; color: #4D5578">A 0.5L S/G</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="p2b" style="padding-left: 4px; font-size: 12px; line-height: 16px; font-weight: 700; color: #4D5578">Bultos · 12 u</label>
+<input id="p2b" class="n" type="text" inputmode="numeric" pattern="[0-9]*" value="1" placeholder="0" style="width: 100%; height: 56px; padding: 0 16px; border: 0; border-radius: 20px; background: #F2F0EA; text-align: center; font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; color: #121C4E">
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="p2u" style="padding-left: 4px; font-size: 12px; line-height: 16px; font-weight: 700; color: #4D5578">Unidades</label>
+<input id="p2u" class="n" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" style="width: 100%; height: 56px; padding: 0 16px; border: 0; border-radius: 20px; background: #F2F0EA; text-align: center; font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; color: #121C4E">
+</div>
+</div>
+</section>
+
+<section style="flex: none; display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 26px; background: #FFFFFF">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+<h3 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 800">Agua S/G 1.5L</h3>
+<span style="font-size: 13px; font-weight: 600; color: #4D5578">A 1.5L</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="p3b" style="padding-left: 4px; font-size: 12px; line-height: 16px; font-weight: 700; color: #4D5578">Bultos · 6 u</label>
+<input id="p3b" class="n" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" style="width: 100%; height: 56px; padding: 0 16px; border: 0; border-radius: 20px; background: #F2F0EA; text-align: center; font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; color: #121C4E">
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="p3u" style="padding-left: 4px; font-size: 12px; line-height: 16px; font-weight: 700; color: #4D5578">Unidades</label>
+<input id="p3u" class="n" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" style="width: 100%; height: 56px; padding: 0 16px; border: 0; border-radius: 20px; background: #F2F0EA; text-align: center; font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; color: #121C4E">
+</div>
+</div>
+</section>
+
+<section style="flex: none; display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 26px; background: #FFFFFF">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+<h3 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 800">Botellón 6.5 LA</h3>
+<span style="font-size: 13px; font-weight: 600; color: #4D5578">BOT 6.5 LA</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="p4b" style="padding-left: 4px; font-size: 12px; line-height: 16px; font-weight: 700; color: #4D5578">Bultos · 1 u</label>
+<input id="p4b" class="n" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" style="width: 100%; height: 56px; padding: 0 16px; border: 0; border-radius: 20px; background: #F2F0EA; text-align: center; font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; color: #121C4E">
+</div>
+</section>
+
+</main>
+
+<footer style="position: absolute; left: 0; right: 0; bottom: 0; display: flex; padding: 24px 16px 24px; background: linear-gradient(to top, #F2F0EA 70%, rgba(242,240,234,0))">
+<a href="24-repartidor-pedidos.html" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; height: 60px; border-radius: 30px; background: #121C4E; color: #FFFFFF; font-size: 17px; font-weight: 800; box-shadow: 0 14px 28px -12px rgba(18,28,78,0.6)">
+<span>Enviar pedido</span>
+<span style="display: flex; align-items: center; height: 28px; padding: 0 10px; border-radius: 14px; background: #2456E6; font-size: 13px; font-weight: 800">2 productos</span>
+</a>
+</footer>
+
+</div>
+</body>
+</html>

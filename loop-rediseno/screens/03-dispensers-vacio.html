@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=390, initial-scale=1">
+<title>LOOP · 03 · Dispensers · vacío</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+button,input{font-family:inherit}
+input::placeholder{color:#4D5578;opacity:1}
+.f:focus-within{box-shadow:0 0 0 3px #8FD45A}
+.i{width:24px;height:24px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+@keyframes loop-spin{to{transform:rotate(360deg)}}
+</style>
+<style>html{background:#D9D6CC}body{display:flex;justify-content:center}</style>
+</head>
+<body>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; display: flex; flex-direction: column; background: #F2F0EA; font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif; color: #121C4E">
+
+<header style="flex: none; display: flex; align-items: center; gap: 12px; padding: 52px 16px 12px">
+<a href="02-inicio.html" aria-label="Volver a Inicio" style="flex: none; display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%; background: #FFFFFF; color: #121C4E">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+</a>
+<h1 style="flex: 1; min-width: 0; margin: 0; font-size: 22px; line-height: 28px; font-weight: 800; letter-spacing: -0.02em">Dispensers</h1>
+<button type="button" style="flex: none; display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 18px 0 14px; border: 0; border-radius: 24px; background: #FFFFFF; color: #121C4E; font-size: 15px; font-weight: 700; cursor: pointer">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="width: 20px; height: 20px"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"></path></svg>
+<span>Hoy</span>
+</button>
+</header>
+
+<main style="flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0 16px 104px">
+
+<section aria-label="Datos del movimiento" style="flex: none; display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 32px; background: #2456E6; color: #FFFFFF">
+<div role="group" aria-label="Tipo de movimiento" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 26px; background: rgba(8,18,84,0.34)">
+<button type="button" aria-pressed="true" style="display: flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0; border: 0; border-radius: 22px; background: #FFFFFF; color: #1E46C8; font-size: 15px; font-weight: 800; cursor: pointer">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="width: 20px; height: 20px; stroke-width: 2.25"><path d="M12 19V5M6 11l6-6 6 6"></path></svg>
+<span>Carga</span>
+</button>
+<button type="button" aria-pressed="false" style="display: flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0; border: 0; border-radius: 22px; background: transparent; color: #FFFFFF; font-size: 15px; font-weight: 700; cursor: pointer">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="width: 20px; height: 20px"><path d="M12 5v14M6 13l6 6 6-6"></path></svg>
+<span>Descarga</span>
+</button>
+</div>
+<div class="f" style="display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 20px; border-radius: 22px; background: #FFFFFF; color: #121C4E">
+<label for="cv-reparto" style="flex: none; font-size: 14px; font-weight: 700; color: #4D5578">Reparto</label>
+<input id="cv-reparto" type="text" inputmode="numeric" placeholder="Ej: 179" style="flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; outline: 0; background: transparent; text-align: right; font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; color: #121C4E">
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" aria-label="Fecha de carga: lunes 12/10/2026" style="display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px 0 12px; border: 0; border-radius: 22px; background: rgba(8,18,84,0.34); color: #FFFFFF; font-size: 14px; font-weight: 700; cursor: pointer">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="width: 18px; height: 18px"><rect x="4" y="5" width="16" height="16" rx="2.5"></rect><path d="M4 10h16M8 3v4M16 3v4"></path></svg>
+<span style="font-variant-numeric: tabular-nums">Lun 12/10</span>
+</button>
+<button type="button" aria-label="Técnico: Gonzalo Wiñazki" style="display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px 0 12px; border: 0; border-radius: 22px; background: rgba(8,18,84,0.34); color: #FFFFFF; font-size: 14px; font-weight: 700; cursor: pointer">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="width: 18px; height: 18px"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"></path></svg>
+<span>Gonzalo Wiñazki</span>
+</button>
+</div>
+</section>
+
+<div role="status" style="flex: none; display: flex; align-items: center; gap: 12px; height: 60px; margin-top: 12px; padding: 0 18px 0 16px; border-radius: 24px; background: #FFFFFF; color: #121C4E; font-size: 14px; font-weight: 700">
+<span style="flex: none; font-size: 11px; line-height: 14px; font-weight: 800; letter-spacing: 0.06em; padding: 5px 9px; border-radius: 999px; background: #714B67; color: #FFFFFF">ODOO</span>
+<span style="flex: 1; min-width: 0; color: #4D5578">Consultando Odoo…</span>
+<span aria-hidden="true" style="flex: none; width: 20px; height: 20px; border-radius: 50%; border: 2.5px solid #E3D5DF; border-top-color: #714B67; animation: loop-spin 0.9s linear infinite"></span>
+</div>
+
+<div style="flex: none; display: flex; align-items: center; gap: 8px; margin-top: 20px">
+<h2 style="margin: 0; font-size: 18px; line-height: 24px; font-weight: 800; letter-spacing: -0.01em">Dispensers</h2>
+<span style="display: flex; align-items: center; justify-content: center; min-width: 28px; height: 24px; padding: 0 8px; border-radius: 12px; background: #FFFFFF; color: #121C4E; font-size: 13px; font-weight: 800">0</span>
+<span style="flex: 1"></span>
+<a href="07-serial-a-mano.html" style="display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 16px 0 12px; border-radius: 22px; background: #FFFFFF; color: #121C4E; font-size: 14px; font-weight: 700">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="width: 20px; height: 20px"><path d="M12 5v14M5 12h14"></path></svg>
+<span>A mano</span>
+</a>
+</div>
+
+<div style="flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; margin-top: 10px; padding: 20px 32px; border-radius: 32px; background: #FFFFFF; text-align: center">
+<span aria-hidden="true" style="display: flex; align-items: center; justify-content: center; width: 72px; height: 72px; margin-bottom: 10px; border-radius: 50%; background: #F2F0EA; color: #121C4E">
+<svg class="i" viewBox="0 0 24 24" style="width: 34px; height: 34px"><path d="M4 7V5.5A1.5 1.5 0 0 1 5.5 4H7M17 4h1.5A1.5 1.5 0 0 1 20 5.5V7M20 17v1.5a1.5 1.5 0 0 1-1.5 1.5H17M7 20H5.5A1.5 1.5 0 0 1 4 18.5V17M8 8v8M11 8v8M13.5 8v8M16 8v8"></path></svg>
+</span>
+<div style="font-size: 17px; line-height: 24px; font-weight: 800; letter-spacing: -0.01em">Todavía no cargaste dispensers</div>
+<div style="font-size: 14px; line-height: 20px; font-weight: 500; color: #4D5578; text-wrap: balance">Escaneá con la cámara o ingresá el serial a mano</div>
+</div>
+
+</main>
+
+<footer style="position: absolute; left: 16px; right: 16px; bottom: 24px; display: flex">
+<a href="04-escaner.html" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; height: 60px; border-radius: 30px; background: #121C4E; color: #FFFFFF; font-size: 17px; font-weight: 800; box-shadow: 0 14px 28px -12px rgba(18,28,78,0.6)">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7V5.5A1.5 1.5 0 0 1 5.5 4H7M17 4h1.5A1.5 1.5 0 0 1 20 5.5V7M20 17v1.5a1.5 1.5 0 0 1-1.5 1.5H17M7 20H5.5A1.5 1.5 0 0 1 4 18.5V17M8 8v8M11 8v8M13.5 8v8M16 8v8"></path></svg>
+<span>Escanear dispensers</span>
+</a>
+</footer>
+
+</div>
+</body>
+</html>
