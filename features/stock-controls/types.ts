@@ -20,6 +20,8 @@ export type Product = {
   unit: string;
   packQuantity: number;
   active: boolean;
+  /** Always comes back full: only the total is asked and full mirrors it. */
+  fullEqualsTotal?: boolean;
 };
 
 export type StockControlType = 'EXIT' | 'ENTRY';

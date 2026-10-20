@@ -1,6 +1,7 @@
 import {
   isControlCorrectable,
   isControlEditable,
+  asksForFull,
   validateCorrectionReason,
   validateRejectionReason,
   buildInitialFormValues,
@@ -136,11 +137,11 @@ describe('buildItems', () => {
   };
 
   it('devuelve array vacío si no hay productos', () => {
-    expect(buildItems([], {})).toEqual([]);
+    expect(buildItems([], {}, 'ENTRY')).toEqual([]);
   });
 
   it('excluye productos sin cantidades cargadas (total=0, full=0, exchanges=0)', () => {
-    const result = buildItems([product], { [product.id]: emptyValues });
+    const result = buildItems([product], { [product.id]: emptyValues }, 'ENTRY');
     expect(result).toEqual([]);
   });
 
@@ -149,7 +150,7 @@ describe('buildItems', () => {
       ...emptyValues,
       total: { bundles: 0, looseUnits: 0, totalUnits: 5 },
     };
-    const result = buildItems([product], { [product.id]: values });
+    const result = buildItems([product], { [product.id]: values }, 'ENTRY');
     expect(result).toEqual([
       {
         productId: 'prod-1',
@@ -163,7 +164,7 @@ describe('buildItems', () => {
 
   it('incluye un producto que solo tiene recambios cargados', () => {
     const values: ProductControlValues = { ...emptyValues, exchanges: 3 };
-    const result = buildItems([product], { [product.id]: values });
+    const result = buildItems([product], { [product.id]: values }, 'ENTRY');
     expect(result).toHaveLength(1);
     expect(result[0].exchangeQuantity).toBe(3);
   });
@@ -174,7 +175,7 @@ describe('buildItems', () => {
       total: { bundles: 0, looseUnits: 0, totalUnits: 1 },
       observations: '   ',
     };
-    const result = buildItems([product], { [product.id]: values });
+    const result = buildItems([product], { [product.id]: values }, 'ENTRY');
     expect(result[0].observations).toBeUndefined();
   });
 
@@ -184,12 +185,12 @@ describe('buildItems', () => {
       total: { bundles: 0, looseUnits: 0, totalUnits: 1 },
       observations: '  faltante en pallet  ',
     };
-    const result = buildItems([product], { [product.id]: values });
+    const result = buildItems([product], { [product.id]: values }, 'ENTRY');
     expect(result[0].observations).toBe('faltante en pallet');
   });
 
   it('usa EMPTY_PRODUCT_VALUES si un producto no tiene entrada en formValues', () => {
-    const result = buildItems([product], {});
+    const result = buildItems([product], {}, 'ENTRY');
     expect(result).toEqual([]);
   });
 });
@@ -313,5 +314,78 @@ describe('validateRejectionReason', () => {
 
   it('acepta un motivo válido', () => {
     expect(validateRejectionReason('  Faltan 2 bidones  ')).toBeNull();
+  });
+});
+
+describe('fullEqualsTotal products (pallets, racks, carros, cajones)', () => {
+  const pallet: Product = {
+    id: 'prod-pm',
+    code: 'PM',
+    name: 'PalMad',
+    displayOrder: 1,
+    description: null,
+    type: 'RETORNABLE',
+    unit: 'unidad',
+    packQuantity: 1,
+    active: true,
+    fullEqualsTotal: true,
+  };
+
+  it('no pide Llenos en entradas para productos marcados', () => {
+    expect(asksForFull(pallet, 'ENTRY')).toBe(false);
+  });
+
+  it('pide Llenos en entradas para el resto de los productos', () => {
+    expect(asksForFull({ ...pallet, fullEqualsTotal: false }, 'ENTRY')).toBe(true);
+    expect(asksForFull({ ...pallet, fullEqualsTotal: undefined }, 'ENTRY')).toBe(true);
+  });
+
+  it('nunca pide Llenos en salidas', () => {
+    expect(asksForFull({ ...pallet, fullEqualsTotal: false }, 'EXIT')).toBe(false);
+  });
+
+  it('manda llenos igual al total aunque el formulario tenga otro valor', () => {
+    const values: ProductControlValues = {
+      full: { bundles: 0, looseUnits: 0, totalUnits: 2 },
+      total: { bundles: 0, looseUnits: 0, totalUnits: 7 },
+      exchanges: 1,
+      observations: '',
+    };
+    expect(buildItems([pallet], { [pallet.id]: values }, 'ENTRY')[0]).toMatchObject({
+      totalQuantity: 7,
+      fullQuantity: 7,
+      exchangeQuantity: 1,
+    });
+  });
+
+  it('en salidas no toca los llenos de productos marcados', () => {
+    const values: ProductControlValues = {
+      full: { bundles: 0, looseUnits: 0, totalUnits: 0 },
+      total: { bundles: 0, looseUnits: 0, totalUnits: 7 },
+      exchanges: 0,
+      observations: '',
+    };
+    expect(buildItems([pallet], { [pallet.id]: values }, 'EXIT')[0].fullQuantity).toBe(0);
+  });
+
+  it('respeta los llenos cargados si el backend no manda el flag', () => {
+    const values: ProductControlValues = {
+      full: { bundles: 0, looseUnits: 0, totalUnits: 2 },
+      total: { bundles: 0, looseUnits: 0, totalUnits: 7 },
+      exchanges: 0,
+      observations: '',
+    };
+    const legacy = { ...pallet, fullEqualsTotal: undefined };
+    expect(buildItems([legacy], { [legacy.id]: values }, 'ENTRY')[0].fullQuantity).toBe(2);
+  });
+
+  it('omite el producto marcado si se borró el total aunque queden llenos viejos', () => {
+    const values: ProductControlValues = {
+      full: { bundles: 0, looseUnits: 0, totalUnits: 4 },
+      total: { bundles: 0, looseUnits: 0, totalUnits: 0 },
+      exchanges: 0,
+      observations: '',
+    };
+    expect(buildItems([pallet], { [pallet.id]: values }, 'ENTRY')).toEqual([]);
   });
 });

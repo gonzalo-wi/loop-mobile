@@ -25,6 +25,7 @@ import { TodayControlsBar } from '@/features/stock-controls/components/TodayCont
 import { useTodayControls } from '@/features/stock-controls/hooks/useTodayControls';
 import { useControlDraft } from '@/features/stock-controls/hooks/useControlDraft';
 import { parseLocalDate } from '@/features/stock-controls/lib/controlDraft';
+import { buildItems } from '@/features/stock-controls/lib/editControlLogic';
 import {
   BottomBar,
   ColorBlock,
@@ -55,30 +56,6 @@ const EMPTY_PRODUCT_VALUES: ProductControlValues = {
   exchanges: 0,
   observations: '',
 };
-
-function buildItems(
-  products: Product[],
-  formValues: Record<string, ProductControlValues>
-) {
-  return products
-    .map((product) => {
-      const values = formValues[product.id] ?? EMPTY_PRODUCT_VALUES;
-      const { full, total, exchanges, observations } = values;
-
-      if (total.totalUnits === 0 && full.totalUnits === 0 && exchanges === 0) {
-        return null;
-      }
-
-      return {
-        productId: product.id,
-        totalQuantity: total.totalUnits,
-        fullQuantity: full.totalUnits,
-        exchangeQuantity: exchanges,
-        observations: observations.trim() || undefined,
-      };
-    })
-    .filter((item): item is NonNullable<typeof item> => item !== null);
-}
 
 function normalizeText(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -400,7 +377,7 @@ export default function NewControlScreen() {
 
     if (!user) return;
 
-    const items = buildItems(products, formValues);
+    const items = buildItems(products, formValues, controlType);
 
     if (items.length === 0) {
       Alert.alert('Sin productos', 'Ingresá cantidades para al menos un producto');

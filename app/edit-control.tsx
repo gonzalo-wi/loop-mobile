@@ -170,7 +170,7 @@ export default function EditControlScreen() {
   async function handleSave() {
     if (!control) return;
 
-    const items = buildItems(products, formValues);
+    const items = buildItems(products, formValues, control.type);
     if (items.length === 0) {
       Alert.alert('Sin productos', 'Ingresá cantidades para al menos un producto');
       return;
@@ -235,7 +235,7 @@ export default function EditControlScreen() {
       return;
     }
 
-    const items = buildItems(products, formValues);
+    const items = buildItems(products, formValues, control.type);
     if (items.length === 0) {
       Alert.alert('Sin productos', 'Ingresá cantidades para al menos un producto');
       return;

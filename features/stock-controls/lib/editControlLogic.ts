@@ -3,6 +3,7 @@ import type {
   ProductControlValues,
   StockControl,
   StockControlItem,
+  StockControlType,
 } from '../types';
 
 export const REASON_MAX_LENGTH = 500;
@@ -96,19 +97,27 @@ export function buildInitialFormValues(
   return result;
 }
 
+/** Llenos solo se pide en entradas, y no en productos que vuelven siempre llenos (llenos = total). */
+export function asksForFull(product: Pick<Product, 'fullEqualsTotal'>, controlType: StockControlType): boolean {
+  return controlType === 'ENTRY' && !product.fullEqualsTotal;
+}
+
 export function buildItems(
   products: Product[],
   formValues: Record<string, ProductControlValues>,
+  controlType: StockControlType,
 ) {
   return products
     .map((product) => {
       const values = formValues[product.id] ?? EMPTY_PRODUCT_VALUES;
       const { full, total, exchanges, observations } = values;
-      if (total.totalUnits === 0 && full.totalUnits === 0 && exchanges === 0) return null;
+      // A hidden Llenos may still hold an old value: what counts is the total it mirrors.
+      const fullUnits = controlType === 'ENTRY' && product.fullEqualsTotal ? total.totalUnits : full.totalUnits;
+      if (total.totalUnits === 0 && fullUnits === 0 && exchanges === 0) return null;
       return {
         productId: product.id,
         totalQuantity: total.totalUnits,
-        fullQuantity: full.totalUnits,
+        fullQuantity: fullUnits,
         exchangeQuantity: exchanges,
         observations: observations.trim() || undefined,
       };

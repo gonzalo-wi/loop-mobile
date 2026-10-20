@@ -3,13 +3,14 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Product, BundleQuantity, ProductControlValues, StockControlType } from '../types';
 import { BundleQuantityInput, FieldInput, FIELD_LABEL_WIDTH } from './BundleQuantityInput';
+import { asksForFull } from '../lib/editControlLogic';
 import { C, H, R, S, T } from '@/lib/theme';
 
 type Props = {
   product: Product;
   initialValues: ProductControlValues;
   onChange: (productId: string, values: ProductControlValues) => void;
-  /** En salida (EXIT) sólo se carga el Total; se ocultan Llenos y Recambios. */
+  /** En salida (EXIT) sólo se carga el Total; se ocultan Llenos y Recambios. Llenos tampoco se pide en productos con llenos = total. */
   controlType: StockControlType;
 };
 
@@ -73,6 +74,7 @@ export const ProductControlCard = memo(
   ({ product, initialValues, onChange, controlType }: Props) => {
     const hasBundles = product.packQuantity > 1;
     const isExit = controlType === 'EXIT';
+    const showFull = asksForFull(product, controlType);
 
     const latestValues = useRef<ProductControlValues>(initialValues);
 
@@ -112,8 +114,11 @@ export const ProductControlCard = memo(
       notifyChange({ full: value });
     }
 
+    // Llenos hidden because it equals the total: keep it in sync so the card state matches what is sent.
+    const mirrorsFull = !isExit && !showFull;
+
     function handleTotalChange(value: BundleQuantity) {
-      notifyChange({ total: value });
+      notifyChange(mirrorsFull ? { total: value, full: value } : { total: value });
     }
 
     function handleFullUnitsChange(text: string) {
@@ -125,7 +130,8 @@ export const ProductControlCard = memo(
     function handleTotalUnitsChange(text: string) {
       const cleaned = text.replace(/[^0-9]/g, '');
       setTotalStr(cleaned);
-      notifyChange({ total: { bundles: 0, looseUnits: 0, totalUnits: parseInt(cleaned, 10) || 0 } });
+      const total = { bundles: 0, looseUnits: 0, totalUnits: parseInt(cleaned, 10) || 0 };
+      notifyChange(mirrorsFull ? { total, full: total } : { total });
     }
 
     function handleExchangesChange(text: string) {
@@ -163,7 +169,7 @@ export const ProductControlCard = memo(
               <Text style={styles.summary} numberOfLines={1}>
                 {isExit
                   ? `Total ${cur.total.totalUnits}`
-                  : `Total ${cur.total.totalUnits} · Llenos ${cur.full.totalUnits}${cur.exchanges > 0 ? ` · Recambio ${cur.exchanges}` : ''}`}
+                  : `Total ${cur.total.totalUnits}${showFull ? ` · Llenos ${cur.full.totalUnits}` : ''}${cur.exchanges > 0 ? ` · Recambio ${cur.exchanges}` : ''}`}
               </Text>
             )}
           </View>
@@ -208,12 +214,14 @@ export const ProductControlCard = memo(
               />
               {!isExit && (
                 <>
-                  <BundleQuantityInput
-                    label="Llenos"
-                    unitsPerBundle={product.packQuantity}
-                    value={initialValues.full}
-                    onChange={handleFullChange}
-                  />
+                  {showFull && (
+                    <BundleQuantityInput
+                      label="Llenos"
+                      unitsPerBundle={product.packQuantity}
+                      value={initialValues.full}
+                      onChange={handleFullChange}
+                    />
+                  )}
                   <SimpleInputRow
                     label="Recambio"
                     value={exchangesStr}
@@ -227,7 +235,9 @@ export const ProductControlCard = memo(
               <SimpleInputColumn label="Total" value={totalStr} onChangeText={handleTotalUnitsChange} />
               {!isExit && (
                 <>
-                  <SimpleInputColumn label="Llenos" value={fullStr} onChangeText={handleFullUnitsChange} />
+                  {showFull && (
+                    <SimpleInputColumn label="Llenos" value={fullStr} onChangeText={handleFullUnitsChange} />
+                  )}
                   <SimpleInputColumn label="Recambio" value={exchangesStr} onChangeText={handleExchangesChange} />
                 </>
               )}
@@ -250,6 +260,7 @@ export const ProductControlCard = memo(
   },
   (prev, next) =>
     prev.product.id === next.product.id &&
+    prev.product.fullEqualsTotal === next.product.fullEqualsTotal &&
     prev.onChange === next.onChange &&
     prev.controlType === next.controlType,
 );
