@@ -35,6 +35,8 @@ export type DispenserMovement = {
   locationId: number;
   stateId: number;
   movementDate: string;
+  /** LOAD only: an earlier active load of the same route and date exists (a recarga). Optional for older backends. */
+  reload?: boolean;
   status: DispenserMovementStatus;
   serials: string[];
   /**

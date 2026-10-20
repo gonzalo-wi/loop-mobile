@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -29,7 +29,13 @@ import { BarcodeScannerModal } from '@/features/dispensers/components/BarcodeSca
 import { MovementDataBlock } from '@/features/dispensers/components/MovementDataBlock';
 import { SerialRow } from '@/features/dispensers/components/SerialRow';
 import { MovementRegisteredScreen } from '@/features/dispensers/components/MovementRegisteredScreen';
-import { findActiveMovement, getSubmitFailureCopy } from '@/features/dispensers/lib/submitFailure';
+import {
+  findActiveMovement,
+  getSubmitFailureCopy,
+  isRepeatedSerialsConflict,
+} from '@/features/dispensers/lib/submitFailure';
+import { alreadyLoadedSerials, getReloadConfirmCopy, isAlreadyLoaded } from '@/features/dispensers/lib/reload';
+import { useEarlierLoads } from '@/features/dispensers/hooks/useEarlierLoads';
 import { ApiError } from '@/lib/api';
 import { getSerialRowStatus } from '@/features/dispensers/lib/serialRowStatus';
 import { toShortDisplayDate } from '@/features/dispensers/lib/displayDate';
@@ -75,6 +81,9 @@ type SerialSource = 'scan' | 'manual';
  * `bagged` = volvió embolsado (solo se ofrece y se envía en UNLOAD).
  */
 type SerialEntry = { code: string; source: SerialSource; valid: boolean; bagged: boolean };
+
+/** A LOAD on a route that already has one for that date: the operator confirms it goes as a recarga. */
+type ReloadConfirm = { title: string; message: string; serials: SerialEntry[] };
 
 function toDateString(date: Date): string {
   const y = date.getFullYear();
@@ -149,6 +158,14 @@ export default function DispensersScreen() {
   // Id of the registered movement still being followed (Aguas/Odoo pending).
   const [followingId, setFollowingId] = useState<string | null>(null);
   const [submitFailure, setSubmitFailure] = useState<SubmitFailure | null>(null);
+  const [reloadConfirm, setReloadConfirm] = useState<ReloadConfirm | null>(null);
+
+  const { loads: earlierLoads, refresh: refreshEarlierLoads } = useEarlierLoads(
+    type,
+    routeCode,
+    toDateString(movementDate),
+  );
+  const loadedSerials = useMemo(() => alreadyLoadedSerials(earlierLoads), [earlierLoads]);
   const [overlay, setOverlay] = useState<{
     visible: boolean;
     status: OverlayStatus;
@@ -224,8 +241,12 @@ export default function DispensersScreen() {
   }, [type, dateTouched]);
 
   const serialCodes = serials.map((s) => s.code);
-  const sendableSerials = serials.filter((s) => shouldSendSerial(type, s.valid));
+  // A recarga only carries new dispensers: the ones that already went out that day are not sent.
+  const sendableAmong = (loaded: Set<string>) =>
+    serials.filter((s) => shouldSendSerial(type, s.valid) && !(type === 'LOAD' && isAlreadyLoaded(loaded, s.code)));
+  const sendableSerials = sendableAmong(loadedSerials);
   const invalidCount = serials.filter((s) => !s.valid).length;
+  const repeatedCount = type === 'LOAD' ? serials.filter((s) => isAlreadyLoaded(loadedSerials, s.code)).length : 0;
   const baggedCount = baggedSerialsToSend(type, sendableSerials).length;
   // Series marcadas por Odoo como no disponibles (aviso independiente del de Aguas).
   const odooUnavailableCount = serials.filter((s) => {
@@ -299,9 +320,35 @@ export default function DispensersScreen() {
     sendableSerials.length > 0 &&
     !submitting;
 
+  /** On LOAD, checks the route's loads for that date right before sending: a match makes this a recarga. */
   async function handleSubmit() {
     if (submitting) return;
     setSubmitFailure(null);
+    if (type !== 'LOAD') {
+      await submitMovement(sendableSerials);
+      return;
+    }
+
+    setSubmitting(true);
+    setOverlay({ visible: true, status: 'loading', title: 'Verificando cargas del reparto...' });
+    // If the check fails it falls back to the loads already known, so a known recarga still asks to confirm.
+    const { loads: fresh } = await refreshEarlierLoads();
+    setOverlay((o) => ({ ...o, visible: false }));
+    setSubmitting(false);
+
+    const toSend = sendableAmong(alreadyLoadedSerials(fresh));
+    if (toSend.length === 0) {
+      setSubmitFailure({ kind: 'failed', ...getSubmitFailureCopy({ status: 409 }, serials.length, type) });
+      return;
+    }
+    if (fresh.length > 0) {
+      setReloadConfirm({ ...getReloadConfirmCopy(routeCode, fresh, toSend.length), serials: toSend });
+      return;
+    }
+    await submitMovement(toSend);
+  }
+
+  async function submitMovement(toSend: SerialEntry[]) {
     setSubmitting(true);
     setOverlay({ visible: true, status: 'loading', title: 'Registrando movimiento...' });
     const key = { type, routeCode: routeCode.trim(), movementDate: toDateString(movementDate) };
@@ -313,8 +360,8 @@ export default function DispensersScreen() {
         locationId: location?.id,
         stateId: movState?.id,
         movementDate: key.movementDate,
-        serials: sendableSerials.map((s) => s.code),
-        baggedSerials: baggedSerialsToSend(type, sendableSerials),
+        serials: toSend.map((s) => s.code),
+        baggedSerials: baggedSerialsToSend(type, toSend),
       });
 
       // The confirmation screen stays until the operator chooses what's next,
@@ -342,10 +389,15 @@ export default function DispensersScreen() {
       const error = e instanceof ApiError ? e : { message: e instanceof Error ? e.message : undefined };
       const status = e instanceof ApiError ? e.status : undefined;
 
-      // When the server rejected it, look for the movement it collides with,
+      // A recarga raced another load: fetch them again so the repeated serials show up flagged.
+      if (isRepeatedSerialsConflict(type, status)) {
+        await refreshEarlierLoads();
+      }
+
+      // When the server rejected an unload, look for the one it collides with,
       // so the panel can take the operator there instead of creating another one.
       let existing: DispenserMovement | null = null;
-      if (status !== undefined) {
+      if (status !== undefined && type === 'UNLOAD') {
         setOverlay({ visible: true, status: 'loading', title: 'Verificando...' });
         try {
           const { movements } = await getDispenserMovements({
@@ -365,7 +417,7 @@ export default function DispensersScreen() {
       setSubmitFailure(
         existing
           ? { kind: 'duplicate', message: error.message || 'Ya existe un movimiento para ese reparto y fecha.', movementId: existing.id }
-          : { kind: 'failed', ...getSubmitFailureCopy({ message: error.message, status }, sendableSerials.length) },
+          : { kind: 'failed', ...getSubmitFailureCopy({ message: error.message, status }, toSend.length, type) },
       );
     } finally {
       setSubmitting(false);
@@ -417,8 +469,27 @@ export default function DispensersScreen() {
         <Pill label="A mano" icon="add" onPress={() => setShowManualSheet(true)} />
       </View>
 
-      {(invalidCount > 0 || (isLoad && odooUnavailableCount > 0) || baggedCount > 0) && (
+      {isLoad && earlierLoads.length > 0 && (
+        <View style={[styles.chip, styles.chipReload]}>
+          <Ionicons name="repeat-outline" size={14} color={C.blueText} />
+          <Text style={[styles.chipText, { color: C.blueText }]}>
+            Recarga · el reparto ya tiene {earlierLoads.length} carga{earlierLoads.length !== 1 ? 's' : ''} para esta fecha
+          </Text>
+        </View>
+      )}
+
+      {(invalidCount > 0 || (isLoad && odooUnavailableCount > 0) || baggedCount > 0 || repeatedCount > 0) && (
         <View style={styles.warnChips}>
+          {repeatedCount > 0 && (
+            <View style={[styles.chip, styles.chipError]}>
+              <Ionicons name="close-circle-outline" size={14} color={C.redText} />
+              <Text style={[styles.chipText, { color: C.redText }]}>
+                {repeatedCount === 1
+                  ? '1 ya salió en otra carga · no se envía'
+                  : `${repeatedCount} ya salieron en otra carga · no se envían`}
+              </Text>
+            </View>
+          )}
           {baggedCount > 0 && (
             <View style={[styles.chip, styles.chipBagged]}>
               <Ionicons name="bag-check-outline" size={14} color={C.blueText} />
@@ -498,6 +569,7 @@ export default function DispensersScreen() {
               type,
               valid: item.valid,
               odoo: odooValidation.get(item.code),
+              alreadyLoaded: isAlreadyLoaded(loadedSerials, item.code),
             })}
             onRemove={() => removeSerial(item.code)}
             bagged={
@@ -649,6 +721,29 @@ export default function DispensersScreen() {
         }
       />
 
+      <BottomSheet
+        visible={reloadConfirm !== null}
+        onDismiss={() => setReloadConfirm(null)}
+        tone="info"
+        icon="repeat-outline"
+        title={reloadConfirm?.title}
+        message={reloadConfirm?.message}
+        actions={
+          <>
+            <PrimaryButton
+              title="Registrar recarga"
+              icon="cloud-upload-outline"
+              onPress={() => {
+                const toSend = reloadConfirm?.serials ?? [];
+                setReloadConfirm(null);
+                submitMovement(toSend);
+              }}
+            />
+            <SecondaryButton title="Volver" onPress={() => setReloadConfirm(null)} />
+          </>
+        }
+      />
+
       <StatusOverlay
         visible={overlay.visible}
         status={overlay.status}
@@ -699,6 +794,7 @@ const styles = StyleSheet.create({
     borderRadius: R.full,
   },
   chipBagged: { backgroundColor: C.blueLight },
+  chipReload: { backgroundColor: C.blueLight, alignSelf: 'flex-start' },
   chipError: { backgroundColor: C.redSoft },
   chipWarning: { backgroundColor: C.orangeSoft },
   chipText: { ...T.secondary, fontFamily: T.label.fontFamily, flexShrink: 1 },

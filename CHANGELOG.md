@@ -8,6 +8,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
+- Recargas de dispensers: si el reparto ya tiene una carga para esa fecha, la pantalla avisa "Recarga" y, antes de enviar, pide confirmar que va como recarga (cuántas cargas tiene el reparto y cuántos dispensers suma). Los dispensers que ya salieron en otra carga de ese reparto y fecha quedan en rojo y no se envían. En el listado y el detalle las recargas llevan la etiqueta "Recarga", y una carga con una recarga posterior ya no se puede cancelar ni corregir (solo la última del día). SUPERVISOR también entra a Dispensers. Requiere el backend con recargas.
 - Borrador automático en los controles de salida y entrada (1.2.8): lo cargado se guarda en el celular mientras se escribe y se recupera al volver a la pantalla, aunque se haya salido o cerrado la app. Hay uno por usuario y tipo, solo vale en el mismo día, se puede descartar y se borra al guardar el control.
 - Las cajas de cantidad del control de stock dicen qué son ("bultos ×N",
   "sueltas", "unidades").

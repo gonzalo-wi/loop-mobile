@@ -13,6 +13,17 @@ function odoo(overrides: Partial<OdooValidationResult> = {}): OdooValidationResu
 }
 
 describe('getSerialRowStatus', () => {
+  it('rejects a serial that already went out in an earlier load, over the Odoo warning', () => {
+    expect(
+      getSerialRowStatus({
+        type: 'LOAD',
+        valid: true,
+        alreadyLoaded: true,
+        odoo: odoo({ disponible: false, motivo: 'Está en el reparto' }),
+      }),
+    ).toEqual({ tone: 'error', message: 'Ya salió en otra carga de este reparto · no se envía', detail: null });
+  });
+
   it('is ok with no message for a valid serial without Odoo issues', () => {
     expect(getSerialRowStatus({ type: 'LOAD', valid: true, odoo: odoo() })).toEqual({
       tone: 'ok',

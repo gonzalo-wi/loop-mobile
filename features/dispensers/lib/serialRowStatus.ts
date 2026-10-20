@@ -15,6 +15,8 @@ type Input = {
   /** False when jMobile lists the serial as not normalized. */
   valid: boolean;
   odoo?: OdooValidationResult;
+  /** LOAD only: the serial already went out in an earlier load of the same route and date. */
+  alreadyLoaded?: boolean;
 };
 
 /**
@@ -22,8 +24,13 @@ type Input = {
  * LOAD (not sent) but only flagged on UNLOAD (the backend routes it to Odoo).
  * Odoo availability is only checked on LOAD and never blocks the submit.
  */
-export function getSerialRowStatus({ type, valid, odoo }: Input): SerialRowStatus {
+export function getSerialRowStatus({ type, valid, odoo, alreadyLoaded }: Input): SerialRowStatus {
   const isLoad = type === 'LOAD';
+
+  // Checked before Odoo: once loaded the serial sits in the route, so Odoo also reports it unavailable.
+  if (isLoad && alreadyLoaded) {
+    return { tone: 'error', message: 'Ya salió en otra carga de este reparto · no se envía', detail: null };
+  }
 
   if (!valid) {
     return isLoad

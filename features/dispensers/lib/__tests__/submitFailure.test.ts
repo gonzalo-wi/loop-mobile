@@ -1,4 +1,4 @@
-import { findActiveMovement, getSubmitFailureCopy } from '../submitFailure';
+import { findActiveMovement, getSubmitFailureCopy, isRepeatedSerialsConflict } from '../submitFailure';
 import type { DispenserMovement } from '../../types';
 
 function mov(overrides: Partial<DispenserMovement> = {}): DispenserMovement {
@@ -128,5 +128,27 @@ describe('getSubmitFailureCopy', () => {
     expect(getSubmitFailureCopy({ status: 500 }, 2).message).toBe(
       'Intentá de nuevo.\n\nTus 2 dispensers siguen cargados en esta pantalla.',
     );
+  });
+});
+
+describe('isRepeatedSerialsConflict', () => {
+  it('is the 409 of a load: some serials already went out in another load that day', () => {
+    expect(isRepeatedSerialsConflict('LOAD', 409)).toBe(true);
+  });
+
+  it('is not an unload duplicate nor any other failure', () => {
+    expect(isRepeatedSerialsConflict('UNLOAD', 409)).toBe(false);
+    expect(isRepeatedSerialsConflict('LOAD', 400)).toBe(false);
+    expect(isRepeatedSerialsConflict('LOAD', undefined)).toBe(false);
+  });
+});
+
+describe('getSubmitFailureCopy for repeated serials', () => {
+  it('explains they were flagged instead of showing the server text', () => {
+    expect(getSubmitFailureCopy({ message: 'These dispensers already went out', status: 409 }, 2, 'LOAD')).toEqual({
+      title: 'Hay dispensers que ya salieron',
+      message:
+        'Algunos ya salieron en otra carga de este reparto para esta fecha. Quedaron marcados en rojo y no se envían.\n\nTus 2 dispensers siguen cargados en esta pantalla.',
+    });
   });
 });

@@ -25,7 +25,7 @@ export function MovementCard({ mov, onPress }: MovementCardProps) {
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Reparto ${mov.routeCode}, ${count} dispenser${count !== 1 ? 's' : ''}`}
+      accessibilityLabel={`Reparto ${mov.routeCode}, ${count} dispenser${count !== 1 ? 's' : ''}${mov.reload ? ', recarga' : ''}`}
       style={({ pressed }) => [
         styles.card,
         mov.status === 'CANCELLED' && styles.cancelled,
@@ -37,9 +37,16 @@ export function MovementCard({ mov, onPress }: MovementCardProps) {
           <Text style={styles.routeText} {...FIT_ONE_LINE}>R{mov.routeCode}</Text>
         </View>
         <View style={styles.info}>
-          <Text style={styles.count} {...FIT_ONE_LINE}>
-            {count} dispenser{count !== 1 ? 's' : ''}
-          </Text>
+          <View style={styles.countRow}>
+            <Text style={styles.count} {...FIT_ONE_LINE}>
+              {count} dispenser{count !== 1 ? 's' : ''}
+            </Text>
+            {mov.reload ? (
+              <View style={styles.reloadTag}>
+                <Text style={styles.reloadTagText}>Recarga</Text>
+              </View>
+            ) : null}
+          </View>
           <Text style={styles.meta}>
             {mov.technician} · {formatClockTime(mov.createdAt)}
           </Text>
@@ -86,7 +93,10 @@ const styles = StyleSheet.create({
   },
   routeText: { ...T.data, color: C.navy, fontVariant: ['tabular-nums'] },
   info: { flex: 1 },
-  count: { ...T.section, color: C.navy },
+  countRow: { flexDirection: 'row', alignItems: 'center', gap: S.sm },
+  count: { ...T.section, color: C.navy, flexShrink: 1 },
+  reloadTag: { paddingHorizontal: S.sm, paddingVertical: S.xs, borderRadius: R.full, backgroundColor: C.blueLight },
+  reloadTagText: { ...T.secondary, fontFamily: T.label.fontFamily, color: C.blueText },
   meta: { ...T.secondary, fontFamily: T.body.fontFamily, fontSize: T.body.fontSize, color: C.ink2, fontVariant: ['tabular-nums'] },
   excluded: { flexDirection: 'row', alignItems: 'center', gap: S.xs + 2 },
   excludedText: { ...T.secondary, fontFamily: T.label.fontFamily, color: C.orangeText, flexShrink: 1 },

@@ -8,6 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   getDispenserMovement,
@@ -15,6 +16,9 @@ import {
   cancelDispenserMovement,
 } from '@/features/dispensers/services/dispenserApi';
 import { noNormalizadoPending, pollOdooStatus } from '@/features/dispensers/hooks/useOdooPolling';
+import { useHasLaterLoad } from '@/features/dispensers/hooks/useHasLaterLoad';
+import { LATER_RELOAD_MESSAGE } from '@/features/dispensers/lib/reload';
+import { ApiError } from '@/lib/api';
 import { sanitizeSerial } from '@/features/dispensers/services/dispenserValidationApi';
 import {
   expectsNoNormalizadoIntake,
@@ -61,6 +65,13 @@ export default function DispenserMovementDetailScreen() {
 
   const [saving, setSaving] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const { state: laterLoadState, recheck: recheckLaterLoad } = useHasLaterLoad(mov);
+
+  /** A 409 on a load may mean a recarga came in meanwhile: then say so in Spanish and lock the actions. */
+  async function laterReloadBlocks(e: unknown): Promise<boolean> {
+    if (!mov || mov.type !== 'LOAD' || !(e instanceof ApiError) || e.status !== 409) return false;
+    return recheckLaterLoad();
+  }
 
   const loadMov = useCallback(async () => {
     if (!id) return;
@@ -183,6 +194,11 @@ export default function DispenserMovementDetailScreen() {
       setMov(updated);
       setEditing(false);
     } catch (e) {
+      if (await laterReloadBlocks(e)) {
+        setEditing(false);
+        Alert.alert('No se pudo corregir', LATER_RELOAD_MESSAGE);
+        return;
+      }
       Alert.alert('No se pudo corregir', e instanceof Error ? e.message : 'Intentá de nuevo');
     } finally {
       setSaving(false);
@@ -210,6 +226,10 @@ export default function DispenserMovementDetailScreen() {
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (e) {
+      if (await laterReloadBlocks(e)) {
+        Alert.alert('No se pudo cancelar', LATER_RELOAD_MESSAGE);
+        return;
+      }
       Alert.alert('No se pudo cancelar', e instanceof Error ? e.message : 'Intentá de nuevo');
     } finally {
       setCancelling(false);
@@ -304,6 +324,7 @@ export default function DispenserMovementDetailScreen() {
           <View style={styles.pills}>
             <Pill label={mov.technician} icon="person-outline" />
             <Pill label={isoDateToDisplay(mov.movementDate)} icon="calendar-outline" />
+            {mov.reload ? <Pill label="Recarga" icon="repeat-outline" tone="blue" /> : null}
             {mov.registeredByUsername ? (
               <Pill label={`Registró: ${mov.registeredByUsername}`} icon="phone-portrait-outline" />
             ) : null}
@@ -340,7 +361,18 @@ export default function DispenserMovementDetailScreen() {
         />
       </ScrollView>
 
-      {!isCancelled && (
+      {!isCancelled && laterLoadState === 'later' && (
+        <BottomBar>
+          <View style={styles.lockedNote}>
+            <Ionicons name="lock-closed-outline" size={18} color={C.ink2} />
+            <Text style={styles.lockedNoteText}>
+              {LATER_RELOAD_MESSAGE}
+            </Text>
+          </View>
+        </BottomBar>
+      )}
+
+      {!isCancelled && laterLoadState === 'last' && (
         <BottomBar>
           {editing ? (
             <>
@@ -435,4 +467,6 @@ const styles = StyleSheet.create({
 
   // The destructive/secondary action is always narrower than the primary one.
   secondaryAction: { flex: 0.75 },
+  lockedNote: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: S.sm, minHeight: H.primaryButton },
+  lockedNoteText: { ...T.secondary, color: C.ink2, flexShrink: 1 },
 });
