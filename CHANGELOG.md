@@ -8,7 +8,9 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
-- Recargas de dispensers: si el reparto ya tiene una carga para esa fecha, la pantalla avisa "Recarga" y, antes de enviar, pide confirmar que va como recarga (cuántas cargas tiene el reparto y cuántos dispensers suma). Los dispensers que ya salieron en otra carga de ese reparto y fecha quedan en rojo y no se envían. En el listado y el detalle las recargas llevan la etiqueta "Recarga", y una carga con una recarga posterior ya no se puede cancelar ni corregir (solo la última del día). SUPERVISOR también entra a Dispensers. Requiere el backend con recargas.
+- Rechazo de controles de entrada (1.2.9): el repartidor puede rechazar un control pendiente con un motivo obligatorio, además de aprobarlo. El controlador lo ve como "Rechazado" con el motivo, lo corrige y al guardarlo le vuelve a llegar al repartidor. Mientras espera al repartidor, el controlador también puede editar la entrada. Requiere el backend actualizado.
+- Productos con llenos igual al total (1.2.9): en el control de entrada, los productos marcados desde el panel (PalMad, Rack, Carro, Caj) solo piden Total y Recambio; los llenos se mandan iguales al total. Requiere el backend actualizado.
+- Recargas de dispensers (1.2.9): si el reparto ya tiene una carga para esa fecha, la pantalla avisa "Recarga" y, antes de enviar, pide confirmar que va como recarga (cuántas cargas tiene el reparto y cuántos dispensers suma). Los dispensers que ya salieron en otra carga de ese reparto y fecha quedan en rojo y no se envían. En el listado y el detalle las recargas llevan la etiqueta "Recarga", y una carga con una recarga posterior ya no se puede cancelar ni corregir (solo la última del día). SUPERVISOR también entra a Dispensers. Requiere el backend con recargas.
 - Borrador automático en los controles de salida y entrada (1.2.8): lo cargado se guarda en el celular mientras se escribe y se recupera al volver a la pantalla, aunque se haya salido o cerrado la app. Hay uno por usuario y tipo, solo vale en el mismo día, se puede descartar y se borra al guardar el control.
 - Las cajas de cantidad del control de stock dicen qué son ("bultos ×N",
   "sueltas", "unidades").
@@ -53,7 +55,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   botones de ícono del escáner (linterna, cerrar, agregar a mano).
 
 ### Changed
-- Dispensers: el acceso queda para ADMIN y CONTROLADOR, porque los roles PICKER y CARGADOR_DISPENSERS se unificaron en CONTROLADOR en el backend. Quien tenía uno de esos roles tiene que cerrar sesión y volver a entrar para ver dispensers.
+- Dispensers (1.2.9): el acceso queda para ADMIN y CONTROLADOR, porque los roles PICKER y CARGADOR_DISPENSERS se unificaron en CONTROLADOR en el backend. Quien tenía uno de esos roles tiene que cerrar sesión y volver a entrar para ver dispensers.
 - La aprobación del control por el repartidor muestra Total y Llenos en bultos + sueltas, como al cargar el control (15 sodas de a 6 → "2 + 3"). Recambios y Diferencia siguen en unidades.
 - Control de entrada (1.2.8): las cantidades van en orden Total, Llenos, Recambio y, en productos sin bultos, una al lado de la otra para que la tarjeta ocupe menos. Las etiquetas siguen el estilo LOOP, "Recambio" va completo y el producto cargado se marca con borde verde (entrada) o azul (salida).
 - La corrección de controles de entrada enviados a Aguas también está disponible para el rol ADMIN (requiere el backend actualizado).
