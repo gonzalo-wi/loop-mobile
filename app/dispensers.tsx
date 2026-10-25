@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -50,9 +50,8 @@ import {
   normalizeSerial,
   sanitizeSerial,
 } from '@/features/dispensers/services/dispenserValidationApi';
-import {
-  validateOdooEquipment,
-} from '@/features/dispensers/services/odooApi';
+import { useOdooValidation } from '@/features/dispensers/hooks/useOdooValidation';
+import { getOdooSubmitGate, getOdooUnavailableMessage } from '@/features/dispensers/lib/odooSubmitGate';
 import { pollOdooStatus } from '@/features/dispensers/hooks/useOdooPolling';
 import { shouldSendSerial } from '@/features/dispensers/lib/movementOutcome';
 import { isAwaitingSystems } from '@/features/dispensers/lib/registrationFollowUp';
@@ -62,12 +61,8 @@ import type {
   AguasCatalogItem,
   DispenserMovement,
   DispenserMovementType,
-  OdooValidationResult,
 } from '@/features/dispensers/types';
 import { C, H, R, S, T } from '@/lib/theme';
-
-// Debounce para no spammear la validación Odoo mientras se escanea en tanda.
-const ODOO_VALIDATE_DEBOUNCE_MS = 900;
 
 type SubmitFailure =
   | { kind: 'failed'; title: string; message: string }
@@ -147,11 +142,8 @@ export default function DispensersScreen() {
   // Pull-to-refresh de los seriales no normalizados.
   const [refreshing, setRefreshing] = useState(false);
 
-  // Validación Odoo de series agregadas (independiente de la de Aguas).
-  const [odooValidation, setOdooValidation] = useState<Map<string, OdooValidationResult>>(
-    new Map(),
-  );
-  const odooValidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // LOAD: operator tapped Enviar with Odoo-unavailable serials still in the list.
+  const [odooBlockCount, setOdooBlockCount] = useState<number | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [registered, setRegistered] = useState<DispenserMovement | null>(null);
@@ -248,11 +240,17 @@ export default function DispensersScreen() {
   const invalidCount = serials.filter((s) => !s.valid).length;
   const repeatedCount = type === 'LOAD' ? serials.filter((s) => isAlreadyLoaded(loadedSerials, s.code)).length : 0;
   const baggedCount = baggedSerialsToSend(type, sendableSerials).length;
-  // Series marcadas por Odoo como no disponibles (aviso independiente del de Aguas).
-  const odooUnavailableCount = serials.filter((s) => {
-    const result = odooValidation.get(s.code);
-    return result ? !result.disponible : false;
-  }).length;
+  // Validación Odoo de series agregadas (independiente de la de Aguas).
+  const { results: odooValidation, status: odooStatus } = useOdooValidation(type, serialCodes);
+  // Only serials that would be sent can block: non-normalized / already-loaded ones keep their own red row.
+  const odooGate = getOdooSubmitGate({
+    type,
+    codes: sendableSerials.map((s) => s.code),
+    validation: odooValidation,
+    status: odooStatus,
+  });
+  const odooUnavailableCount = odooGate.kind === 'blocked' ? odooGate.unavailable.length : 0;
+  const odooValidating = odooGate.kind === 'validating';
 
   const addSerial = useCallback((code: string, source: SerialSource) => {
     // deja solo [A-Za-z0-9.*-] en mayúsculas (si no, no machea contra Aguas/Odoo).
@@ -286,34 +284,6 @@ export default function DispensersScreen() {
     setSerials([]);
   }
 
-  /**
-   * Validación Odoo de las series agregadas (independiente de la de Aguas).
-   * Se dispara en batch con debounce para no spammear el endpoint mientras
-   * se escanea la tanda. Solo aplica a LOAD; no bloquea el submit, solo avisa.
-   */
-  useEffect(() => {
-    if (type !== 'LOAD') return;
-    if (odooValidateTimer.current) clearTimeout(odooValidateTimer.current);
-
-    if (serialCodes.length === 0) {
-      setOdooValidation(new Map());
-      return;
-    }
-
-    odooValidateTimer.current = setTimeout(async () => {
-      try {
-        const results = await validateOdooEquipment(serialCodes);
-        setOdooValidation(new Map(results.map((r) => [r.serie, r])));
-      } catch {
-        // Sin conexión con Odoo → no avisamos, pero tampoco bloqueamos.
-      }
-    }, ODOO_VALIDATE_DEBOUNCE_MS);
-
-    return () => {
-      if (odooValidateTimer.current) clearTimeout(odooValidateTimer.current);
-    };
-  }, [serialCodes.join(','), type]);
-
   const canSubmit =
     routeCode.trim().length > 0 &&
     technician.trim().length > 0 &&
@@ -322,8 +292,12 @@ export default function DispensersScreen() {
 
   /** On LOAD, checks the route's loads for that date right before sending: a match makes this a recarga. */
   async function handleSubmit() {
-    if (submitting) return;
+    if (submitting || odooValidating) return;
     setSubmitFailure(null);
+    if (odooGate.kind === 'blocked') {
+      setOdooBlockCount(odooGate.unavailable.length);
+      return;
+    }
     if (type !== 'LOAD') {
       await submitMovement(sendableSerials);
       return;
@@ -515,10 +489,11 @@ export default function DispensersScreen() {
             </View>
           )}
           {isLoad && odooUnavailableCount > 0 && (
-            <View style={[styles.chip, styles.chipWarning]}>
-              <Ionicons name="alert-circle-outline" size={14} color={C.orangeText} />
-              <Text style={[styles.chipText, { color: C.orangeText }]}>
-                {odooUnavailableCount} no disponible{odooUnavailableCount !== 1 ? 's' : ''} en Odoo
+            <View style={[styles.chip, styles.chipError]}>
+              <Ionicons name="close-circle-outline" size={14} color={C.redText} />
+              <Text style={[styles.chipText, { color: C.redText }]}>
+                {odooUnavailableCount} no disponible{odooUnavailableCount !== 1 ? 's' : ''} en Odoo · eliminalo
+                {odooUnavailableCount !== 1 ? 's' : ''}
               </Text>
             </View>
           )}
@@ -607,14 +582,16 @@ export default function DispensersScreen() {
             <View style={styles.flex}>
               <PrimaryButton
                 title={
-                  sendableCount > 0
+                  odooValidating
+                    ? 'Validando en Odoo...'
+                    : sendableCount > 0
                     ? `Enviar ${sendableCount} dispenser${sendableCount !== 1 ? 's' : ''}`
                     : 'Enviar'
                 }
                 icon="cloud-upload-outline"
                 onPress={handleSubmit}
                 loading={submitting}
-                disabled={!canSubmit}
+                disabled={!canSubmit || odooValidating}
               />
             </View>
           </>
@@ -719,6 +696,16 @@ export default function DispensersScreen() {
             </>
           )
         }
+      />
+
+      <BottomSheet
+        visible={odooBlockCount !== null}
+        onDismiss={() => setOdooBlockCount(null)}
+        tone="error"
+        icon="alert-circle-outline"
+        title="Hay dispensers no disponibles"
+        message={odooBlockCount !== null ? getOdooUnavailableMessage(odooBlockCount) : undefined}
+        actions={<PrimaryButton title="Entendido" onPress={() => setOdooBlockCount(null)} />}
       />
 
       <BottomSheet

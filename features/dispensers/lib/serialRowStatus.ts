@@ -22,7 +22,8 @@ type Input = {
 /**
  * What a scanned serial row shows. A non-normalized serial is rejected on
  * LOAD (not sent) but only flagged on UNLOAD (the backend routes it to Odoo).
- * Odoo availability is only checked on LOAD and never blocks the submit.
+ * Odoo availability is only checked on LOAD; an unavailable serial is an error because the
+ * operator must remove it before sending (see `getOdooSubmitGate`).
  */
 export function getSerialRowStatus({ type, valid, odoo, alreadyLoaded }: Input): SerialRowStatus {
   const isLoad = type === 'LOAD';
@@ -39,7 +40,11 @@ export function getSerialRowStatus({ type, valid, odoo, alreadyLoaded }: Input):
   }
 
   if (isLoad && odoo && !odoo.disponible) {
-    return { tone: 'warning', message: 'Odoo: no disponible', detail: odoo.motivo || null };
+    return {
+      tone: 'error',
+      message: 'No disponible en Odoo · eliminalo para enviar',
+      detail: odoo.motivo || null,
+    };
   }
 
   return { tone: 'ok', message: null, detail: null };
