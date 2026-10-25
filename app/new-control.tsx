@@ -471,6 +471,7 @@ export default function NewControlScreen() {
           controls={today.controls}
           pending={today.pending}
           accepted={today.accepted}
+          rejected={today.rejected}
         />
         <FlatList
           style={styles.flatList}

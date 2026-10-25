@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AppState } from 'react-native';
 import { getStockControls } from '../services/stockControlApi';
+import { countTodayControls } from '../lib/todayControlsLogic';
 import type { StockControl } from '../types';
 
 function todayStr(): string {
@@ -47,8 +48,7 @@ export function useTodayControls(controllerId: string | undefined, pollMs = 1200
     };
   }, [load, pollMs]);
 
-  const pending = controls.filter((c) => c.status === 'PENDING_DRIVER_APPROVAL').length;
-  const accepted = controls.filter((c) => c.status === 'ACCEPTED_BY_DRIVER').length;
+  const { pending, accepted, rejected } = countTodayControls(controls);
 
-  return { controls, pending, accepted, reload: load };
+  return { controls, pending, accepted, rejected, reload: load };
 }

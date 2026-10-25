@@ -148,7 +148,7 @@ export default function EditControlScreen() {
         setObservations(ctrl.observations ?? '');
         setTruckOrdered(ctrl.truckOrdered);
 
-        if (isControlEditable(ctrl)) {
+        if (isControlEditable(ctrl, user?.role)) {
           await loadProductsAndForm(ctrl);
         }
       } catch (e) {
@@ -158,7 +158,7 @@ export default function EditControlScreen() {
       }
     }
     loadData();
-  }, [id, loadProductsAndForm]);
+  }, [id, loadProductsAndForm, user?.role]);
 
   const handleProductChange = useCallback(
     (productId: string, values: ProductControlValues) => {
@@ -311,7 +311,7 @@ export default function EditControlScreen() {
     );
   }
 
-  const isEditable = isControlEditable(control);
+  const isEditable = isControlEditable(control, user?.role);
   const isRejected = control.status === 'REJECTED_BY_DRIVER';
   const isWaitingDriver = control.status === 'PENDING_DRIVER_APPROVAL';
   const isExit = control.type === 'EXIT';
@@ -356,6 +356,21 @@ export default function EditControlScreen() {
           ListHeaderComponent={
             <View style={styles.headerContent}>
               {summaryBlock}
+
+              {isRejected ? (
+                <View style={styles.rejectedBanner}>
+                  <Ionicons name="close-circle-outline" size={H.iconInPill} color={C.redText} />
+                  <View style={styles.flex}>
+                    <Text style={styles.rejectedBannerTitle}>Rechazaste este control</Text>
+                    {control.driverRejectionReason ? (
+                      <Text style={styles.correctionBannerText}>Motivo: {control.driverRejectionReason}</Text>
+                    ) : null}
+                    <Text style={styles.correctionBannerText}>
+                      El controlador lo va a corregir y te llega de nuevo para aprobar.
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
 
               {hasAguasInfo ? (
                 <View style={styles.infoCard}>

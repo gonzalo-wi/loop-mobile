@@ -33,8 +33,14 @@ export function isControlCorrectable(
 // Hasta que el repartidor acepta, el control vive solo en Loop y el controlador puede cambiarlo.
 const EDITABLE_STATUSES = new Set<string>(['CONTROLLED', 'PENDING_DRIVER_APPROVAL', 'REJECTED_BY_DRIVER']);
 
-export function isControlEditable(control: Pick<StockControl, 'status'>): boolean {
-  return EDITABLE_STATUSES.has(control.status);
+// The driver never edits: a rejected control goes back to the controller who created it.
+const EDITOR_ROLES = new Set<string>(['CONTROLADOR', 'SUPERVISOR', 'ADMIN']);
+
+export function isControlEditable(
+  control: Pick<StockControl, 'status'>,
+  userRole: string | undefined,
+): boolean {
+  return EDITABLE_STATUSES.has(control.status) && userRole !== undefined && EDITOR_ROLES.has(userRole);
 }
 
 function validateReason(reason: string, missingMessage: string): string | null {

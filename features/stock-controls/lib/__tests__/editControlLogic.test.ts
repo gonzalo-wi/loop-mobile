@@ -287,19 +287,26 @@ describe('buildInitialFormValues', () => {
 });
 
 describe('isControlEditable', () => {
-  it.each(['CONTROLLED', 'PENDING_DRIVER_APPROVAL', 'REJECTED_BY_DRIVER'] as const)(
-    'es true antes de que el repartidor acepte (%s)',
-    (status) => {
-      expect(isControlEditable({ status })).toBe(true);
-    },
-  );
+  const editableStatuses = ['CONTROLLED', 'PENDING_DRIVER_APPROVAL', 'REJECTED_BY_DRIVER'] as const;
+  const lockedStatuses = ['ACCEPTED_BY_DRIVER', 'SENT_TO_AGUAS', 'AGUAS_ERROR', 'CANCELLED'] as const;
 
-  it.each(['ACCEPTED_BY_DRIVER', 'SENT_TO_AGUAS', 'AGUAS_ERROR', 'CANCELLED'] as const)(
-    'es false una vez aceptado o enviado (%s)',
-    (status) => {
-      expect(isControlEditable({ status })).toBe(false);
-    },
-  );
+  describe.each(['CONTROLADOR', 'SUPERVISOR', 'ADMIN'])('rol %s', (role) => {
+    it.each(editableStatuses)('es true antes de que el repartidor acepte (%s)', (status) => {
+      expect(isControlEditable({ status }, role)).toBe(true);
+    });
+
+    it.each(lockedStatuses)('es false una vez aceptado o enviado (%s)', (status) => {
+      expect(isControlEditable({ status }, role)).toBe(false);
+    });
+  });
+
+  it.each([...editableStatuses, ...lockedStatuses])('REPARTIDOR nunca edita (%s)', (status) => {
+    expect(isControlEditable({ status }, 'REPARTIDOR')).toBe(false);
+  });
+
+  it.each([...editableStatuses, ...lockedStatuses])('sin rol nunca edita (%s)', (status) => {
+    expect(isControlEditable({ status }, undefined)).toBe(false);
+  });
 });
 
 describe('validateRejectionReason', () => {
