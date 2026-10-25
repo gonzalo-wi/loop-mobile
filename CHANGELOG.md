@@ -89,6 +89,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   reales del hook (RTL + jsdom por-archivo).
 
 ### Fixed
+- Controles rechazados por el repartidor: la corrección ya no le llega al propio repartidor. Ahora ve el control solo lectura con "Rechazaste este control" y el motivo, y no puede editar ningún control. El controlador ve los rechazados en "Mis controles de hoy" (barra en rojo, contador y motivo) y al tocarlos entra a corregirlos. El backend también rechaza con 403 la edición hecha por un REPARTIDOR.
 - "Abrir en el mapa" en Mi camión (1.2.8): en Android abre la app de mapas con `geo:` en las coordenadas. Antes algunos celulares mostraban "El vínculo no es compatible" o buscaban la patente y dejaban el mapa en blanco.
 - Remito del repartidor: si no hay remito para hoy muestra "No tenés un remito
   disponible para hoy." en vez del error técnico del servidor.
