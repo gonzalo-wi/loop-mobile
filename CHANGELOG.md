@@ -55,6 +55,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   botones de ícono del escáner (linterna, cerrar, agregar a mano).
 
 ### Changed
+- Carga de dispensers: si hay dispensers no disponibles en Odoo, no se puede enviar. Se marcan en rojo con el motivo y, al tocar Enviar, un aviso pide eliminarlos de la lista; así queda claro que no van al sistema. Mientras Odoo valida, el botón dice "Validando en Odoo..."; si Odoo no responde, se puede enviar igual. La descarga no cambia.
 - Dispensers (1.2.9): el acceso queda para ADMIN y CONTROLADOR, porque los roles PICKER y CARGADOR_DISPENSERS se unificaron en CONTROLADOR en el backend. Quien tenía uno de esos roles tiene que cerrar sesión y volver a entrar para ver dispensers.
 - La aprobación del control por el repartidor muestra Total y Llenos en bultos + sueltas, como al cargar el control (15 sodas de a 6 → "2 + 3"). Recambios y Diferencia siguen en unidades.
 - Control de entrada (1.2.8): las cantidades van en orden Total, Llenos, Recambio y, en productos sin bultos, una al lado de la otra para que la tarjeta ocupe menos. Las etiquetas siguen el estilo LOOP, "Recambio" va completo y el producto cargado se marca con borde verde (entrada) o azul (salida).
