@@ -55,7 +55,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   botones de ícono del escáner (linterna, cerrar, agregar a mano).
 
 ### Changed
-- Controles nuevos: "Camión ordenado" arranca desactivado y vuelve a desactivarse al limpiar el formulario después de guardar. Los borradores recuperados y la edición de un control conservan el valor que tenían.
+- Controles nuevos (1.2.11): "Camión ordenado" arranca desactivado y vuelve a desactivarse al limpiar el formulario después de guardar. Los borradores recuperados y la edición de un control conservan el valor que tenían.
 - Carga de dispensers (1.2.10): si hay dispensers no disponibles en Odoo, no se puede enviar. Se marcan en rojo con el motivo y, al tocar Enviar, un aviso pide eliminarlos de la lista; así queda claro que no van al sistema. Mientras Odoo valida, el botón dice "Validando en Odoo..."; si Odoo no responde, se puede enviar igual. La descarga no cambia.
 - Dispensers (1.2.9): el acceso queda para ADMIN y CONTROLADOR, porque los roles PICKER y CARGADOR_DISPENSERS se unificaron en CONTROLADOR en el backend. Quien tenía uno de esos roles tiene que cerrar sesión y volver a entrar para ver dispensers.
 - La aprobación del control por el repartidor muestra Total y Llenos en bultos + sueltas, como al cargar el control (15 sodas de a 6 → "2 + 3"). Recambios y Diferencia siguen en unidades.
@@ -91,8 +91,8 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   reales del hook (RTL + jsdom por-archivo).
 
 ### Fixed
-- Historial de controles: muestra los controles creados hoy, aunque sean para mañana (las salidas se hacen para el próximo día de reparto y antes no se veían hasta el día siguiente). Cada tarjeta dice para qué día es el control. Un CONTROLADOR ve solo sus entradas y salidas; ADMIN y SUPERVISOR ven todos. "Mis controles de hoy" en la pantalla de nuevo control también cuenta los creados hoy. Con el backend actualizado, un CONTROLADOR también ve solo sus controles en el panel.
-- Buscador de reparto en los controles de entrada y salida: busca solo por número de reparto. Antes, al escribir por ejemplo "134", aparecía primero un camión con esos números en la patente.
+- Historial de controles (1.2.11): muestra los controles creados hoy, aunque sean para mañana (las salidas se hacen para el próximo día de reparto y antes no se veían hasta el día siguiente). Cada tarjeta dice para qué día es el control. Un CONTROLADOR ve solo sus entradas y salidas; ADMIN y SUPERVISOR ven todos. "Mis controles de hoy" en la pantalla de nuevo control también cuenta los creados hoy. Con el backend actualizado, un CONTROLADOR también ve solo sus controles en el panel.
+- Buscador de reparto en los controles de entrada y salida (1.2.11): busca solo por número de reparto. Antes, al escribir por ejemplo "134", aparecía primero un camión con esos números en la patente.
 - Controles rechazados por el repartidor (1.2.10): la corrección ya no le llega al propio repartidor. Ahora ve el control solo lectura con "Rechazaste este control" y el motivo, y no puede editar ningún control. El controlador ve los rechazados en "Mis controles de hoy" (barra en rojo, contador y motivo) y al tocarlos entra a corregirlos. El backend también rechaza con 403 la edición hecha por un REPARTIDOR.
 - "Abrir en el mapa" en Mi camión (1.2.8): en Android abre la app de mapas con `geo:` en las coordenadas. Antes algunos celulares mostraban "El vínculo no es compatible" o buscaban la patente y dejaban el mapa en blanco.
 - Remito del repartidor: si no hay remito para hoy muestra "No tenés un remito
