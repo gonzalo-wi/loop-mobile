@@ -91,6 +91,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   reales del hook (RTL + jsdom por-archivo).
 
 ### Fixed
+- Historial de controles: muestra los controles creados hoy, aunque sean para mañana (las salidas se hacen para el próximo día de reparto y antes no se veían hasta el día siguiente). Cada tarjeta dice para qué día es el control. Un CONTROLADOR ve solo sus entradas y salidas; ADMIN y SUPERVISOR ven todos. "Mis controles de hoy" en la pantalla de nuevo control también cuenta los creados hoy. Con el backend actualizado, un CONTROLADOR también ve solo sus controles en el panel.
 - Buscador de reparto en los controles de entrada y salida: busca solo por número de reparto. Antes, al escribir por ejemplo "134", aparecía primero un camión con esos números en la patente.
 - Controles rechazados por el repartidor (1.2.10): la corrección ya no le llega al propio repartidor. Ahora ve el control solo lectura con "Rechazaste este control" y el motivo, y no puede editar ningún control. El controlador ve los rechazados en "Mis controles de hoy" (barra en rojo, contador y motivo) y al tocarlos entra a corregirlos. El backend también rechaza con 403 la edición hecha por un REPARTIDOR.
 - "Abrir en el mapa" en Mi camión (1.2.8): en Android abre la app de mapas con `geo:` en las coordenadas. Antes algunos celulares mostraban "El vínculo no es compatible" o buscaban la patente y dejaban el mapa en blanco.
