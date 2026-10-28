@@ -26,8 +26,9 @@ export function useTodayControls(controllerId: string | undefined, pollMs = 1200
       const today = todayStr();
       const res = await getStockControls({
         controllerId,
-        from: today,
-        to: today,
+        // Creation day, not control date: exits created today are for the next delivery day.
+        createdFrom: today,
+        createdTo: today,
         size: 100,
       });
       setControls(res.controls);

@@ -27,6 +27,8 @@ export async function getStockControls(params?: {
   controllerId?: string;
   from?: string;
   to?: string;
+  createdFrom?: string;
+  createdTo?: string;
   page?: number;
   size?: number;
 }): Promise<{ controls: StockControl[]; totalElements: number; totalPages: number }> {

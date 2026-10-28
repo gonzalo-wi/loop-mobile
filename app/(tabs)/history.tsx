@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getStockControls } from '@/features/stock-controls/services/stockControlApi';
+import { buildHistoryQuery, seesAllControls } from '@/features/stock-controls/lib/historyQuery';
 import { EmptyState, Pill, ScreenHeader, SecondaryButton, SegmentedControl } from '@/components/ui';
 import { ControlStatusChip } from '@/features/stock-controls/components/ControlStatusChip';
 import { useAuthStore } from '@/store/authStore';
@@ -60,7 +61,9 @@ function ControlCard({
         <Text style={styles.cardTime}>{formatClockTime(control.createdAt)}</Text>
       </View>
 
-      <Text style={styles.cardBranch}>{control.branchName}</Text>
+      <Text style={styles.cardBranch}>
+        {control.branchName} · Para el {isoDateToDisplay(control.controlDate)}
+      </Text>
 
       <View style={styles.cardBottom}>
         <ControlStatusChip status={control.status} />
@@ -81,6 +84,7 @@ type FilterType = 'ALL' | 'EXIT' | 'ENTRY';
 function ControllerHistory() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const user = useAuthStore((s) => s.user);
   const [controls, setControls] = useState<StockControl[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -88,41 +92,44 @@ function ControllerHistory() {
   const [filter, setFilter] = useState<FilterType>('ALL');
 
   const load = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
     setError(null);
     try {
-      const today = getTodayDate();
-      const result = await getStockControls({ from: today, to: today, size: 50 });
+      const result = await getStockControls(buildHistoryQuery(user, getTodayDate()));
       setControls(result.controls);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al cargar historial');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const onRefresh = useCallback(async () => {
+    if (!user) return;
     setRefreshing(true);
     try {
-      const today = getTodayDate();
-      const result = await getStockControls({ from: today, to: today, size: 50 });
+      const result = await getStockControls(buildHistoryQuery(user, getTodayDate()));
       setControls(result.controls);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al cargar historial');
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [user]);
 
   const filtered = filter === 'ALL' ? controls : controls.filter((c) => c.type === filter);
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <ScreenHeader title="Historial" subtitle={`Hoy · ${isoDateToDisplay(getTodayDate())}`} />
+      <ScreenHeader
+        title="Historial"
+        subtitle={`${user && seesAllControls(user.role) ? 'Creados hoy' : 'Tus controles de hoy'} · ${isoDateToDisplay(getTodayDate())}`}
+      />
       <View style={styles.segment}>
         <SegmentedControl
           tone="onCream"
@@ -165,7 +172,7 @@ function ControllerHistory() {
             <EmptyState
               icon="time-outline"
               title="Sin controles hoy"
-              hint="Los controles de salida y entrada que hagas van a aparecer acá."
+              hint="Los controles de salida y entrada que hagas hoy van a aparecer acá, aunque sean para mañana."
               style={styles.empty}
             />
           }
