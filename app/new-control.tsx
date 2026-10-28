@@ -251,7 +251,7 @@ export default function NewControlScreen() {
 
   const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
   const [routeModalVisible, setRouteModalVisible] = useState(false);
-  const [truckOrdered, setTruckOrdered] = useState(true);
+  const [truckOrdered, setTruckOrdered] = useState(false);
   const [observations, setObservations] = useState('');
   const [controlDate, setControlDate] = useState<Date>(() => computeDefaultDate(controlType));
 
@@ -283,7 +283,7 @@ export default function NewControlScreen() {
     setFormValues(cleared);
     setObservations('');
     setSelectedRoute(null);
-    setTruckOrdered(true);
+    setTruckOrdered(false);
     setControlDate(computeDefaultDate(controlType));
     setFormKey((k) => k + 1);
   }
