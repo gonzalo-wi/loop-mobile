@@ -18,6 +18,7 @@ import { C, H, R, S, T } from '@/lib/theme';
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight';
 import type { Route } from '../types';
 import { getAllRoutes } from '../services/routesApi';
+import { filterRoutesByCode } from '../lib/routeSearch';
 
 type Props = {
   visible: boolean;
@@ -45,7 +46,7 @@ export function RouteSearchModal({ visible, onSelect, onClose }: Props) {
     setError(null);
     try {
       const data = await getAllRoutes(searchTerm);
-      if (id === reqId.current) setRoutes(data);
+      if (id === reqId.current) setRoutes(filterRoutesByCode(data, searchTerm));
     } catch (e) {
       if (id === reqId.current) {
         setError(e instanceof Error ? e.message : 'Error al cargar repartos');
@@ -94,7 +95,7 @@ export function RouteSearchModal({ visible, onSelect, onClose }: Props) {
           <AppTextField
             surface="cream"
             icon="search"
-            placeholder="Buscar por código, sucursal o repartidor..."
+            placeholder="Buscar por número de reparto..."
             value={search}
             onChangeText={setSearch}
             autoFocus
