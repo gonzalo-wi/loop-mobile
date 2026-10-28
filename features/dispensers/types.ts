@@ -77,6 +77,8 @@ export type CreateMovementPayload = {
   serials: string[];
   // Solo UNLOAD: subconjunto de `serials` que volvió embolsado (no va a reparación en planta).
   baggedSerials?: string[];
+  // Seconds from the first serial added until submitting. Only on create: the backend drops out-of-range values.
+  loadDurationSeconds?: number;
 };
 
 /**

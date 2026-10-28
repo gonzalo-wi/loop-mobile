@@ -36,6 +36,7 @@ import {
 } from '@/features/dispensers/lib/submitFailure';
 import { alreadyLoadedSerials, getReloadConfirmCopy, isAlreadyLoaded } from '@/features/dispensers/lib/reload';
 import { useEarlierLoads } from '@/features/dispensers/hooks/useEarlierLoads';
+import { useLoadTimer } from '@/features/dispensers/hooks/useLoadTimer';
 import { ApiError } from '@/lib/api';
 import { getSerialRowStatus } from '@/features/dispensers/lib/serialRowStatus';
 import { toShortDisplayDate } from '@/features/dispensers/lib/displayDate';
@@ -122,6 +123,7 @@ export default function DispensersScreen() {
   const [dateTouched, setDateTouched] = useState(false);
   const [serials, setSerials] = useState<SerialEntry[]>([]);
   const [manualSerial, setManualSerial] = useState('');
+  const loadTimer = useLoadTimer(serials.length);
 
   const [locations, setLocations] = useState<AguasCatalog | null>(null);
   const [states, setStates] = useState<AguasCatalog | null>(null);
@@ -336,6 +338,7 @@ export default function DispensersScreen() {
         movementDate: key.movementDate,
         serials: toSend.map((s) => s.code),
         baggedSerials: baggedSerialsToSend(type, toSend),
+        loadDurationSeconds: loadTimer.elapsedSeconds(),
       });
 
       // The confirmation screen stays until the operator chooses what's next,
