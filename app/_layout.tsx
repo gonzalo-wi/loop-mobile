@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useRouteStore } from '@/store/routeStore';
 import { getToken, getStoredUser, getStoredRoute } from '@/lib/storage';
 import { AppUpdateGate } from '@/components/AppUpdateGate';
+import { useSessionExpiry } from '@/lib/useSessionExpiry';
 import { C } from '@/lib/theme';
 import { FONT_ASSETS } from '@/lib/fontAssets';
 
@@ -65,6 +66,7 @@ export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts(FONT_ASSETS);
   const fontsSettled = fontsLoaded || !!fontError;
   useAuthGuard(fontsSettled);
+  useSessionExpiry();
 
   useEffect(() => {
     if (fontError) {

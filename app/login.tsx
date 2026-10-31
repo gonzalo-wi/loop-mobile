@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/store/authStore';
 import { useRouteStore } from '@/store/routeStore';
 import { login } from '@/features/auth/services/authApi';
+import { SessionExpiredNotice } from '@/features/auth/components/SessionExpiredNotice';
 import { getAllRoutes } from '@/features/stock-controls/services/routesApi';
 import { saveToken, saveUser, saveRoute } from '@/lib/storage';
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight';
@@ -53,7 +54,7 @@ export default function LoginScreen() {
   const keyboardHeight = useKeyboardHeight();
   const passwordRef = useRef<TextInput>(null);
   const scrollRef = useRef<ScrollViewType>(null);
-  const { setUser } = useAuthStore();
+  const { setUser, sessionExpired } = useAuthStore();
   const { setRoute } = useRouteStore();
   const router = useRouter();
 
@@ -176,6 +177,7 @@ export default function LoginScreen() {
             <Text style={styles.subtitle}>Ingresá con tu usuario asignado</Text>
 
             <View style={styles.form}>
+              {sessionExpired && !error && <SessionExpiredNotice />}
               <ErrorMessage message={error} />
 
               <AppTextField
