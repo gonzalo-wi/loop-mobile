@@ -3,6 +3,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { getToken } from '@/lib/storage';
 import { ApiError } from '@/lib/api';
+import { useAuthStore } from '@/store/authStore';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8080';
 // FLAG_GRANT_READ_URI_PERMISSION: el visor necesita poder leer el content:// URI.
@@ -22,6 +23,11 @@ export async function downloadRemito(routeId: string, date: string): Promise<str
   const res = await FileSystem.downloadAsync(url, fileUri, {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
+
+  // This download skips the axios interceptor, so a 401 has to end the session here.
+  if (res.status === 401) {
+    void useAuthStore.getState().expireSession(token ?? undefined);
+  }
 
   if (res.status !== 200) {
     // En error el body es el JSON del backend ({ status, error, message }).

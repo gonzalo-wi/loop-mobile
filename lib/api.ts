@@ -31,20 +31,32 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    const status = error.response?.status;
-    const isLoginRequest = error.config?.url?.includes('/auth/login');
+type ResponseErrorLike = {
+  message?: string;
+  config?: { url?: string; headers?: { Authorization?: unknown } };
+  response?: { status?: number; data?: { message?: string } };
+};
 
-    // Token vencido o inválido → cerrar sesión. El guard de _layout redirige al login.
-    if (status === 401 && !isLoginRequest) {
-      void useAuthStore.getState().logout();
-    }
+const BEARER = 'Bearer ';
 
-    const message =
-      error.response?.data?.message ??
-      (error.message === 'Network Error' ? 'Sin conexión al servidor' : 'Error inesperado');
-    return Promise.reject(new ApiError(message, status));
+function requestToken(error: ResponseErrorLike): string | undefined {
+  const header = error.config?.headers?.Authorization;
+  return typeof header === 'string' && header.startsWith(BEARER) ? header.slice(BEARER.length) : undefined;
+}
+
+export function handleResponseError(error: ResponseErrorLike): Promise<never> {
+  const status = error.response?.status;
+  const isLoginRequest = error.config?.url?.includes('/auth/login');
+
+  // Token vencido o inválido → cerrar esa sesión avisando. El guard de _layout redirige al login.
+  if (status === 401 && !isLoginRequest) {
+    void useAuthStore.getState().expireSession(requestToken(error));
   }
-);
+
+  const message =
+    error.response?.data?.message ??
+    (error.message === 'Network Error' ? 'Sin conexión al servidor' : 'Error inesperado');
+  return Promise.reject(new ApiError(message, status));
+}
+
+api.interceptors.response.use((response) => response, handleResponseError);
