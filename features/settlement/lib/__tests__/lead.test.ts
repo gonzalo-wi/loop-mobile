@@ -53,6 +53,7 @@ describe('leadOf', () => {
   });
 
   it('never reads a missing field from an older backend as an exact deposit', () => {
+    // The casts build what an older backend really sends: the type says the fields exist, the JSON lacks them.
     const fromOldBackend = { ...BASE } as Partial<SettlementFigures>;
     delete fromOldBackend.cashDifference;
     delete fromOldBackend.depositsLive;
