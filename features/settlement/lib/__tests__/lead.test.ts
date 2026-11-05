@@ -1,4 +1,4 @@
-import { leadOf, officialReview } from '../lead';
+import { depositsReadNote, leadOf, officialReview } from '../lead';
 import type { SettlementFigures } from '../../types';
 
 const BASE: SettlementFigures = {
@@ -22,7 +22,12 @@ const BASE: SettlementFigures = {
 
 describe('leadOf', () => {
   it('tells how much cash to deposit before the deposit', () => {
-    expect(leadOf(BASE)).toEqual({ tone: 'blue', eyebrow: 'Tenés que depositar', title: '$ 90.000,00' });
+    expect(leadOf(BASE)).toEqual({
+      tone: 'blue',
+      eyebrow: 'Tenés que depositar',
+      title: '$ 90.000,00',
+      hint: 'Si recién depositaste, actualizá en unos segundos.',
+    });
   });
 
   it('says treasury has no amount yet when the expected cash is missing', () => {
@@ -34,6 +39,7 @@ describe('leadOf', () => {
       tone: 'orange',
       eyebrow: 'Te faltan',
       title: '$ 10.000,00',
+      hint: null,
     });
   });
 
@@ -42,6 +48,26 @@ describe('leadOf', () => {
       tone: 'green',
       eyebrow: 'Te sobran',
       title: '$ 1.500,00',
+      hint: null,
+    });
+  });
+
+  it('never reads a missing field from an older backend as an exact deposit', () => {
+    const fromOldBackend = { ...BASE } as Partial<SettlementFigures>;
+    delete fromOldBackend.cashDifference;
+    delete fromOldBackend.depositsLive;
+    delete fromOldBackend.depositsCheckedAt;
+
+    const lead = leadOf(fromOldBackend as SettlementFigures);
+
+    expect(lead.eyebrow).toBe('Tenés que depositar');
+    expect(depositsReadNote(fromOldBackend as SettlementFigures)).toBeNull();
+  });
+
+  it('shows the deposit when treasury has no expected cash yet', () => {
+    expect(leadOf({ ...BASE, expectedCash: null, depositedCash: 5000 })).toMatchObject({
+      eyebrow: 'Depositaste',
+      title: '$ 5.000,00',
     });
   });
 
@@ -59,5 +85,32 @@ describe('officialReview', () => {
     expect(officialReview({ ...BASE, difference: -1500, differenceType: 'SHORTAGE' })).toBe('Faltante $ 1.500,00');
     expect(officialReview({ ...BASE, difference: 200, differenceType: 'SURPLUS' })).toBe('Sobrante $ 200,00');
     expect(officialReview({ ...BASE, difference: 0, differenceType: 'NONE' })).toBe('Sin diferencia');
+  });
+});
+
+describe('depositsReadNote', () => {
+  it('shows when the ATM was read, with seconds, for a live read', () => {
+    const note = depositsReadNote({ ...BASE, depositsCheckedAt: '2026-11-05T18:43:09Z', depositsLive: true });
+
+    expect(note?.stale).toBe(false);
+    expect(note?.text).toMatch(/^Cajero automático consultado a las \d{2}:\d{2}:09$/);
+  });
+
+  it('warns that the last read deposits are shown when the ATM could not be read', () => {
+    const note = depositsReadNote({ ...BASE, depositsCheckedAt: '2026-11-05T18:43:09Z', depositsLive: false });
+
+    expect(note?.stale).toBe(true);
+    expect(note?.text).toMatch(/^No pudimos consultar el cajero automático ahora\. Mostramos los depósitos leídos a las \d{2}:\d{2}:09\.$/);
+  });
+
+  it('warns without a time when there was never a read', () => {
+    expect(depositsReadNote({ ...BASE, depositsLive: false })).toEqual({
+      stale: true,
+      text: 'No pudimos consultar el cajero automático ahora. Mostramos los últimos depósitos registrados.',
+    });
+  });
+
+  it('says nothing for a live answer without a read time', () => {
+    expect(depositsReadNote({ ...BASE, depositsLive: true })).toBeNull();
   });
 });

@@ -3,7 +3,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BLOCK_TONE, CircleButton, ColorBlock, EmptyState, ScreenHeader, SecondaryButton } from '@/components/ui';
 import { useSettlement } from '@/features/settlement/hooks/useSettlement';
 import { formatMoney, STATE_MESSAGE, statusLabel } from '@/features/settlement/lib/format';
-import { leadOf, officialReview } from '@/features/settlement/lib/lead';
+import { depositsReadNote, leadOf, officialReview } from '@/features/settlement/lib/lead';
 import type { RouteSettlement, SettlementFigures } from '@/features/settlement/types';
 import { formatClockTime, isoDateToDisplay } from '@/lib/dateFormat';
 import { C, F, H, R, S, T } from '@/lib/theme';
@@ -75,7 +75,7 @@ function FiguresCard({ routeCode, figures: f }: { routeCode: string; figures: Se
   const colors = BLOCK_TONE[lead.tone];
   const updated = f.expectedUpdatedAt ? formatClockTime(f.expectedUpdatedAt) : '';
   const deposited = f.lastDepositAt ? formatClockTime(f.lastDepositAt) : '';
-  const checked = f.depositsCheckedAt ? formatClockTime(f.depositsCheckedAt) : '';
+  const readNote = depositsReadNote(f);
 
   return (
     <View style={styles.group}>
@@ -87,20 +87,18 @@ function FiguresCard({ routeCode, figures: f }: { routeCode: string; figures: Se
         <Text style={[styles.blockAmount, { color: colors.fg }]} accessibilityRole="header">
           {lead.title}
         </Text>
-        {f.cashDifference !== null && (
+        {f.cashDifference != null && (
           <Text style={[styles.blockSub, { color: colors.fgSub }]}>
             Depositaste {formatMoney(f.depositedCash)} de {formatMoney(f.expectedCash)} en efectivo
           </Text>
         )}
+        {lead.hint ? <Text style={[styles.blockSub, { color: colors.fgSub }]}>{lead.hint}</Text> : null}
+        {readNote && !readNote.stale ? (
+          <Text style={[styles.blockSub, { color: colors.fgSub }]}>{readNote.text}</Text>
+        ) : null}
       </ColorBlock>
 
-      {!f.depositsLive && (
-        <Text style={styles.staleNote}>
-          {checked
-            ? `No pudimos consultar el cajero ahora. Mostramos los depósitos leídos a las ${checked}.`
-            : 'No pudimos consultar el cajero ahora. Mostramos los últimos depósitos registrados.'}
-        </Text>
-      )}
+      {readNote?.stale ? <Text style={styles.staleNote}>{readNote.text}</Text> : null}
 
       <View style={styles.card}>
         <Text style={styles.section}>Revisión de tesorería</Text>
