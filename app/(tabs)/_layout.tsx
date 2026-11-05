@@ -3,6 +3,8 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/store/authStore';
 import { useRouteStore } from '@/store/routeStore';
+import { useSettlementStore } from '@/store/settlementStore';
+import { useSettlementWatcher } from '@/features/settlement/hooks/useSettlementWatcher';
 import { C } from '@/lib/theme';
 import { FloatingTabBar, tabBarClearance } from '@/components/ui';
 
@@ -11,6 +13,8 @@ export default function TabLayout() {
   const { pendingCount } = useRouteStore();
   const insets = useSafeAreaInsets();
   const isDriver = user?.role === 'REPARTIDOR';
+  const settlementUnseen = useSettlementStore((s) => s.unseen);
+  useSettlementWatcher(isDriver);
 
   return (
     <Tabs
@@ -69,6 +73,19 @@ export default function TabLayout() {
           href: isDriver ? undefined : null,
           tabBarIcon: ({ color, focused }) => (
             <MaterialCommunityIcons name={focused ? 'truck' : 'truck-outline'} size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settlement"
+        options={{
+          title: 'Rendición',
+          // Lo que Aguas espera del repartidor vs. lo que depositó (spec 007). El badge marca novedades sin ver.
+          href: isDriver ? undefined : null,
+          tabBarBadge: isDriver && settlementUnseen ? '!' : undefined,
+          tabBarAccessibilityLabel: settlementUnseen ? 'Rendición, novedades sin ver' : 'Rendición',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'cash' : 'cash-outline'} size={22} color={color} />
           ),
         }}
       />

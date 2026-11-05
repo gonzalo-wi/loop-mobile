@@ -2,7 +2,7 @@
   "expo": {
     "name": "Loop",
     "slug": "react-nati",
-    "version": "1.2.13",
+    "version": "1.2.14",
     "orientation": "portrait",
     "scheme": "react-nati",
     "icon": "./assets/images/logoLoop.png",
@@ -14,7 +14,7 @@
     },
     "android": {
       "package": "com.empresa.controlmercaderia",
-      "versionCode": 14,
+      "versionCode": 15,
       "permissions": [
         "REQUEST_INSTALL_PACKAGES",
         "android.permission.CAMERA",
