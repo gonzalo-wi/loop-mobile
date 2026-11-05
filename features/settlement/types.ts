@@ -28,6 +28,12 @@ export type SettlementFigures = {
   /** ISO con zona. */
   expectedUpdatedAt: string | null;
   lastDepositAt: string | null;
+  /** En vivo: efectivo depositado menos efectivo esperado. Null sin depósito. */
+  cashDifference: number | null;
+  /** Cuándo PAC leyó los depósitos de PIMS (ISO con zona). */
+  depositsCheckedAt: string | null;
+  /** False si PIMS no respondió y se muestra lo último leído. */
+  depositsLive: boolean;
 };
 
 export type RouteSettlement = {

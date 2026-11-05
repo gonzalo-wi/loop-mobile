@@ -1,9 +1,9 @@
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BLOCK_TONE, CircleButton, ColorBlock, EmptyState, ScreenHeader, SecondaryButton } from '@/components/ui';
-import type { BlockTone } from '@/components/ui';
 import { useSettlement } from '@/features/settlement/hooks/useSettlement';
-import { differenceLabel, formatMoney, STATE_MESSAGE, statusLabel } from '@/features/settlement/lib/format';
+import { formatMoney, STATE_MESSAGE, statusLabel } from '@/features/settlement/lib/format';
+import { leadOf, officialReview } from '@/features/settlement/lib/lead';
 import type { RouteSettlement, SettlementFigures } from '@/features/settlement/types';
 import { formatClockTime, isoDateToDisplay } from '@/lib/dateFormat';
 import { C, F, H, R, S, T } from '@/lib/theme';
@@ -71,35 +71,41 @@ function RouteCard({ route }: { route: RouteSettlement }) {
 }
 
 function FiguresCard({ routeCode, figures: f }: { routeCode: string; figures: SettlementFigures }) {
-  const tone = differenceTone(f);
-  const colors = BLOCK_TONE[tone];
+  const lead = leadOf(f);
+  const colors = BLOCK_TONE[lead.tone];
   const updated = f.expectedUpdatedAt ? formatClockTime(f.expectedUpdatedAt) : '';
   const deposited = f.lastDepositAt ? formatClockTime(f.lastDepositAt) : '';
+  const checked = f.depositsCheckedAt ? formatClockTime(f.depositsCheckedAt) : '';
 
   return (
     <View style={styles.group}>
-      <ColorBlock tone={tone} style={styles.block}>
+      <ColorBlock tone={lead.tone} style={styles.block}>
         <Text style={[styles.blockTag, { color: colors.fgSub }]}>
           {routeCode.toUpperCase()} · {statusLabel(f.statusGroup).toUpperCase()}
         </Text>
-        {f.difference === null || f.differenceType === null ? (
-          <>
-            <Text style={[styles.blockTitle, { color: colors.fg }]} accessibilityRole="header">
-              Pendiente de revisión de tesorería
-            </Text>
-            <Text style={[styles.blockSub, { color: colors.fgSub }]}>
-              La diferencia aparece cuando tesorería procesa tu reparto.
-            </Text>
-          </>
-        ) : (
-          <>
-            <Text style={[styles.blockSub, { color: colors.fgSub }]}>{differenceLabel(f.differenceType)}</Text>
-            <Text style={[styles.blockAmount, { color: colors.fg }]} accessibilityRole="header">
-              {formatMoney(Math.abs(f.difference))}
-            </Text>
-          </>
+        <Text style={[styles.blockSub, { color: colors.fgSub }]}>{lead.eyebrow}</Text>
+        <Text style={[styles.blockAmount, { color: colors.fg }]} accessibilityRole="header">
+          {lead.title}
+        </Text>
+        {f.cashDifference !== null && (
+          <Text style={[styles.blockSub, { color: colors.fgSub }]}>
+            Depositaste {formatMoney(f.depositedCash)} de {formatMoney(f.expectedCash)} en efectivo
+          </Text>
         )}
       </ColorBlock>
+
+      {!f.depositsLive && (
+        <Text style={styles.staleNote}>
+          {checked
+            ? `No pudimos consultar el cajero ahora. Mostramos los depósitos leídos a las ${checked}.`
+            : 'No pudimos consultar el cajero ahora. Mostramos los últimos depósitos registrados.'}
+        </Text>
+      )}
+
+      <View style={styles.card}>
+        <Text style={styles.section}>Revisión de tesorería</Text>
+        <Text style={styles.review}>{officialReview(f)}</Text>
+      </View>
 
       <View style={styles.card}>
         <Text style={styles.section}>Lo que espera Aguas</Text>
@@ -133,12 +139,6 @@ function Row({ label, value, strong, last }: { label: string; value: string; str
   );
 }
 
-/** Blue while treasury has not reviewed it; then green for no difference or surplus, red for a shortage. */
-function differenceTone(f: SettlementFigures): BlockTone {
-  if (f.differenceType === null || f.difference === null) return 'blue';
-  return f.differenceType === 'SHORTAGE' ? 'red' : 'green';
-}
-
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.cream },
   body: { paddingHorizontal: S.gutter, paddingBottom: S.lg, gap: S.md, flexGrow: 1 },
@@ -149,7 +149,6 @@ const styles = StyleSheet.create({
   group: { gap: S.md },
   block: { gap: S.xs, padding: S.xl },
   blockTag: { ...T.systemTag },
-  blockTitle: { ...T.screenTitle },
   blockSub: { ...T.label },
   blockAmount: { ...T.display, fontVariant: ['tabular-nums'] },
 
@@ -158,6 +157,7 @@ const styles = StyleSheet.create({
   stateTitle: { ...T.section, color: C.navy },
   stateHint: { ...T.body, color: C.ink2 },
   section: { ...T.label, color: C.ink2, marginBottom: S.xs },
+  review: { ...T.data, color: C.navy },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: S.md, minHeight: H.touch },
   rowDivider: { borderBottomWidth: 1, borderBottomColor: C.line },
   rowK: { ...T.body, color: C.ink2, flexShrink: 1 },

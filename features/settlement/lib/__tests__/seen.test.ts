@@ -15,6 +15,9 @@ const BASE: SettlementFigures = {
   statusGroup: 'PENDING',
   expectedUpdatedAt: null,
   lastDepositAt: null,
+  cashDifference: null,
+  depositsCheckedAt: null,
+  depositsLive: true,
 };
 
 function settlement(...routes: RouteSettlement[]): DriverSettlement {
